@@ -1,4 +1,4 @@
-SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(abspath ../../../../../../..)
+SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc26x2_sdk_2_20_00_36
 
 include $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/imports.mak
 
@@ -7,13 +7,13 @@ KERNEL_BUILD := $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/builds/CC26X2
 CC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 
-OBJECTS = RFQueue.obj main_tirtos.obj smartrf_settings.obj rfPacketRx.obj CC26X2R1_LAUNCHXL.obj CC26X2R1_LAUNCHXL_fxns.obj ccfg.obj
+OBJECTS = RFQueue.obj main_tirtos.obj smartrf_settings/smartrf_settings.obj rfPacketRx.obj CC26X2R1_LAUNCHXL.obj CC26X2R1_LAUNCHXL_fxns.obj ccfg.obj
 
 CONFIGPKG = $(KERNEL_BUILD)/gcc
 
 NAME = rfPacketRx
 
-CFLAGS = -I../.. \
+CFLAGS = -I. \
     -DDeviceFamily_CC26X2 \
     "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source" \
     "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
@@ -32,7 +32,7 @@ CFLAGS = -I../.. \
     "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/include" \
     "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include"
 
-LFLAGS = -Wl,-T,../../tirtos/gcc/CC26X2R1_LAUNCHXL_TIRTOS.lds \
+LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     "-Wl,-Map,$(NAME).map" \
     "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source" \
     -l:ti/display/lib/display.am4fg \
@@ -68,31 +68,7 @@ $(CONFIGPKG)/linker.cmd $(CONFIGPKG)/compiler.opt:
 	@ echo You can build it by issuing $(MAKE) in $(CONFIGPKG).
 	@ $(ECHOBLANKLINE)
 
-RFQueue.obj: ../../RFQueue.c $(CONFIGPKG)/compiler.opt
-	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
-
-main_tirtos.obj: ../../tirtos/main_tirtos.c $(CONFIGPKG)/compiler.opt
-	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
-
-smartrf_settings.obj: ../../smartrf_settings/smartrf_settings.c $(CONFIGPKG)/compiler.opt
-	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
-
-rfPacketRx.obj: ../../rfPacketRx.c $(CONFIGPKG)/compiler.opt
-	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
-
-CC26X2R1_LAUNCHXL.obj: ../../CC26X2R1_LAUNCHXL.c $(CONFIGPKG)/compiler.opt
-	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
-
-CC26X2R1_LAUNCHXL_fxns.obj: ../../CC26X2R1_LAUNCHXL_fxns.c $(CONFIGPKG)/compiler.opt
-	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
-
-ccfg.obj: ../../ccfg.c $(CONFIGPKG)/compiler.opt
+%.obj: %.c $(CONFIGPKG)/compiler.opt
 	@ echo Building $@
 	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
 
