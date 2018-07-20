@@ -7,7 +7,8 @@ KERNEL_BUILD := $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/builds/CC26X2
 CC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 
-OBJECTS = RFQueue.obj main_tirtos.obj smartrf_settings/smartrf_settings.obj rfPacketRx.obj CC26X2R1_LAUNCHXL.obj CC26X2R1_LAUNCHXL_fxns.obj ccfg.obj
+SOURCES = $(wildcard *.c)
+OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
 CONFIGPKG = $(KERNEL_BUILD)/gcc
 
