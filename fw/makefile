@@ -77,8 +77,14 @@ $(NAME).out: $(OBJECTS) $(CONFIGPKG)/linker.cmd
 	@ echo linking...
 	@ $(LNK)  $(OBJECTS) $(LFLAGS) -o $(NAME).out
 
+.PHONY: load clean
+
 clean:
 	@ echo Cleaning...
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
+
+load: $(NAME).out
+	@ echo Flashing...
+	@ DSLite load -f $< -c CC2652R1F.ccxml
