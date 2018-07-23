@@ -28,7 +28,7 @@ def print_packet(data):
 
     print("Timestamp: %.4f\tLength: %i\tRSSI: %i\tChannel: %i" % (
         ts / 1000000., l, rssi, chan))
-    print(repr(data))
+    print(repr(body))
     print()
 
 if __name__ == "__main__":

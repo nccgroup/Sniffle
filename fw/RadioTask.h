@@ -7,7 +7,19 @@
 #ifndef RADIOTASK_H_
 #define RADIOTASK_H
 
+#include "RadioWrapper.h"
+
+// more states will be added later, eg. auxiliary advertising channel
+enum SnifferState
+{
+    ADVERT,
+    DATA
+};
+
 /* Create the RadioTask and creates all TI-RTOS objects */
 void RadioTask_init(void);
+
+/* Update radio state/configuration based on received PDU */
+void reactToPDU(const BLE_Frame *frame);
 
 #endif

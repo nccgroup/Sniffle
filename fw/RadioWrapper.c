@@ -96,7 +96,7 @@ int RadioWrapper_init()
 //  chan        Channel to listen on
 //  accessAddr  BLE access address of packet to listen for
 //  crcInit     Initial CRC value of packets being listened for
-//  timeout     How long to listen for (in microseconds)
+//  timeout     When to stop listening (in radio ticks)
 //  callback    Function to call when a packet is received
 //
 // Returns:
@@ -104,7 +104,7 @@ int RadioWrapper_init()
 int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback)
 {
-    if((!configured) || (chan >= 40) || (timeout > 60000000))
+    if((!configured) || (chan >= 40))
     {
         return -EINVAL;
     }
@@ -131,12 +131,12 @@ int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendStatus = 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendTimestamp = 0;
 
-    /* receive forever if timeout == 0 */
-    if (timeout != 0)
+    /* receive forever if timeout == 0xFFFFFFFF */
+    if (timeout != 0xFFFFFFFF)
     {
         // 4 MHz radio clock, so multiply microsecond timeout by 4
         RF_cmdBle5GenericRx.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5GenericRx.pParams->endTime = RF_getCurrentTime() + (timeout << 2);
+        RF_cmdBle5GenericRx.pParams->endTime = timeout;
     } else {
         RF_cmdBle5GenericRx.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5GenericRx.pParams->endTime = 0;
@@ -149,6 +149,13 @@ int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
     return 0;
+}
+
+void RadioWrapper_stop()
+{
+    // Gracefully stop any radio operations
+    rfc_CMD_STOP_t RF_cmdStop = {.commandNo = 0x0402};
+    RF_runImmediateCmd(bleRfHandle, (uint32_t *)&RF_cmdStop);
 }
 
 static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)

@@ -143,9 +143,14 @@ static void packetTaskFunction(UArg arg0, UArg arg1)
 
 void indicatePacket(BLE_Frame *frame)
 {
+    int queue_check;
+
+    // always process PDU regardless of queue state
+    reactToPDU(frame);
+
     // discard the packet if we're full
-    int super_janky = (queue_tail - queue_head) % JANKY_QUEUE_SIZE;
-    if (super_janky == 1 || super_janky == (1 - JANKY_QUEUE_SIZE)) return;
+    queue_check = (queue_tail - queue_head) % JANKY_QUEUE_SIZE;
+    if (queue_check == 1 || queue_check == (1 - JANKY_QUEUE_SIZE)) return;
 
     memcpy(s_frames[queue_head].pData, frame->pData, frame->length & 0xFF);
     s_frames[queue_head].length = frame->length;

@@ -36,13 +36,16 @@ int RadioWrapper_close(void);
 //  chan        Channel to listen on
 //  accessAddr  BLE access address of packet to listen for
 //  crcInit     Initial CRC value of packets being listened for
-//  timeout     How long to listen for (in microseconds)
+//  timeout     When to stop listening (in radio ticks)
 //  callback    Function to call when a packet is received
 //
 // Returns:
 //  Status code (errno.h), 0 on success
 int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
-        uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback);
+    uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback);
+
+// Stop ongoing radio operations
+void RadioWrapper_stop();
 
 #ifdef __cplusplus
 }
