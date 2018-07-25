@@ -12,6 +12,7 @@
 
 // message types sent by sniffer
 #define MESSAGE_BLEFRAME 0x10
+#define MESSAGE_DEBUG 0x11
 
 int messenger_init();
 int messenger_recv(uint8_t *dst_buf);

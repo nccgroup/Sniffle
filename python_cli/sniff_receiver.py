@@ -15,7 +15,10 @@ def main(argv):
         print_packet(data)
 
 def print_packet(data):
-    if data[0] != 0x10:
+    if data[0] == 0x11: # debug print
+        print(str(data[1:], encoding='utf-8'))
+        return
+    elif data[0] != 0x10:
         print("Not a BLE frame!", file=sys.stderr)
         return
 
