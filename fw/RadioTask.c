@@ -230,8 +230,14 @@ void reactToPDU(const BLE_Frame *frame)
             nextInstant = *(uint16_t *)(frame->pData + 12);
             break;
         case 0x01: // LL_CHANNEL_MAP_IND
+            next_rconf.chanMap = 0;
+            memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
+            next_rconf.offset = 0;
+            next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
+            nextInstant = *(uint16_t *)(frame->pData + 8);
             break;
         case 0x02: // LL_TERMINATE_IND
+            snifferState = ADVERT;
             break;
         case 0x18: // LL_PHY_UPDATE_IND
             // TODO
