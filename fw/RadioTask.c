@@ -6,6 +6,7 @@
 
 /***** Includes *****/
 #include <stdlib.h>
+#include <stdbool.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
@@ -57,6 +58,13 @@ static uint32_t connEventCount;
 static struct RadioConfig next_rconf;
 static uint32_t nextInstant;
 
+static bool firstPacket;
+static uint32_t anchorOffset[16];
+static uint32_t aoInd = 0;
+
+// 1 ms @ 4 Mhz
+#define AO_TARG 4000
+
 /***** Prototypes *****/
 static void radioTaskFunction(UArg arg0, UArg arg1);
 static void computeMap1(uint64_t map);
@@ -71,6 +79,18 @@ void RadioTask_init(void)
     Task_construct(&radioTask, radioTaskFunction, &radioTaskParams, NULL);
 }
 
+static int _compare(const void *a, const void *b)
+{
+    return *(int32_t *)a - *(int32_t *)b;
+}
+
+// not technically correct for even sized arrays but it doesn't matter here
+static uint32_t median(uint32_t *arr, size_t sz)
+{
+    qsort(arr, sz, sizeof(uint32_t), _compare);
+    return arr[sz >> 1];
+}
+
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
     RadioWrapper_init();
@@ -83,6 +103,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             RadioWrapper_recvFrames(37, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
         } else { // DATA
+            firstPacket = true;
             RadioWrapper_recvFrames(mapping_table[curUnmapped], accessAddress, crcInit,
                     nextHopTime, indicatePacket);
             curUnmapped = (curUnmapped + hopIncrement) % 37;
@@ -96,6 +117,12 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 nextInstant = 0xFFFFFFFF;
             }
             nextHopTime += rconf.hopIntervalTicks;
+
+            if ((connEventCount & 0xF) == 0xF)
+            {
+                uint32_t medAnchorOffset = median(anchorOffset, sizeof(anchorOffset) / 4);
+                nextHopTime += medAnchorOffset - AO_TARG;
+            }
         }
     }
 }
@@ -199,6 +226,17 @@ void reactToPDU(const BLE_Frame *frame)
         //uint8_t MD;
         uint8_t datLen;
         uint8_t opcode;
+
+        /* clock synchronization
+         * first packet on each channel is anchor point
+         */
+        if (firstPacket)
+        {
+            // compute anchor point offset from start of receive window
+            anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
+            aoInd = (aoInd + 1) & 0xF;
+            firstPacket = false;
+        }
 
         // data channel PDUs should at least have a 2 byte header
         // we only care about LL Control PDUs that all have an opcode byte too
