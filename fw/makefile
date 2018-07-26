@@ -12,7 +12,7 @@ OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
 CONFIGPKG = $(KERNEL_BUILD)/gcc
 
-NAME = rfPacketRx
+NAME = sniffle
 
 CFLAGS = -I. \
     -DDeviceFamily_CC26X2 \
