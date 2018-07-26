@@ -52,8 +52,8 @@ def _safe_asciify(c):
 def print_hexdump(data):
     ascstr = "  ".join([_safe_asciify(b) for b in data])
     hexstr = " ".join(["%02X" % b for b in data])
-    print(ascstr)
     print(hexstr)
+    print(ascstr)
 
 def decode_advert(body):
     pdu_type = body[0] & 0xF
