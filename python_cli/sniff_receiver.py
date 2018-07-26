@@ -15,6 +15,7 @@ def main(argv):
             data = base64.b64decode(pkt.rstrip())
         except binascii.Error as e:
             print("Ignoring message:", e, file=sys.stderr)
+            continue
         print_message(data)
 
 def print_message(data):
@@ -55,9 +56,35 @@ def print_hexdump(data):
     print(hexstr)
 
 def decode_advert(body):
+    pdu_type = body[0] & 0xF
+    ChSel = (body[0] >> 5) & 1
+    TxAdd = (body[0] >> 6) & 1
+    RxAdd = (body[0] >> 7) & 1
+    length = body[1]
+
+    adv_pdu_types = ["ADV_IND", "ADV_DIRECT_IND", "ADV_NONCONN_IND", "SCAN_REQ",
+            "SCAN_RSP", "CONNECT_IND", "ADV_SCAN_IND", "ADV_EXT_IND"]
+    if pdu_type < len(adv_pdu_types):
+        print("Ad Type: %s" % adv_pdu_types[pdu_type])
+    else:
+        print("Ad Type: RFU")
+    print("ChSel: %i" % ChSel, "TxAdd: %i" % TxAdd, "RxAdd: %i" % RxAdd,
+            "Ad Length: %i" % length)
+
     print_hexdump(body)
 
 def decode_data(body):
+    LLID = body[0] & 0x3
+    NESN = (body[0] >> 2) & 1
+    SN = (body[0] >> 3) & 1
+    MD = (body[0] >> 4) & 1
+    length = body[1]
+
+    data_pdu_types = ["RFU", "LL DATA", "LL DATA CONT", "LL CONTROL"]
+    print("LLID: %s" % data_pdu_types[LLID])
+    print("NESN: %i" % NESN, "SN: %i" % SN, "MD: %i" % MD,
+            "Data Length: %i" % length)
+
     print_hexdump(body)
 
 if __name__ == "__main__":
