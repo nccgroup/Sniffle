@@ -93,6 +93,7 @@ int RadioWrapper_init()
 // Sniff/Receive BLE packets
 //
 // Arguments:
+//  phy         PHY mode to use
 //  chan        Channel to listen on
 //  accessAddr  BLE access address of packet to listen for
 //  crcInit     Initial CRC value of packets being listened for
@@ -101,7 +102,7 @@ int RadioWrapper_init()
 //
 // Returns:
 //  Status code (errno.h), 0 on success
-int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
+int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback)
 {
     if((!configured) || (chan >= 40))
@@ -115,6 +116,7 @@ int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
 	RF_cmdBle5GenericRx.pOutput = &recvStats;
     RF_cmdBle5GenericRx.channel = chan;
     RF_cmdBle5GenericRx.whitening.init = 0x40 + chan;
+    RF_cmdBle5GenericRx.phyMode.mainMode = phy;
     RF_cmdBle5GenericRx.pParams->pRxQ = &dataQueue;
     RF_cmdBle5GenericRx.pParams->accessAddress = accessAddr;
     RF_cmdBle5GenericRx.pParams->crcInit0 = crcInit & 0xFF;

@@ -45,6 +45,7 @@ struct RadioConfig {
     uint64_t chanMap;
     uint32_t hopIntervalTicks;
     uint16_t offset;
+    PHY_Mode phy;
 };
 
 static struct RadioConfig rconf;
@@ -100,12 +101,12 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         if (snifferState == ADVERT)
         {
             /* receive forever (until stopped) */
-            RadioWrapper_recvFrames(37, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
+            RadioWrapper_recvFrames(PHY_1M, 37, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
         } else { // DATA
             firstPacket = true;
-            RadioWrapper_recvFrames(mapping_table[curUnmapped], accessAddress, crcInit,
-                    nextHopTime, indicatePacket);
+            RadioWrapper_recvFrames(rconf.phy, mapping_table[curUnmapped], accessAddress,
+                    crcInit, nextHopTime, indicatePacket);
             curUnmapped = (curUnmapped + hopIncrement) % 37;
             connEventCount++;
             if (nextInstant != 0xFFFFFFFF &&
@@ -214,6 +215,7 @@ void reactToPDU(const BLE_Frame *frame)
             nextHopTime = (frame->timestamp << 2) + 4000 + (WinOffset * 5000);
             rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
             nextHopTime += rconf.hopIntervalTicks;
+            rconf.phy = PHY_1M;
             connEventCount = 0;
             nextInstant = 0xFFFFFFFF;
 
@@ -265,6 +267,7 @@ void reactToPDU(const BLE_Frame *frame)
             next_rconf.chanMap = rconf.chanMap;
             next_rconf.offset = *(uint16_t *)(frame->pData + 4);
             next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
+            next_rconf.phy = rconf.phy;
             nextInstant = *(uint16_t *)(frame->pData + 12);
             break;
         case 0x01: // LL_CHANNEL_MAP_IND
@@ -272,13 +275,19 @@ void reactToPDU(const BLE_Frame *frame)
             memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
+            next_rconf.phy = rconf.phy;
             nextInstant = *(uint16_t *)(frame->pData + 8);
             break;
         case 0x02: // LL_TERMINATE_IND
             snifferState = ADVERT;
             break;
         case 0x18: // LL_PHY_UPDATE_IND
-            // TODO
+            next_rconf.chanMap = rconf.chanMap;
+            next_rconf.offset = 0;
+            next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
+            // we don't handle different M->S and S->M PHYs, assume both match
+            next_rconf.phy = frame->pData[3];
+            nextInstant = *(uint16_t *)(frame->pData + 5);
             break;
         default:
             break;

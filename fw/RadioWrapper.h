@@ -24,6 +24,13 @@ typedef struct
     uint8_t *pData;
 } BLE_Frame;
 
+typedef enum
+{
+    PHY_1M = 0,
+    PHY_2M,
+    PHY_CODED
+} PHY_Mode;
+
 // callback type for frame receipt
 typedef void (*RadioWrapper_Callback)(BLE_Frame *);
 
@@ -33,6 +40,7 @@ int RadioWrapper_close(void);
 // Sniff/Receive BLE packets
 //
 // Arguments:
+//  phy         PHY mode to use
 //  chan        Channel to listen on
 //  accessAddr  BLE access address of packet to listen for
 //  crcInit     Initial CRC value of packets being listened for
@@ -41,7 +49,7 @@ int RadioWrapper_close(void);
 //
 // Returns:
 //  Status code (errno.h), 0 on success
-int RadioWrapper_recvFrames(uint32_t chan, uint32_t accessAddr,
+int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback);
 
 // Stop ongoing radio operations
