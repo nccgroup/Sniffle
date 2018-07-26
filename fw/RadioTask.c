@@ -21,6 +21,9 @@
 /* Board Header files */
 #include "Board.h"
 
+#include "csa2.h"
+#include "adv_header_cache.h"
+
 #include <RadioTask.h>
 #include <RadioWrapper.h>
 #include <PacketTask.h>
@@ -56,6 +59,7 @@ static uint8_t hopIncrement;
 static uint32_t crcInit;
 static uint32_t nextHopTime;
 static uint32_t connEventCount;
+static bool use_csa2;
 
 static struct RadioConfig next_rconf;
 static uint32_t nextInstant;
@@ -105,9 +109,16 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
         } else { // DATA
+            uint8_t chan;
+
+            if (use_csa2)
+                chan = csa2_computeChannel(connEventCount);
+            else
+                chan = mapping_table[curUnmapped];
+
             firstPacket = true;
-            RadioWrapper_recvFrames(rconf.phy, mapping_table[curUnmapped], accessAddress,
-                    crcInit, nextHopTime, indicatePacket);
+            RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
+                    nextHopTime, indicatePacket);
             curUnmapped = (curUnmapped + hopIncrement) % 37;
             connEventCount++;
             if (nextInstant != 0xFFFFFFFF &&
@@ -115,7 +126,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             {
                 rconf = next_rconf;
                 nextHopTime += rconf.offset * 5000;
-                computeMap1(rconf.chanMap);
+                if (use_csa2)
+                    csa2_computeMapping(accessAddress, rconf.chanMap);
+                else
+                    computeMap1(rconf.chanMap);
                 nextInstant = 0xFFFFFFFF;
             }
             nextHopTime += rconf.hopIntervalTicks;
@@ -183,6 +197,24 @@ void reactToPDU(const BLE_Frame *frame)
         if (frame->length - 2 < advLen)
             return;
 
+        /* for connectable advertisements, save advertisement headers to the cache
+         * Connectable types are:
+         * ADV_IND (0x0), ADV_DIRECT_IND (0x1), and ADV_EXT_IND (0x7)
+         *
+         * ADV_EXT_IND is special (BT5 specific) and its connectability depends on
+         * AdvMode. ADV_EXT_IND advertisements don't contain the AdvA field and
+         * instead require you to look at a secondary advertising channel.
+         * The actual AdvA will be in an AUX_ADV_IND PDU in the secondary channel.
+         *
+         * For now, I haven't implemented support for secondary advertising
+         * channels, so I'll just ignore ADV_EXT_IND.
+         */
+        if (pduType == 0x0 || pduType == 0x1)
+        {
+            adv_cache_store(frame->pData + 2, frame->pData[0]);
+            return;
+        }
+
         // all we care about is CONNECT_IND (0x5) for now
         if (pduType == 0x5)
         {
@@ -192,9 +224,15 @@ void reactToPDU(const BLE_Frame *frame)
             if (advLen != 34)
                 return;
 
-            // TODO: handle chsel = 1 (algorithm #2)
-            if (ChSel != 0)
-                return;
+            // Use CSA#2 if both initiator and advertiser support it
+            use_csa2 = false;
+            if (ChSel)
+            {
+                // check if advertiser supports it
+                uint8_t adv_hdr = adv_cache_fetch(frame->pData + 8);
+                if (adv_hdr != 0xFF && (adv_hdr & 0x20))
+                    use_csa2 = true;
+            }
 
             accessAddress = *(uint32_t *)(frame->pData + 14);
             hopIncrement = frame->pData[35] & 0x1F;
