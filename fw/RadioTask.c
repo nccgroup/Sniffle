@@ -48,6 +48,7 @@ struct RadioConfig {
     PHY_Mode phy;
 };
 
+static uint8_t advChan = 37;
 static struct RadioConfig rconf;
 static uint32_t accessAddress;
 static uint8_t curUnmapped;
@@ -101,7 +102,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         if (snifferState == ADVERT)
         {
             /* receive forever (until stopped) */
-            RadioWrapper_recvFrames(PHY_1M, 37, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
+            RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
         } else { // DATA
             firstPacket = true;
@@ -293,4 +294,13 @@ void reactToPDU(const BLE_Frame *frame)
             break;
         }
     }
+}
+
+void setAdvChan(uint8_t chan)
+{
+    if (chan > 39 || chan < 37)
+        return;
+    advChan = chan;
+    snifferState = ADVERT;
+    RadioWrapper_stop();
 }

@@ -22,4 +22,7 @@ void RadioTask_init(void);
 /* Update radio state/configuration based on received PDU */
 void reactToPDU(const BLE_Frame *frame);
 
+/* Return to advertising mode and set sniff channel */
+void setAdvChan(uint8_t chan);
+
 #endif

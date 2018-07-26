@@ -16,7 +16,7 @@
 
 #include "RadioTask.h"
 #include "PacketTask.h"
-
+#include "CommandTask.h"
 
 int main(void)
 {
@@ -26,6 +26,7 @@ int main(void)
     /* Initialize the tasks */
     RadioTask_init();
     PacketTask_init();
+    CommandTask_init();
 
     /* Start BIOS */
     BIOS_start();

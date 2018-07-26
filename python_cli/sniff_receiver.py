@@ -4,10 +4,23 @@ import serial
 import sys, binascii, base64, struct
 
 def main(argv):
-    if len(argv) != 2:
-        print("Usage: sniff_receiver.py [serial_port_name]", file=sys.stderr)
+    if len(argv) < 2:
+        print("Usage: sniff_receiver.py [serial_port_name] [-c ADV_CHANNEL]", file=sys.stderr)
+        return
 
     ser = serial.Serial(argv[1], 460800)
+
+    # command sync
+    ser.write(b'@@@@@@@@\r\n')
+
+    # very crude argument handling for now since I only have one option
+    if len(argv) >= 4 and argv[2] == "-c":
+        advChan = int(argv[3])
+        if not (37 <= advChan <= 39):
+            print("advChan out of bounds")
+        advCmd = bytes([0x01, 0x10, advChan])
+        advMsg = base64.b64encode(advCmd) + b'\r\n'
+        ser.write(advMsg)
 
     while True:
         pkt = ser.readline()

@@ -91,7 +91,7 @@ int messenger_recv(uint8_t *dst_buf)
 
     // make sure CRLF terminator is present
     last_byte = word_cnt << 2;
-    if (b64_buf[word_cnt] != '\r' || b64_buf[word_cnt + 1] != '\n')
+    if (b64_buf[last_byte] != '\r' || b64_buf[last_byte + 1] != '\n')
     {
         // malformed data/sync error
         _recv_crlf();
