@@ -2,25 +2,31 @@
 
 import serial
 import sys, binascii, base64, struct
+import argparse
 
-def main(argv):
-    if len(argv) < 2:
-        print("Usage: sniff_receiver.py [serial_port_name] [-c ADV_CHANNEL]", file=sys.stderr)
-        return
+def main():
+    aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
+    aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
+    aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
+            help="Advertising channel to listen on")
+    aparse.add_argument("-p", "--pause", action="store_const", default=0, const=1,
+            help="Pause sniffer after disconnect")
+    args = aparse.parse_args()
 
-    ser = serial.Serial(argv[1], 460800)
+    ser = serial.Serial(args.serport, 460800)
 
     # command sync
     ser.write(b'@@@@@@@@\r\n')
 
-    # very crude argument handling for now since I only have one option
-    if len(argv) >= 4 and argv[2] == "-c":
-        advChan = int(argv[3])
-        if not (37 <= advChan <= 39):
-            print("advChan out of bounds")
-        advCmd = bytes([0x01, 0x10, advChan])
-        advMsg = base64.b64encode(advCmd) + b'\r\n'
-        ser.write(advMsg)
+    # set the advertising channel (and return to ad-sniffing mode)
+    advCmd = bytes([0x01, 0x10, args.advchan])
+    advMsg = base64.b64encode(advCmd) + b'\r\n'
+    ser.write(advMsg)
+
+    # set whether or not to pause after sniffing
+    pauseCmd = bytes([0x01, 0x11, args.pause])
+    pauseMsg = base64.b64encode(pauseCmd) + b'\r\n'
+    ser.write(pauseMsg)
 
     while True:
         pkt = ser.readline()
@@ -101,4 +107,4 @@ def decode_data(body):
     print_hexdump(body)
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

@@ -7,14 +7,10 @@
 #ifndef RADIOTASK_H_
 #define RADIOTASK_H
 
-#include "RadioWrapper.h"
+#include <stdint.h>
+#include <stdbool.h>
 
-// more states will be added later, eg. auxiliary advertising channel
-enum SnifferState
-{
-    ADVERT,
-    DATA
-};
+#include "RadioWrapper.h"
 
 /* Create the RadioTask and creates all TI-RTOS objects */
 void RadioTask_init(void);
@@ -24,5 +20,8 @@ void reactToPDU(const BLE_Frame *frame);
 
 /* Return to advertising mode and set sniff channel */
 void setAdvChan(uint8_t chan);
+
+/* Set whether or not sniffer should pause after disconnect */
+void pauseAfterSniffDone(bool do_pause);
 
 #endif

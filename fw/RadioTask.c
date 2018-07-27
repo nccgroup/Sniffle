@@ -36,13 +36,22 @@
 #define RADIO_EVENT_VALID_PACKET_RECEIVED   (uint32_t)(1 << 0)
 #define RADIO_EVENT_INVALID_PACKET_RECEIVED (uint32_t)(1 << 1)
 
+// more states will be added later, eg. auxiliary advertising channel
+typedef enum
+{
+    ADVERT,
+    DATA,
+    PAUSED
+} SnifferState;
+
 /***** Variable declarations *****/
 static Task_Params radioTaskParams;
 Task_Struct radioTask; /* not static so you can see in ROV */
 static uint8_t radioTaskStack[RADIO_TASK_STACK_SIZE];
 static uint8_t mapping_table[37];
 
-static enum SnifferState snifferState = ADVERT;
+static SnifferState snifferState = ADVERT;
+static SnifferState sniffDoneState = ADVERT;
 
 struct RadioConfig {
     uint64_t chanMap;
@@ -108,6 +117,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             /* receive forever (until stopped) */
             RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
+        } else if (snifferState == PAUSED) {
+            Task_sleep(100);
         } else { // DATA
             uint8_t chan;
 
@@ -318,7 +329,7 @@ void reactToPDU(const BLE_Frame *frame)
             nextInstant = *(uint16_t *)(frame->pData + 8);
             break;
         case 0x02: // LL_TERMINATE_IND
-            snifferState = ADVERT;
+            snifferState = sniffDoneState;
             break;
         case 0x18: // LL_PHY_UPDATE_IND
             next_rconf.chanMap = rconf.chanMap;
@@ -341,4 +352,12 @@ void setAdvChan(uint8_t chan)
     advChan = chan;
     snifferState = ADVERT;
     RadioWrapper_stop();
+}
+
+void pauseAfterSniffDone(bool do_pause)
+{
+    if (do_pause)
+        sniffDoneState = PAUSED;
+    else
+        sniffDoneState = ADVERT;
 }

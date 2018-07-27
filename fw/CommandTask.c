@@ -70,6 +70,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret < 2) continue;
             setAdvChan(msgBuf[2]);
             break;
+        case COMMAND_PAUSEDONE:
+            if (ret < 2) continue;
+            pauseAfterSniffDone(msgBuf[2] ? true : false);
+            break;
         default:
             break;
         }
