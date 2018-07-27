@@ -13,6 +13,7 @@ def main():
             help="Pause sniffer after disconnect")
     aparse.add_argument("-r", "--rssi", default=-80, type=int,
             help="Filter packets by minimum RSSI")
+    aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
     args = aparse.parse_args()
 
     ser = serial.Serial(args.serport, 921600)
@@ -34,6 +35,21 @@ def main():
     rssiCmd = bytes([0x01, 0x12, args.rssi & 0xFF])
     rssiMsg = base64.b64encode(rssiCmd) + b'\r\n'
     ser.write(rssiMsg)
+
+    # configure MAC filter
+    if args.mac is None:
+        macCmd = bytes([0x01, 0x13])
+    else:
+        try:
+            macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
+            if len(macBytes) != 6:
+                raise Exception("Wrong length!")
+        except:
+            print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
+            return
+        macCmd = bytes([0x03, 0x13] + macBytes)
+    macMsg = base64.b64encode(macCmd) + b'\r\n'
+    ser.write(macMsg)
 
     while True:
         pkt = ser.readline()
@@ -160,7 +176,7 @@ def decode_ll_control_opcode(opcode):
         print("Opcode: RFU (0x%02X)" % opcode)
 
 def _str_mac(mac):
-    return ":".join(["%02X" % b for b in mac])
+    return ":".join(["%02X" % b for b in reversed(mac)])
 
 def decode_adva(body):
     adva = body[2:8]

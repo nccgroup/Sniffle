@@ -8,6 +8,7 @@
 #define PACKETTASK_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "RadioWrapper.h"
 
 /* Create the PacketTask and creates all TI-RTOS objects */
@@ -18,5 +19,8 @@ void indicatePacket(BLE_Frame *frame);
 
 /* set the minimum RSSI accepted by the packet filter */
 void setMinRssi(int8_t rssi);
+
+/* specify whether or not we want MAC filtering, and specify target MAC */
+void setMacFilt(bool filt, uint8_t *mac);
 
 #endif /* PACKETTASK_H */

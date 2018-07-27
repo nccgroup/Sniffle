@@ -227,7 +227,7 @@ void reactToPDU(const BLE_Frame *frame)
         }
 
         // all we care about is CONNECT_IND (0x5) for now
-        if (pduType == 0x5)
+        if (pduType == CONNECT_IND)
         {
             uint16_t WinOffset, Interval;
 

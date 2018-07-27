@@ -13,5 +13,6 @@ void CommandTask_init(void);
 #define COMMAND_ADVCHAN 0x10
 #define COMMAND_PAUSEDONE 0x11
 #define COMMAND_RSSIFILT 0x12
+#define COMMAND_MACFILT 0x13
 
 #endif /* COMMANDTASK_H */

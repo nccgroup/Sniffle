@@ -42,8 +42,12 @@ static Semaphore_Handle packetAvailSem;
 
 static int8_t minRssi = -128;
 
+static uint8_t targMac[6];
+static bool filterMacs = false;
+
 /***** Prototypes *****/
 static void packetTaskFunction(UArg arg0, UArg arg1);
+static bool macFilterCheck(BLE_Frame *frame);
 
 /* Pin driver handle */
 static PIN_Handle ledPinHandle;
@@ -151,6 +155,10 @@ void indicatePacket(BLE_Frame *frame)
     if (frame->rssi < minRssi)
         return;
 
+    // MAC filtering
+    if (filterMacs && frame->channel >= 37 && !macFilterCheck(frame))
+        return;
+
     // always process PDU regardless of queue state
     reactToPDU(frame);
 
@@ -170,4 +178,48 @@ void indicatePacket(BLE_Frame *frame)
 void setMinRssi(int8_t rssi)
 {
     minRssi = rssi;
+}
+
+void setMacFilt(bool filt, uint8_t *mac)
+{
+    if (mac != NULL)
+        memcpy(targMac, mac, 6);
+    filterMacs = filt;
+}
+
+static bool macFilterCheck(BLE_Frame *frame)
+{
+    uint8_t advType;
+
+    // make sure it has a header at least
+    if (frame->length < 2)
+        return false;
+
+    advType = frame->pData[0] & 0xF;
+
+    switch (advType)
+    {
+    case ADV_IND:
+    case ADV_DIRECT_IND:
+    case ADV_NONCONN_IND:
+    case ADV_SCAN_IND:
+    case SCAN_RSP:
+        if (frame->length < 8)
+            return false;
+        if (memcmp(frame->pData + 2, targMac, 6) == 0)
+            return true;
+        return false;
+    case SCAN_REQ:
+    case CONNECT_IND:
+        if (frame->length < 14)
+            return false;
+        if (memcmp(frame->pData + 8, targMac, 6) == 0)
+            return true;
+        return false;
+    case ADV_EXT_IND:
+        // TODO: handle this
+        return false;
+    default:
+        return false;
+    }
 }

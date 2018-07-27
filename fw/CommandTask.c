@@ -68,17 +68,22 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         switch (msgBuf[1])
         {
         case COMMAND_ADVCHAN:
-            if (ret < 2) continue;
+            if (ret != 3) continue;
             setAdvChan(msgBuf[2]);
             break;
         case COMMAND_PAUSEDONE:
-            if (ret < 2) continue;
+            if (ret != 3) continue;
             pauseAfterSniffDone(msgBuf[2] ? true : false);
             break;
         case COMMAND_RSSIFILT:
-            if (ret < 2) continue;
+            if (ret != 3) continue;
             setMinRssi((int8_t)msgBuf[2]);
             break;
+        case COMMAND_MACFILT:
+            if (ret == 8)
+                setMacFilt(true, msgBuf + 2); // filter to supplied MAC
+            else
+                setMacFilt(false, NULL); // disable MAC filter
         default:
             break;
         }
