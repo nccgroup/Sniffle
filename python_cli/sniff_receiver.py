@@ -97,6 +97,16 @@ def decode_advert(body):
     print("ChSel: %i" % ChSel, "TxAdd: %i" % TxAdd, "RxAdd: %i" % RxAdd,
             "Ad Length: %i" % length)
 
+    # finer grained ad decoding
+    if pdu_type in [0, 2, 4, 6]:
+        decode_adva(body)
+    elif pdu_type == 1:
+        decode_adv_direct_ind(body)
+    elif pdu_type == 3:
+        decode_scan_req(body)
+    elif pdu_type == 5:
+        decode_connect_ind(body)
+
     print_hexdump(body)
 
 def decode_data(body):
@@ -110,8 +120,67 @@ def decode_data(body):
     print("LLID: %s" % data_pdu_types[LLID])
     print("NESN: %i" % NESN, "SN: %i" % SN, "MD: %i" % MD,
             "Data Length: %i" % length)
+    if LLID == 3:
+        decode_ll_control_opcode(body[2])
 
     print_hexdump(body)
+
+def decode_ll_control_opcode(opcode):
+    control_opcodes = [
+            "LL_CONNECTION_UPDATE_IND",
+            "LL_CHANNEL_MAP_IND",
+            "LL_TERMINATE_IND",
+            "LL_ENC_REQ",
+            "LL_ENC_RSP",
+            "LL_START_ENC_REQ",
+            "LL_START_ENC_RSP",
+            "LL_UNKNOWN_RSP",
+            "LL_FEATURE_REQ",
+            "LL_FEATURE_RSP",
+            "LL_PAUSE_ENC_REQ",
+            "LL_PAUSE_ENC_RSP",
+            "LL_VERSION_IND",
+            "LL_REJECT_IND",
+            "LL_SLAVE_FEATURE_REQ",
+            "LL_CONNECTION_PARAM_REQ",
+            "LL_CONNECTION_PARAM_RSP",
+            "LL_REJECT_EXT_IND",
+            "LL_PING_REQ",
+            "LL_PING_RSP",
+            "LL_LENGTH_REQ",
+            "LL_LENGTH_RSP",
+            "LL_PHY_REQ",
+            "LL_PHY_RSP",
+            "LL_PHY_UPDATE_IND",
+            "LL_MIN_USED_CHANNELS_IND"
+            ]
+    if opcode < len(control_opcodes):
+        print("Opcode: %s" % control_opcodes[opcode])
+    else:
+        print("Opcode: RFU (0x%02X)" % opcode)
+
+def _str_mac(mac):
+    return ":".join(["%02X" % b for b in mac])
+
+def decode_adva(body):
+    adva = body[2:8]
+    print("AdvA: %s" % _str_mac(adva))
+
+def decode_adv_direct_ind(body):
+    adva = body[2:8]
+    targeta = body[8:14]
+    print("AdvA: %s TargetA: %s" % (_str_mac(adva), _str_mac(targeta)))
+
+def decode_scan_req(body):
+    scana = body[2:8]
+    adva = body[8:14]
+    print("ScanA: %s AdvA: %s" % (_str_mac(scana), _str_mac(adva)))
+
+def decode_connect_ind(body):
+    inita = body[2:8]
+    adva = body[8:14]
+    # TODO: decode the rest
+    print("InitA: %s AdvA: %s" % (_str_mac(inita), _str_mac(adva)))
 
 if __name__ == "__main__":
     main()
