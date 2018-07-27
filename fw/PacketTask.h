@@ -16,4 +16,7 @@ void PacketTask_init(void);
 /* asynchronously blink LED and display packet over UART */
 void indicatePacket(BLE_Frame *frame);
 
+/* set the minimum RSSI accepted by the packet filter */
+void setMinRssi(int8_t rssi);
+
 #endif /* PACKETTASK_H */

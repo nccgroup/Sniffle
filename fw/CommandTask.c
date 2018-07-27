@@ -12,6 +12,7 @@
 
 #include <CommandTask.h>
 #include <RadioTask.h>
+#include <PacketTask.h>
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
@@ -73,6 +74,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_PAUSEDONE:
             if (ret < 2) continue;
             pauseAfterSniffDone(msgBuf[2] ? true : false);
+            break;
+        case COMMAND_RSSIFILT:
+            if (ret < 2) continue;
+            setMinRssi((int8_t)msgBuf[2]);
             break;
         default:
             break;

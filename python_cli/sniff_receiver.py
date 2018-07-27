@@ -11,6 +11,8 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-p", "--pause", action="store_const", default=0, const=1,
             help="Pause sniffer after disconnect")
+    aparse.add_argument("-r", "--rssi", default=-80, type=int,
+            help="Filter packets by minimum RSSI")
     args = aparse.parse_args()
 
     ser = serial.Serial(args.serport, 460800)
@@ -27,6 +29,11 @@ def main():
     pauseCmd = bytes([0x01, 0x11, args.pause])
     pauseMsg = base64.b64encode(pauseCmd) + b'\r\n'
     ser.write(pauseMsg)
+
+    # configure RSSI filter
+    rssiCmd = bytes([0x01, 0x12, args.rssi & 0xFF])
+    rssiMsg = base64.b64encode(rssiCmd) + b'\r\n'
+    ser.write(rssiMsg)
 
     while True:
         pkt = ser.readline()

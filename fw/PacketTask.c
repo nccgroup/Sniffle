@@ -40,6 +40,8 @@ Task_Struct packetTask; /* not static so you can see in ROV */
 static uint8_t packetTaskStack[PACKET_TASK_STACK_SIZE];
 static Semaphore_Handle packetAvailSem;
 
+static int8_t minRssi = -128;
+
 /***** Prototypes *****/
 static void packetTaskFunction(UArg arg0, UArg arg1);
 
@@ -145,6 +147,10 @@ void indicatePacket(BLE_Frame *frame)
 {
     int queue_check;
 
+    // RSSI filtering
+    if (frame->rssi < minRssi)
+        return;
+
     // always process PDU regardless of queue state
     reactToPDU(frame);
 
@@ -159,4 +165,9 @@ void indicatePacket(BLE_Frame *frame)
     s_frames[queue_head].channel = frame->channel;
     Semaphore_post(packetAvailSem);
     queue_head = (queue_head + 1) % JANKY_QUEUE_SIZE;
+}
+
+void setMinRssi(int8_t rssi)
+{
+    minRssi = rssi;
 }
