@@ -14,16 +14,10 @@ UART_Handle uart;
 
 int messenger_init()
 {
-    /* Open UART
-     * I'm using 460800 baud because other faster rates don't work properly
-     * on the XDS110 debugger's integrated back channel UART. You can use
-     * a different external UART to USB adapter (like an FTDI chip) if you
-     * want faster baud rates.
-     */
     UART_init();
     UART_Params uartParams;
     UART_Params_init(&uartParams);
-    uartParams.baudRate = 460800;
+    uartParams.baudRate = 921600;
     uartParams.readMode = UART_MODE_BLOCKING;
     uartParams.writeMode = UART_MODE_BLOCKING;
     uartParams.writeDataMode = UART_DATA_BINARY;

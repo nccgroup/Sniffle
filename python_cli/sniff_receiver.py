@@ -15,7 +15,7 @@ def main():
             help="Filter packets by minimum RSSI")
     args = aparse.parse_args()
 
-    ser = serial.Serial(args.serport, 460800)
+    ser = serial.Serial(args.serport, 921600)
 
     # command sync
     ser.write(b'@@@@@@@@\r\n')
