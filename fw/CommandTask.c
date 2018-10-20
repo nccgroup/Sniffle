@@ -84,6 +84,11 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
                 setMacFilt(true, msgBuf + 2); // filter to supplied MAC
             else
                 setMacFilt(false, NULL); // disable MAC filter
+            break;
+        case COMMAND_ADVHOP:
+            if (ret != 2) continue;
+            advHopSeekMode();
+            break;
         default:
             break;
         }

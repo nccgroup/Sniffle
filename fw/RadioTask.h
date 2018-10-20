@@ -24,6 +24,11 @@ void setAdvChan(uint8_t chan);
 /* Set whether or not sniffer should pause after disconnect */
 void pauseAfterSniffDone(bool do_pause);
 
+/* Enter mode where we hop along with advertisements
+ * You must enable MAC filtering first for this to work properly
+ */
+void advHopSeekMode(void);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,

@@ -36,10 +36,14 @@
 #define RADIO_EVENT_VALID_PACKET_RECEIVED   (uint32_t)(1 << 0)
 #define RADIO_EVENT_INVALID_PACKET_RECEIVED (uint32_t)(1 << 1)
 
+#define ARR_SZ(x) (sizeof(x) / sizeof(x[0]))
+
 // more states will be added later, eg. auxiliary advertising channel
 typedef enum
 {
     ADVERT,
+    ADVERT_SEEK,
+    ADVERT_HOP,
     DATA,
     PAUSED
 } SnifferState;
@@ -50,13 +54,14 @@ Task_Struct radioTask; /* not static so you can see in ROV */
 static uint8_t radioTaskStack[RADIO_TASK_STACK_SIZE];
 static uint8_t mapping_table[37];
 
-static SnifferState snifferState = ADVERT;
+static volatile SnifferState snifferState = ADVERT;
 static SnifferState sniffDoneState = ADVERT;
 
 struct RadioConfig {
     uint64_t chanMap;
     uint32_t hopIntervalTicks;
     uint16_t offset;
+    uint16_t slaveLatency;
     PHY_Mode phy;
 };
 
@@ -73,10 +78,15 @@ static bool use_csa2;
 static struct RadioConfig next_rconf;
 static uint32_t nextInstant;
 
-static bool firstPacket;
+static volatile bool firstPacket;
 static uint32_t anchorOffset[16];
 static uint32_t aoInd = 0;
 
+static uint32_t lastAdvTicks = 0;
+static uint32_t advInterval[8];
+static uint32_t aiInd = 0;
+
+// target offset before anchor point to start listing on next data channel
 // 1 ms @ 4 Mhz
 #define AO_TARG 4000
 
@@ -108,15 +118,50 @@ static uint32_t median(uint32_t *arr, size_t sz)
 
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
+    uint32_t empty_hops = 0;
+    SnifferState lastState = snifferState;
+
     RadioWrapper_init();
 
     while (1)
     {
-        if (snifferState == ADVERT)
+        // zero empty_hops on state change to avoid possible confusion
+        if (snifferState != lastState)
+        {
+            empty_hops = 0;
+            lastState = snifferState;
+        }
+
+        if ((snifferState == ADVERT) || (snifferState == ADVERT_SEEK))
         {
             /* receive forever (until stopped) */
             RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
+        } else if (snifferState == ADVERT_HOP) {
+            // hop between 37/38/39 targeting a particular MAC
+            firstPacket = true;
+            RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, nextHopTime,
+                    indicatePacket);
+
+            // return to ADVERT_SEEK if we got lost
+            if (!firstPacket) empty_hops = 0;
+            else empty_hops++;
+            if (empty_hops > 4) {
+                advHopSeekMode();
+                continue;
+            }
+
+            advChan++;
+            if (advChan > 39) advChan = 37;
+
+            nextHopTime += rconf.hopIntervalTicks;
+            connEventCount++;
+            if ((connEventCount & 0xF) == 0xF)
+            {
+                // dynamic advertisement anchor offset is 1/16 of hop interval
+                uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
+                nextHopTime += medAnchorOffset - (rconf.hopIntervalTicks >> 4);
+            }
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
         } else { // DATA
@@ -130,6 +175,16 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             firstPacket = true;
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
                     nextHopTime, indicatePacket);
+
+            // we're done if we got lost
+            // the +3 on slaveLatency is to tolerate occasional missed packets
+            if (!firstPacket) empty_hops = 0;
+            else empty_hops++;
+            if (empty_hops > rconf.slaveLatency + 3) {
+                snifferState = sniffDoneState;
+            }
+
+
             curUnmapped = (curUnmapped + hopIncrement) % 37;
             connEventCount++;
             if (nextInstant != 0xFFFFFFFF &&
@@ -147,7 +202,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             if ((connEventCount & 0xF) == 0xF)
             {
-                uint32_t medAnchorOffset = median(anchorOffset, sizeof(anchorOffset) / 4);
+                uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
                 nextHopTime += medAnchorOffset - AO_TARG;
             }
         }
@@ -185,6 +240,18 @@ static void computeMap1(uint64_t map)
 // change radio configuration based on a packet received
 void reactToPDU(const BLE_Frame *frame)
 {
+    /* clock synchronization
+     * first packet on each channel is anchor point
+     * this is only used in DATA and ADV_HOP states
+     */
+    if (firstPacket)
+    {
+        // compute anchor point offset from start of receive window
+        anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
+        aoInd = (aoInd + 1) & 0xF;
+        firstPacket = false;
+    }
+
     if (frame->channel >= 37)
     {
         uint8_t pduType;
@@ -207,6 +274,36 @@ void reactToPDU(const BLE_Frame *frame)
         // make sure length is coherent
         if (frame->length - 2 < advLen)
             return;
+
+        // advertisement interval tracking
+        if (snifferState == ADVERT_SEEK)
+        {
+            uint32_t frame_ts = frame->timestamp << 2;
+            if (lastAdvTicks != 0) {
+                advInterval[aiInd++] = frame_ts - lastAdvTicks;
+            }
+            lastAdvTicks = frame_ts;
+            if (aiInd == ARR_SZ(advInterval))
+            {
+                // three hops between each return to channel (37/38/39)
+                rconf.hopIntervalTicks = median(advInterval, ARR_SZ(advInterval)) / 3;
+
+                // If hop interval is over 300 ms (* 4000 ticks/ms), something is wrong
+                if (rconf.hopIntervalTicks > 300*4000)
+                {
+                    // try again
+                    advHopSeekMode();
+                    return;
+                }
+
+                // anchor offset target is 1/16 of hop interval, hence division by 16
+                nextHopTime = frame_ts + rconf.hopIntervalTicks -
+                    (rconf.hopIntervalTicks >> 4);
+
+                snifferState = ADVERT_HOP;
+                RadioWrapper_stop();
+            }
+        }
 
         /* for connectable advertisements, save advertisement headers to the cache
          * Connectable types are:
@@ -266,6 +363,7 @@ void reactToPDU(const BLE_Frame *frame)
             rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
             nextHopTime += rconf.hopIntervalTicks;
             rconf.phy = PHY_1M;
+            rconf.slaveLatency = *(uint16_t *)(frame->pData + 26);
             connEventCount = 0;
             nextInstant = 0xFFFFFFFF;
 
@@ -278,17 +376,6 @@ void reactToPDU(const BLE_Frame *frame)
         //uint8_t MD;
         uint8_t datLen;
         uint8_t opcode;
-
-        /* clock synchronization
-         * first packet on each channel is anchor point
-         */
-        if (firstPacket)
-        {
-            // compute anchor point offset from start of receive window
-            anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
-            aoInd = (aoInd + 1) & 0xF;
-            firstPacket = false;
-        }
 
         // data channel PDUs should at least have a 2 byte header
         // we only care about LL Control PDUs that all have an opcode byte too
@@ -318,6 +405,7 @@ void reactToPDU(const BLE_Frame *frame)
             next_rconf.offset = *(uint16_t *)(frame->pData + 4);
             next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
             next_rconf.phy = rconf.phy;
+            next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
             nextInstant = *(uint16_t *)(frame->pData + 12);
             break;
         case 0x01: // LL_CHANNEL_MAP_IND
@@ -326,6 +414,7 @@ void reactToPDU(const BLE_Frame *frame)
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
             next_rconf.phy = rconf.phy;
+            next_rconf.slaveLatency = rconf.slaveLatency;
             nextInstant = *(uint16_t *)(frame->pData + 8);
             break;
         case 0x02: // LL_TERMINATE_IND
@@ -351,6 +440,7 @@ void reactToPDU(const BLE_Frame *frame)
                 next_rconf.phy = rconf.phy;
                 break;
             }
+            next_rconf.slaveLatency = rconf.slaveLatency;
             nextInstant = *(uint16_t *)(frame->pData + 5);
             break;
         default:
@@ -365,6 +455,20 @@ void setAdvChan(uint8_t chan)
         return;
     advChan = chan;
     snifferState = ADVERT;
+    RadioWrapper_stop();
+}
+
+// The idea behind this mode is that most devices send a single advertisement
+// on channel 37, then a single ad on 38, then a single ad on 39, then repeat.
+// If we hop along with the target, we have a much better chance of catching
+// the CONNECT_IND request. This only works when MAC filtering is active.
+void advHopSeekMode()
+{
+    advChan = 37;
+    lastAdvTicks = 0;
+    aiInd = 0;
+    connEventCount = 0;
+    snifferState = ADVERT_SEEK;
     RadioWrapper_stop();
 }
 
