@@ -336,7 +336,21 @@ void reactToPDU(const BLE_Frame *frame)
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
             // we don't handle different M->S and S->M PHYs, assume both match
-            next_rconf.phy = frame->pData[3];
+            switch (frame->pData[3] & 0x7)
+            {
+            case 0x1:
+                next_rconf.phy = PHY_1M;
+                break;
+            case 0x2:
+                next_rconf.phy = PHY_2M;
+                break;
+            case 0x4:
+                next_rconf.phy = PHY_CODED;
+                break;
+            default:
+                next_rconf.phy = rconf.phy;
+                break;
+            }
             nextInstant = *(uint16_t *)(frame->pData + 5);
             break;
         default:
