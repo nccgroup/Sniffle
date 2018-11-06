@@ -51,6 +51,10 @@ def main():
     macMsg = base64.b64encode(macCmd) + b'\r\n'
     ser.write(macMsg)
 
+    if not (args.mac is None):
+        advHopMsg = base64.b64encode(bytes([0x01, 0x14])) + b'\r\n'
+        ser.write(advHopMsg)
+
     while True:
         pkt = ser.readline()
         try:
