@@ -255,15 +255,13 @@ int RadioWrapper_recvAdv3(uint32_t hopTicks, RadioWrapper_Callback callback)
 void RadioWrapper_trigAdv3()
 {
     // trigger switch from chan 37 to 38
-    rfc_CMD_TRIGGER_t RF_cmdTrigger = {.commandNo = 0x0404, .triggerNo = 0};
-    RF_runImmediateCmd(bleRfHandle, (uint32_t *)&RF_cmdTrigger);
+    RF_runDirectCmd(bleRfHandle, 0x04040001);
 }
 
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations
-    rfc_CMD_STOP_t RF_cmdStop = {.commandNo = 0x0402};
-    RF_runImmediateCmd(bleRfHandle, (uint32_t *)&RF_cmdStop);
+    RF_runDirectCmd(bleRfHandle, 0x04020001);
 }
 
 static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
