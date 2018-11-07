@@ -52,6 +52,14 @@ int RadioWrapper_close(void);
 int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback);
 
+// Sniff channel 37, wait for trigger, sniff 38, sniff 39
+// Waits hopTicks radio ticks before going from 38 to 39
+// Waits another hopTicks on 39 before ending
+int RadioWrapper_recvAdv3(uint32_t hopTicks, RadioWrapper_Callback callback);
+
+// Send trigger for recvAdv3 function to go from 37 to 38
+void RadioWrapper_trigAdv3();
+
 // Stop ongoing radio operations
 void RadioWrapper_stop();
 

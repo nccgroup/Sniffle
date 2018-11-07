@@ -53,6 +53,8 @@ rfc_bleGenericRxOutput_t recvStats;
 
 static RadioWrapper_Callback userCallback = NULL;
 
+static uint16_t * status_ptrs[3] = {NULL, NULL, NULL};
+
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -153,6 +155,110 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     return 0;
 }
 
+#define CMD_LATENCY 150
+int RadioWrapper_recvAdv3(uint32_t hopTicks, RadioWrapper_Callback callback)
+{
+    rfc_bleGenericRxPar_t para37;
+    rfc_bleGenericRxPar_t para38;
+    rfc_bleGenericRxPar_t para39;
+    rfc_CMD_BLE5_GENERIC_RX_t sniff37;
+    rfc_CMD_BLE5_GENERIC_RX_t sniff38;
+    rfc_CMD_BLE5_GENERIC_RX_t sniff39;
+
+    if (!configured)
+        return -EINVAL;
+
+    userCallback = callback;
+
+    // commom parameters for sniffing advertisements
+    para37.pRxQ = &dataQueue;
+    para37.accessAddress = 0x8E89BED6;
+    para37.crcInit0 = 0x55;
+    para37.crcInit1 = 0x55;
+    para37.crcInit2 = 0x55;
+    para37.bRepeat = 0x01; // receive multiple packets
+    para37.__dummy0 = 0x0000;
+    para37.rxConfig.bAutoFlushIgnored = 1;
+    para37.rxConfig.bAutoFlushCrcErr = 1;
+    para37.rxConfig.bAutoFlushEmpty = 1;
+    para37.rxConfig.bIncludeLenByte = 1;
+    para37.rxConfig.bIncludeCrc = 0;
+    para37.rxConfig.bAppendRssi = 0;
+    para37.rxConfig.bAppendStatus = 0;
+    para37.rxConfig.bAppendTimestamp = 0;
+    para37.endTrigger.triggerType = TRIG_NEVER;
+    para37.endTrigger.bEnaCmd = 0;
+    para37.endTrigger.triggerNo = 0x0;
+    para37.endTrigger.pastTrig = 1;
+    para37.endTime = 0;
+
+    // set up the first generic RX struct
+    sniff37.commandNo = 0x1829;
+    sniff37.status = 0x0000;
+    sniff37.pNextOp = NULL;
+    sniff37.startTime = 0x00000000;
+    sniff37.startTrigger.triggerType = TRIG_NOW;
+    sniff37.startTrigger.bEnaCmd = 0;
+    sniff37.startTrigger.triggerNo = 0x0;
+    sniff37.startTrigger.pastTrig = 1;
+    sniff37.condition.rule = COND_ALWAYS;
+    sniff37.condition.nSkip = 0x0;
+    sniff37.channel = 0;
+    sniff37.whitening.init = 0x00;
+    sniff37.whitening.bOverride = 0;
+    sniff37.phyMode.mainMode = PHY_1M;
+    sniff37.phyMode.coding = 0x0;
+    sniff37.rangeDelay = 0x00;
+    sniff37.txPower = 0x0000;
+    sniff37.pParams = NULL;
+    sniff37.pOutput = &recvStats;
+    sniff37.tx20Power = 0x00000000;
+
+    // duplicate the default settings
+    para38 = para37;
+    para39 = para37;
+    sniff38 = sniff37;
+    sniff39 = sniff37;
+
+    // sniff 37, wait for trigger, sniff 38, sniff 39
+    sniff37.pNextOp = (RF_Op *)&sniff38;
+    sniff37.pParams = &para37;
+    sniff37.channel = 37;
+    para37.endTrigger.triggerType = TRIG_NEVER;
+    para37.endTrigger.bEnaCmd = 1;
+
+    sniff38.pNextOp = (RF_Op *)&sniff39;
+    sniff38.pParams = &para38;
+    sniff38.channel = 38;
+    para38.endTrigger.triggerType = TRIG_REL_PREVEND;
+    para38.endTime = hopTicks - CMD_LATENCY;
+
+    sniff39.pParams = &para39;
+    sniff39.channel = 39;
+    sniff39.condition.rule = COND_NEVER;
+    para39.endTrigger.triggerType = TRIG_REL_PREVEND;
+    para39.endTime = hopTicks;
+
+    // special case to figure out which channel we're on
+    last_channel = 40;
+    status_ptrs[0] = &sniff37.status;
+    status_ptrs[1] = &sniff38.status;
+    status_ptrs[2] = &sniff39.status;
+
+    // run the command chain
+    RF_runCmd(bleRfHandle, (RF_Op*)&sniff37, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    return 0;
+}
+
+void RadioWrapper_trigAdv3()
+{
+    // trigger switch from chan 37 to 38
+    rfc_CMD_TRIGGER_t RF_cmdTrigger = {.commandNo = 0x0404, .triggerNo = 0};
+    RF_runImmediateCmd(bleRfHandle, (uint32_t *)&RF_cmdTrigger);
+}
+
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations
@@ -194,7 +300,15 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         frame.timestamp = recvStats.timeStamp >> 2;
         frame.rssi = recvStats.lastRssi;
 		frame.length = packetLength;
-        frame.channel = last_channel;
+
+        if (last_channel < 40)
+            frame.channel = last_channel;
+        else if (*status_ptrs[0] <= ACTIVE)
+            frame.channel = 37;
+        else if (*status_ptrs[1] <= ACTIVE)
+            frame.channel = 38;
+        else
+            frame.channel = 39;
 
         if (userCallback) userCallback(&frame);
 
