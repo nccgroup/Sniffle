@@ -53,7 +53,9 @@ rfc_bleGenericRxOutput_t recvStats;
 
 static RadioWrapper_Callback userCallback = NULL;
 
-static uint16_t * status_ptrs[3] = {NULL, NULL, NULL};
+// In microseconds
+static uint32_t trigTime = 0;
+static uint32_t delay39 = 0;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -155,8 +157,9 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     return 0;
 }
 
-#define CMD_LATENCY 150
-int RadioWrapper_recvAdv3(uint32_t hopTicks, RadioWrapper_Callback callback)
+// sniff 37 -> wait for trigger -> wait 38 -> wait delay1 -> snif 39 -> wait delay2 -> done
+#define CMD_LATENCY 100 // approx 25us latency (ballpark estimate)
+int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callback callback)
 {
     rfc_bleGenericRxPar_t para37;
     rfc_bleGenericRxPar_t para38;
@@ -227,23 +230,23 @@ int RadioWrapper_recvAdv3(uint32_t hopTicks, RadioWrapper_Callback callback)
     para37.endTrigger.triggerType = TRIG_NEVER;
     para37.endTrigger.bEnaCmd = 1;
 
+    trigTime = 0xF0000000;
+    delay39 = delay1 >> 2;
+
     sniff38.pNextOp = (RF_Op *)&sniff39;
     sniff38.pParams = &para38;
     sniff38.channel = 38;
     para38.endTrigger.triggerType = TRIG_REL_PREVEND;
-    para38.endTime = hopTicks - CMD_LATENCY;
+    para38.endTime = delay1 - CMD_LATENCY;
 
     sniff39.pParams = &para39;
     sniff39.channel = 39;
     sniff39.condition.rule = COND_NEVER;
     para39.endTrigger.triggerType = TRIG_REL_PREVEND;
-    para39.endTime = hopTicks;
+    para39.endTime = delay2;
 
     // special case to figure out which channel we're on
     last_channel = 40;
-    status_ptrs[0] = &sniff37.status;
-    status_ptrs[1] = &sniff38.status;
-    status_ptrs[2] = &sniff39.status;
 
     // run the command chain
     RF_runCmd(bleRfHandle, (RF_Op*)&sniff37, RF_PriorityNormal,
@@ -256,6 +259,10 @@ void RadioWrapper_trigAdv3()
 {
     // trigger switch from chan 37 to 38
     RF_runDirectCmd(bleRfHandle, 0x04040001);
+
+    // helps in keeping track of which channel was sniffed when
+    if (trigTime == 0xF0000000)
+        trigTime = RF_getCurrentTime() >> 2;
 }
 
 void RadioWrapper_stop()
@@ -299,11 +306,12 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         frame.rssi = recvStats.lastRssi;
 		frame.length = packetLength;
 
+        /* TODO: this logic probably falls apart after integer rollover (16 minutes @ 4 MHz) */
         if (last_channel < 40)
             frame.channel = last_channel;
-        else if (*status_ptrs[0] <= ACTIVE)
+        else if (frame.timestamp < trigTime)
             frame.channel = 37;
-        else if (*status_ptrs[1] <= ACTIVE)
+        else if (frame.timestamp < trigTime + delay39)
             frame.channel = 38;
         else
             frame.channel = 39;

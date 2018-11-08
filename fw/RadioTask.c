@@ -138,7 +138,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             /* receive forever (until stopped) */
             //RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
             //        indicatePacket);
-            RadioWrapper_recvAdv3(2656, indicatePacket);
+            RadioWrapper_recvAdv3(2400, 2650, indicatePacket);
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
             firstPacket = true;
