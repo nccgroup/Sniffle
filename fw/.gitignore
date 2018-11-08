@@ -1,3 +1,4 @@
 *.obj
 *.map
 *.out
+rtos_build/

@@ -2,7 +2,7 @@ SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc26x2_sdk_2_20_00_36
 
 include $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/imports.mak
 
-KERNEL_BUILD := $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/builds/CC26X2R1_LAUNCHXL/release
+XDCPATH = $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source;$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages;
 
 CC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
@@ -10,9 +10,11 @@ LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 SOURCES = $(wildcard *.c)
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
-CONFIGPKG = $(KERNEL_BUILD)/gcc
-
+CONFIGPKG = rtos_build
 NAME = sniffle
+
+XDCTARGET = gnu.targets.arm.M4F
+PLATFORM = ti.platforms.simplelink:CC2642R1F
 
 CFLAGS = -I. \
     -DDeviceFamily_CC26X2 \
@@ -44,7 +46,7 @@ LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     -l:ti/drivers/pdm/lib/pdm_cc26x2_v1.am4fg \
     "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
     -l:ti/dpl/lib/dpl_cc26x2_v1.am4fg \
-    "-Wl,-T,$(KERNEL_BUILD)/gcc/linker.cmd" \
+    "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
     -l:ti/devices/cc13x2_cc26x2_v1/driverlib/bin/gcc/driverlib.lib \
     -march=armv7e-m \
     -mthumb \
@@ -61,13 +63,15 @@ LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     -lnosys \
     --specs=nano.specs
 
+.PRECIOUS: $(CONFIGPKG)/compiler.opt $(CONFIGPKG)/linker.cmd
+
 all: $(NAME).out
 
-$(CONFIGPKG)/linker.cmd $(CONFIGPKG)/compiler.opt:
-	@ $(ECHOBLANKLINE)
-	@ echo $(CONFIGPKG) is not built.
-	@ echo You can build it by issuing $(MAKE) in $(CONFIGPKG).
-	@ $(ECHOBLANKLINE)
+$(CONFIGPKG)/compiler.opt: $(CONFIGPKG)/linker.cmd
+
+$(CONFIGPKG)/linker.cmd: sniffle.cfg
+	@ echo Running Configuro...
+	@ $(XDC_INSTALL_DIR)/xs --xdcpath="$(XDCPATH)" xdc.tools.configuro -c "$(GCC_ARMCOMPILER)" -t $(XDCTARGET) -p $(PLATFORM) --compileOptions "$(CFLAGS)" -o "$(CONFIGPKG)" $<
 
 %.obj: %.c $(CONFIGPKG)/compiler.opt
 	@ echo Building $@
@@ -84,6 +88,7 @@ clean:
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
+	@ $(RM) -r $(CONFIGPKG) > $(DEVNULL) 2>&1
 
 load: $(NAME).out
 	@ echo Flashing...
