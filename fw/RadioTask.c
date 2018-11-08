@@ -27,6 +27,7 @@
 #include <RadioTask.h>
 #include <RadioWrapper.h>
 #include <PacketTask.h>
+#include <DelayHopTrigger.h>
 
 /***** Defines *****/
 #define RADIO_TASK_STACK_SIZE 1024
@@ -321,7 +322,7 @@ void reactToPDU(const BLE_Frame *frame)
         if (pduType == 0x0 || pduType == 0x1)
         {
             adv_cache_store(frame->pData + 2, frame->pData[0]);
-            RadioWrapper_trigAdv3(); // HACK
+            DelayHopTrigger_trig(75); // TODO: compute delay for target
             return;
         }
 

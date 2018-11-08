@@ -17,6 +17,7 @@
 #include "RadioTask.h"
 #include "PacketTask.h"
 #include "CommandTask.h"
+#include "DelayHopTrigger.h"
 
 int main(void)
 {
@@ -27,6 +28,8 @@ int main(void)
     RadioTask_init();
     PacketTask_init();
     CommandTask_init();
+
+    DelayHopTrigger_init();
 
     /* Start BIOS */
     BIOS_start();
