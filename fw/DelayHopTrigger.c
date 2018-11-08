@@ -5,7 +5,7 @@
  */
 
 // TI includes
-#include <ti/sysbios/hal/Timer.h>
+#include <ti/sysbios/family/arm/lm4/Timer.h>
 #include <xdc/runtime/Error.h>
 
 // My includes
