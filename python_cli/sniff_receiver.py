@@ -4,6 +4,14 @@ import serial
 import sys, binascii, base64, struct
 import argparse
 
+# if true, filter on the first advertiser MAC seen
+# triggered through "-m top" option
+# should be paired with an RSSI filter
+_delay_top_mac = False
+
+# global variable to access serial port
+_ser = None
+
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
@@ -17,6 +25,9 @@ def main():
     args = aparse.parse_args()
 
     ser = serial.Serial(args.serport, 921600)
+
+    global _ser
+    _ser = ser
 
     # command sync
     ser.write(b'@@@@@@@@\r\n')
@@ -32,24 +43,24 @@ def main():
     ser.write(pauseMsg)
 
     # configure RSSI filter
-    rssiCmd = bytes([0x01, 0x12, args.rssi & 0xFF])
-    rssiMsg = base64.b64encode(rssiCmd) + b'\r\n'
-    ser.write(rssiMsg)
+    _cmd_rssi(args.rssi)
 
     # configure MAC filter
+    global _delay_top_mac
     if args.mac is None:
-        macCmd = bytes([0x01, 0x13])
+        _cmd_mac()
+    elif args.mac == "top":
+        _cmd_mac()
+        _delay_top_mac = True
     else:
         try:
-            macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
+            macBytes = bytes([int(h, 16) for h in reversed(args.mac.split(":"))])
             if len(macBytes) != 6:
                 raise Exception("Wrong length!")
         except:
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
-        macCmd = bytes([0x03, 0x13] + macBytes)
-    macMsg = base64.b64encode(macCmd) + b'\r\n'
-    ser.write(macMsg)
+        _cmd_mac(macBytes)
 
     #if not (args.mac is None):
     #    advHopMsg = base64.b64encode(bytes([0x01, 0x14])) + b'\r\n'
@@ -63,6 +74,21 @@ def main():
             print("Ignoring message:", e, file=sys.stderr)
             continue
         print_message(data)
+
+def _cmd_rssi(rssi=-80):
+    rssiCmd = bytes([0x01, 0x12, rssi & 0xFF])
+    rssiMsg = base64.b64encode(rssiCmd) + b'\r\n'
+    _ser.write(rssiMsg)
+
+def _cmd_mac(macBytes=None):
+    if macBytes is None:
+        macCmd = b'\x01\x13'
+    else:
+        if len(macBytes) != 6:
+            raise ValueError("MAC must be 6 bytes!")
+        macCmd = b'\x03\x13' + macBytes
+    macMsg = base64.b64encode(macCmd) + b'\r\n'
+    _ser.write(macMsg)
 
 def print_message(data):
     if data[0] == 0x10:
@@ -186,21 +212,45 @@ def decode_adva(body):
     adva = body[2:8]
     print("AdvA: %s" % _str_mac(adva))
 
+    global _delay_top_mac
+    if _delay_top_mac:
+        _cmd_mac(adva)
+        _cmd_rssi()
+        _delay_top_mac = False
+
 def decode_adv_direct_ind(body):
     adva = body[2:8]
     targeta = body[8:14]
     print("AdvA: %s TargetA: %s" % (_str_mac(adva), _str_mac(targeta)))
+
+    global _delay_top_mac
+    if _delay_top_mac:
+        _cmd_mac(adva)
+        _cmd_rssi()
+        _delay_top_mac = False
 
 def decode_scan_req(body):
     scana = body[2:8]
     adva = body[8:14]
     print("ScanA: %s AdvA: %s" % (_str_mac(scana), _str_mac(adva)))
 
+    global _delay_top_mac
+    if _delay_top_mac:
+        _cmd_mac(adva)
+        _cmd_rssi()
+        _delay_top_mac = False
+
 def decode_connect_ind(body):
     inita = body[2:8]
     adva = body[8:14]
     # TODO: decode the rest
     print("InitA: %s AdvA: %s" % (_str_mac(inita), _str_mac(adva)))
+
+    global _delay_top_mac
+    if _delay_top_mac:
+        _cmd_mac(adva)
+        _cmd_rssi()
+        _delay_top_mac = False
 
 if __name__ == "__main__":
     main()
