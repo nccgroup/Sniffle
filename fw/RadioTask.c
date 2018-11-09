@@ -86,7 +86,7 @@ static uint32_t aoInd = 0;
 
 static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
-static uint32_t advInterval[8];
+static uint32_t advInterval[9];
 static uint32_t aiInd = 0;
 
 // target offset before anchor point to start listing on next data channel
@@ -167,20 +167,32 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
-            if ((connEventCount & 0x3F) == 0x3F)
+            if ((connEventCount & 0x1F) == 0x1F)
             {
+                bool interval_changed = false;
+
                 // occasionally check that hopIntervalTicks is correct
                 // do this by sniffing for an ad on 39 after 37
                 firstPacket = true;
+                aiInd = 0;
                 RadioWrapper_recvAdv3(750, rconf.hopIntervalTicks * 3, indicatePacket);
 
+                // make sure hop interval didn't change too much (more than 5 us change)
+                if (!firstPacket)
+                {
+                    int32_t delta_interval = rconf.hopIntervalTicks - (advInterval[0] * 2);
+                    if (delta_interval < 0) delta_interval = -delta_interval;
+                    if (delta_interval > 20) interval_changed = true;
+                }
+
                 // return to ADVERT_SEEK if we got lost
-                if (!firstPacket) empty_hops = 0;
+                if (!firstPacket && !interval_changed) empty_hops = 0;
                 else empty_hops++;
                 if (empty_hops >= 2) {
                     advHopSeekMode();
                     continue;
                 }
+
             } else {
                 RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 100, rconf.hopIntervalTicks,
                         indicatePacket);
@@ -299,11 +311,11 @@ void reactToPDU(const BLE_Frame *frame)
         if (pduType == 0x0 || pduType == 0x1 || pduType == 0x2 || pduType == 0x6)
         {
             // advertisement interval tracking
-            if (snifferState == ADVERT_SEEK)
+            if (firstPacket)
             {
                 if (frame->channel == 37)
                     timestamp37 = frame->timestamp;
-                else if ((frame->channel == 39) && firstPacket)
+                else if ((frame->channel == 39))
                 {
                     // microseconds from 37 to 39 advertisement
                     advInterval[aiInd++] = frame->timestamp - timestamp37;
