@@ -322,7 +322,21 @@ void reactToPDU(const BLE_Frame *frame)
         if (pduType == 0x0 || pduType == 0x1)
         {
             adv_cache_store(frame->pData + 2, frame->pData[0]);
-            DelayHopTrigger_trig(75); // TODO: compute delay for target
+
+            /* TODO: adjust delay depending on target
+             * I'm currently hard coding it for 664 us iPhone hop interval
+             *
+             * We will always miss 38/39 advertisements this way, but we will
+             * capture every message to the end of the window (except for
+             * endTrim microseconds).
+             *
+             * To capture all advertisements, set endTrim >= 160
+             */
+            uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
+            uint32_t timeRemaining = 664 - recvLatency;
+            const uint32_t endTrim = 30;
+            DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
+
             return;
         }
 
