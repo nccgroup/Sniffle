@@ -8,6 +8,7 @@ import argparse
 # triggered through "-m top" option
 # should be paired with an RSSI filter
 _delay_top_mac = False
+_rssi_min = 0
 
 # global variable to access serial port
 _ser = None
@@ -43,6 +44,8 @@ def main():
     ser.write(pauseMsg)
 
     # configure RSSI filter
+    global _rssi_min
+    _rssi_min = args.rssi
     _cmd_rssi(args.rssi)
 
     # configure MAC filter
@@ -107,6 +110,10 @@ def print_packet(data):
 
     if len(body) != l:
         print("Incorrect length field!", file=sys.stderr)
+        return
+
+    # ignore low RSSI junk at start in RSSI filter mode for top MAC mode
+    if _delay_top_mac and rssi < _rssi_min:
         return
 
     print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
