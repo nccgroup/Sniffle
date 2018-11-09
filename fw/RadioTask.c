@@ -23,6 +23,7 @@
 
 #include "csa2.h"
 #include "adv_header_cache.h"
+#include "debug.h"
 
 #include <RadioTask.h>
 #include <RadioWrapper.h>
@@ -83,6 +84,7 @@ static volatile bool firstPacket;
 static uint32_t anchorOffset[16];
 static uint32_t aoInd = 0;
 
+static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[8];
 static uint32_t aiInd = 0;
@@ -133,37 +135,58 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             lastState = snifferState;
         }
 
-        if ((snifferState == ADVERT) || (snifferState == ADVERT_SEEK))
+        if (snifferState == ADVERT)
         {
             /* receive forever (until stopped) */
-            //RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
-            //        indicatePacket);
-            RadioWrapper_recvAdv3(2400, 2650, indicatePacket);
+            RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
+                    indicatePacket);
+        } else if (snifferState == ADVERT_SEEK) {
+            firstPacket = true;
+            RadioWrapper_recvAdv3(1000, 22*4000, indicatePacket);
+
+            if (aiInd == ARR_SZ(advInterval))
+            {
+                // two hops from 37 -> 39, four ticks per microsecond, 4 / 2 = 2
+                rconf.hopIntervalTicks = median(advInterval, ARR_SZ(advInterval)) * 2;
+
+                // If hop interval is over 11 ms (* 4000 ticks/ms), something is wrong
+                // Hop interval under 500 us is also wrong
+                if ((rconf.hopIntervalTicks > 11*4000) || (rconf.hopIntervalTicks < 500*4))
+                {
+                    // try again
+                    advHopSeekMode();
+                    continue;
+                }
+
+                // DEBUG
+                Task_sleep(100);
+                dprintf("hop us %lu", rconf.hopIntervalTicks >> 2);
+                Task_sleep(100);
+
+                snifferState = ADVERT_HOP;
+            }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
-            firstPacket = true;
-            RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, nextHopTime,
-                    indicatePacket);
-
-            // return to ADVERT_SEEK if we got lost
-            if (!firstPacket) empty_hops = 0;
-            else empty_hops++;
-            if (empty_hops > 4) {
-                advHopSeekMode();
-                continue;
-            }
-
-            advChan++;
-            if (advChan > 39) advChan = 37;
-
-            nextHopTime += rconf.hopIntervalTicks;
-            connEventCount++;
-            if ((connEventCount & 0xF) == 0xF)
+            if ((connEventCount & 0x3F) == 0x3F)
             {
-                // dynamic advertisement anchor offset is 1/16 of hop interval
-                uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
-                nextHopTime += medAnchorOffset - (rconf.hopIntervalTicks >> 4);
+                // occasionally check that hopIntervalTicks is correct
+                // do this by sniffing for an ad on 39 after 37
+                firstPacket = true;
+                RadioWrapper_recvAdv3(1000, rconf.hopIntervalTicks * 3, indicatePacket);
+
+                // return to ADVERT_SEEK if we got lost
+                if (!firstPacket) empty_hops = 0;
+                else empty_hops++;
+                if (empty_hops >= 2) {
+                    advHopSeekMode();
+                    continue;
+                }
+            } else {
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 100, rconf.hopIntervalTicks,
+                        indicatePacket);
             }
+
+            connEventCount++;
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
         } else { // DATA
@@ -277,36 +300,6 @@ void reactToPDU(const BLE_Frame *frame)
         if (frame->length - 2 < advLen)
             return;
 
-        // advertisement interval tracking
-        if (snifferState == ADVERT_SEEK)
-        {
-            uint32_t frame_ts = frame->timestamp << 2;
-            if (lastAdvTicks != 0) {
-                advInterval[aiInd++] = frame_ts - lastAdvTicks;
-            }
-            lastAdvTicks = frame_ts;
-            if (aiInd == ARR_SZ(advInterval))
-            {
-                // three hops between each return to channel (37/38/39)
-                rconf.hopIntervalTicks = median(advInterval, ARR_SZ(advInterval)) / 3;
-
-                // If hop interval is over 300 ms (* 4000 ticks/ms), something is wrong
-                if (rconf.hopIntervalTicks > 300*4000)
-                {
-                    // try again
-                    advHopSeekMode();
-                    return;
-                }
-
-                // anchor offset target is 1/16 of hop interval, hence division by 16
-                nextHopTime = frame_ts + rconf.hopIntervalTicks -
-                    (rconf.hopIntervalTicks >> 4);
-
-                snifferState = ADVERT_HOP;
-                RadioWrapper_stop();
-            }
-        }
-
         /* for connectable advertisements, save advertisement headers to the cache
          * Connectable types are:
          * ADV_IND (0x0), ADV_DIRECT_IND (0x1), and ADV_EXT_IND (0x7)
@@ -323,19 +316,34 @@ void reactToPDU(const BLE_Frame *frame)
         {
             adv_cache_store(frame->pData + 2, frame->pData[0]);
 
-            /* TODO: adjust delay depending on target
-             * I'm currently hard coding it for 664 us iPhone hop interval
-             *
-             * We will always miss 38/39 advertisements this way, but we will
-             * capture every message to the end of the window (except for
-             * endTrim microseconds).
-             *
-             * To capture all advertisements, set endTrim >= 160
-             */
-            uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
-            uint32_t timeRemaining = 664 - recvLatency;
-            const uint32_t endTrim = 30;
-            DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
+            // advertisement interval trackin
+            if (snifferState == ADVERT_SEEK)
+            {
+                if (frame->channel == 37)
+                    timestamp37 = frame->timestamp;
+                else if ((frame->channel == 39) && firstPacket)
+                {
+                    // microseconds from 37 to 39 advertisement
+                    advInterval[aiInd++] = frame->timestamp - timestamp37;
+                    firstPacket = false;
+                }
+            }
+
+            // Hop to 38 (with a delay) after we get an anchor advertisement on 37
+            if ( (frame->channel == 37) &&
+                ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
+            {
+                /* We will usually miss 38/39 advertisements this way, but we will
+                 * capture every message to the end of the window (except for
+                 * endTrim microseconds).
+                 *
+                 * To capture all advertisements, set endTrim >= 160
+                 */
+                uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
+                uint32_t timeRemaining = (rconf.hopIntervalTicks >> 2) - recvLatency;
+                const uint32_t endTrim = 30;
+                DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
+            }
 
             return;
         }
@@ -481,7 +489,6 @@ void setAdvChan(uint8_t chan)
 // the CONNECT_IND request. This only works when MAC filtering is active.
 void advHopSeekMode()
 {
-    advChan = 37;
     lastAdvTicks = 0;
     aiInd = 0;
     connEventCount = 0;
