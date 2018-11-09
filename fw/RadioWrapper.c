@@ -157,8 +157,18 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     return 0;
 }
 
-// sniff 37 -> wait for trigger -> wait 38 -> wait delay1 -> snif 39 -> wait delay2 -> done
-#define CMD_LATENCY 100 // approx 25us latency (ballpark estimate)
+/* sniff 37 -> wait for trigger -> wait 38 -> wait delay1 -> snif 39 -> wait delay2 -> done
+ *
+ * Notes on latency:
+ * - Time from packet end transmitted to handling by software is around 480 us,
+ *   though it varies, and is sometimes as low as 400 us
+ * - Time from triggering next channel to actually receiving on next channel is 160 us
+ *   (sometimes it's better, as low as 100 us, but 160 is a good worst case value)
+ * - The 160 us latency consists of the CMD_TRIGGER actually stopping the last operation,
+ *   then tuning to next channel, and getting the radio ready to receive
+ * - I don't know how much of the 160 us is ending the current operation vs preparing
+ *   the next operation
+ */
 int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callback callback)
 {
     rfc_bleGenericRxPar_t para37;
@@ -237,7 +247,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     sniff38.pParams = &para38;
     sniff38.channel = 38;
     para38.endTrigger.triggerType = TRIG_REL_PREVEND;
-    para38.endTime = delay1 - CMD_LATENCY;
+    para38.endTime = delay1;
 
     sniff39.pParams = &para39;
     sniff39.channel = 39;
