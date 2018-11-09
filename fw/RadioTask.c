@@ -88,6 +88,7 @@ static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[9];
 static uint32_t aiInd = 0;
+static bool postponed = false;
 
 // target offset before anchor point to start listing on next data channel
 // 1 ms @ 4 Mhz
@@ -119,6 +120,12 @@ static uint32_t median(uint32_t *arr, size_t sz)
     return arr[sz >> 1];
 }
 
+static uint32_t percentile25(uint32_t *arr, size_t sz)
+{
+    qsort(arr, sz, sizeof(uint32_t), _compare);
+    return arr[sz >> 2];
+}
+
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
     uint32_t empty_hops = 0;
@@ -148,7 +155,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             if (aiInd == ARR_SZ(advInterval))
             {
                 // two hops from 37 -> 39, four ticks per microsecond, 4 / 2 = 2
-                rconf.hopIntervalTicks = median(advInterval, ARR_SZ(advInterval)) * 2;
+                rconf.hopIntervalTicks = percentile25(advInterval, ARR_SZ(advInterval)) * 2;
 
                 // If hop interval is over 11 ms (* 4000 ticks/ms), something is wrong
                 // Hop interval under 500 us is also wrong
@@ -168,6 +175,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
+            postponed = false;
             if ((connEventCount & 0x1F) == 0x1F)
             {
                 bool interval_changed = false;
@@ -191,7 +199,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 else empty_hops++;
 
                 firstPacket = false;
-                if (empty_hops >= 2) {
+                if (empty_hops >= 3) {
                     advHopSeekMode();
                     continue;
                 }
@@ -336,7 +344,7 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * To capture all advertisements, set endTrim >= 160
                  */
-                const uint32_t endTrim = 30;
+                const uint32_t endTrim = 10;
                 uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
                 uint32_t timeRemaining;
 
@@ -349,7 +357,14 @@ void reactToPDU(const BLE_Frame *frame)
 
                 DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
             }
+        }
 
+        // hop interval gets temporarily stretched by 400 us if a scan request is received,
+        // since the advertiser needs to respond
+        if (pduType == 0x3 && frame->channel == 37 && snifferState == ADVERT_HOP && !postponed)
+        {
+            DelayHopTrigger_postpone(400);
+            postponed = true;
         }
 
         /* for connectable advertisements, save advertisement headers to the cache
