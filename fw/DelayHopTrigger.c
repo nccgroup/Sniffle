@@ -30,8 +30,13 @@ void DelayHopTrigger_init()
 
 void DelayHopTrigger_trig(uint32_t delay_us)
 {
-    Timer_setPeriodMicroSecs(tim, delay_us);
-    Timer_start(tim);
+    if (delay_us == 0)
+    {
+        RadioWrapper_trigAdv3();
+    } else {
+        Timer_setPeriodMicroSecs(tim, delay_us);
+        Timer_start(tim);
+    }
 }
 
 static void delay_tick(UArg arg0)
