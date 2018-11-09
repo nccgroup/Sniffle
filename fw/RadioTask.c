@@ -143,6 +143,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == ADVERT_SEEK) {
             firstPacket = true;
             RadioWrapper_recvAdv3(750, 22*4000, indicatePacket);
+            firstPacket = false;
 
             if (aiInd == ARR_SZ(advInterval))
             {
@@ -188,6 +189,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 // return to ADVERT_SEEK if we got lost
                 if (!firstPacket && !interval_changed) empty_hops = 0;
                 else empty_hops++;
+
+                firstPacket = false;
                 if (empty_hops >= 2) {
                     advHopSeekMode();
                     continue;
