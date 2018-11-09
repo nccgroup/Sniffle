@@ -4,9 +4,12 @@
  * All rights reserved.
  */
 
+#include <stdbool.h>
+
 // TI includes
 #include <ti/sysbios/family/arm/lm4/Timer.h>
 #include <xdc/runtime/Error.h>
+#include <ti/drivers/rf/RF.h>
 
 // My includes
 #include <DelayHopTrigger.h>
@@ -15,6 +18,9 @@
 static Timer_Params tparm;
 static Error_Block tim_eb;
 static Timer_Handle tim = NULL;
+
+volatile bool trig_pending = false;
+uint32_t target_time = 0;
 
 static void delay_tick(UArg arg0);
 
@@ -35,11 +41,23 @@ void DelayHopTrigger_trig(uint32_t delay_us)
         RadioWrapper_trigAdv3();
     } else {
         Timer_setPeriodMicroSecs(tim, delay_us);
+        trig_pending = true;
+        target_time = (RF_getCurrentTime() >> 2) + delay_us;
         Timer_start(tim);
     }
 }
 
+void DelayHopTrigger_postpone(uint32_t delay_us)
+{
+    if (!trig_pending)
+        return;
+    Timer_stop(tim);
+    Timer_setPeriodMicroSecs(tim, target_time + delay_us - (RF_getCurrentTime() >> 2));
+    Timer_start(tim);
+}
+
 static void delay_tick(UArg arg0)
 {
+    trig_pending = false;
     RadioWrapper_trigAdv3();
 }
