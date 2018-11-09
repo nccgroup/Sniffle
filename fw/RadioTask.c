@@ -142,7 +142,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     indicatePacket);
         } else if (snifferState == ADVERT_SEEK) {
             firstPacket = true;
-            RadioWrapper_recvAdv3(1000, 22*4000, indicatePacket);
+            RadioWrapper_recvAdv3(750, 22*4000, indicatePacket);
 
             if (aiInd == ARR_SZ(advInterval))
             {
@@ -172,7 +172,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 // occasionally check that hopIntervalTicks is correct
                 // do this by sniffing for an ad on 39 after 37
                 firstPacket = true;
-                RadioWrapper_recvAdv3(1000, rconf.hopIntervalTicks * 3, indicatePacket);
+                RadioWrapper_recvAdv3(750, rconf.hopIntervalTicks * 3, indicatePacket);
 
                 // return to ADVERT_SEEK if we got lost
                 if (!firstPacket) empty_hops = 0;
@@ -265,18 +265,6 @@ static void computeMap1(uint64_t map)
 // change radio configuration based on a packet received
 void reactToPDU(const BLE_Frame *frame)
 {
-    /* clock synchronization
-     * first packet on each channel is anchor point
-     * this is only used in DATA and ADV_HOP states
-     */
-    if (firstPacket)
-    {
-        // compute anchor point offset from start of receive window
-        anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
-        aoInd = (aoInd + 1) & 0xF;
-        firstPacket = false;
-    }
-
     if (frame->channel >= 37)
     {
         uint8_t pduType;
@@ -300,23 +288,17 @@ void reactToPDU(const BLE_Frame *frame)
         if (frame->length - 2 < advLen)
             return;
 
-        /* for connectable advertisements, save advertisement headers to the cache
-         * Connectable types are:
-         * ADV_IND (0x0), ADV_DIRECT_IND (0x1), and ADV_EXT_IND (0x7)
+        /* for advertisements, jump along and track intervals if needed
+         * ADV_IND (0x0)
+         * ADV_DIRECT_IND (0x1)
+         * ADV_NONCONN_IND (0x2)
+         * ADV_SCAN_IND (0x6)
          *
-         * ADV_EXT_IND is special (BT5 specific) and its connectability depends on
-         * AdvMode. ADV_EXT_IND advertisements don't contain the AdvA field and
-         * instead require you to look at a secondary advertising channel.
-         * The actual AdvA will be in an AUX_ADV_IND PDU in the secondary channel.
-         *
-         * For now, I haven't implemented support for secondary advertising
-         * channels, so I'll just ignore ADV_EXT_IND.
+         * I'm not handling BT5 ADV_EXT_IND for now
          */
-        if (pduType == 0x0 || pduType == 0x1)
+        if (pduType == 0x0 || pduType == 0x1 || pduType == 0x2 || pduType == 0x6)
         {
-            adv_cache_store(frame->pData + 2, frame->pData[0]);
-
-            // advertisement interval trackin
+            // advertisement interval tracking
             if (snifferState == ADVERT_SEEK)
             {
                 if (frame->channel == 37)
@@ -339,12 +321,37 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * To capture all advertisements, set endTrim >= 160
                  */
-                uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
-                uint32_t timeRemaining = (rconf.hopIntervalTicks >> 2) - recvLatency;
                 const uint32_t endTrim = 30;
+                uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
+                uint32_t timeRemaining;
+
+                if (snifferState == ADVERT_SEEK)
+                    timeRemaining = 0;
+                else if (recvLatency < (rconf.hopIntervalTicks >> 2))
+                    timeRemaining = (rconf.hopIntervalTicks >> 2) - recvLatency;
+                else
+                    timeRemaining = 0;
+
                 DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
             }
 
+        }
+
+        /* for connectable advertisements, save advertisement headers to the cache
+         * Connectable types are:
+         * ADV_IND (0x0), ADV_DIRECT_IND (0x1), and ADV_EXT_IND (0x7)
+         *
+         * ADV_EXT_IND is special (BT5 specific) and its connectability depends on
+         * AdvMode. ADV_EXT_IND advertisements don't contain the AdvA field and
+         * instead require you to look at a secondary advertising channel.
+         * The actual AdvA will be in an AUX_ADV_IND PDU in the secondary channel.
+         *
+         * For now, I haven't implemented support for secondary advertising
+         * channels, so I'll just ignore ADV_EXT_IND.
+         */
+        if (pduType == 0x0 || pduType == 0x1)
+        {
+            adv_cache_store(frame->pData + 2, frame->pData[0]);
             return;
         }
 
@@ -401,6 +408,18 @@ void reactToPDU(const BLE_Frame *frame)
         //uint8_t MD;
         uint8_t datLen;
         uint8_t opcode;
+
+        /* clock synchronization
+         * first packet on each channel is anchor point
+         * this is only used in DATA state
+         */
+        if (firstPacket)
+        {
+            // compute anchor point offset from start of receive window
+            anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
+            aoInd = (aoInd + 1) & 0xF;
+            firstPacket = false;
+        }
 
         // data channel PDUs should at least have a 2 byte header
         // we only care about LL Control PDUs that all have an opcode byte too
