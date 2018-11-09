@@ -62,10 +62,6 @@ def main():
             return
         _cmd_mac(macBytes)
 
-    if not (args.mac is None):
-        advHopMsg = base64.b64encode(bytes([0x01, 0x14])) + b'\r\n'
-        ser.write(advHopMsg)
-
     while True:
         pkt = ser.readline()
         try:
@@ -89,6 +85,10 @@ def _cmd_mac(macBytes=None):
         macCmd = b'\x03\x13' + macBytes
     macMsg = base64.b64encode(macCmd) + b'\r\n'
     _ser.write(macMsg)
+
+    if not (macBytes is None):
+        advHopMsg = base64.b64encode(bytes([0x01, 0x14])) + b'\r\n'
+        _ser.write(advHopMsg)
 
 def print_message(data):
     if data[0] == 0x10:
