@@ -209,7 +209,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                         indicatePacket);
             }
 
-            connEventCount++;
+            // state might have changed to DATA, in which case we must not mess with
+            // connEventCount
+            if (snifferState == ADVERT_HOP)
+                connEventCount++;
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
         } else { // DATA
