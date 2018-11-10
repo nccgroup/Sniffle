@@ -90,6 +90,8 @@ static uint32_t advInterval[9];
 static uint32_t aiInd = 0;
 static bool postponed = false;
 
+static bool advHopEnabled = false;
+
 // target offset before anchor point to start listing on next data channel
 // 1 ms @ 4 Mhz
 #define AO_TARG 4000
@@ -233,6 +235,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             else empty_hops++;
             if (empty_hops > rconf.slaveLatency + 3) {
                 snifferState = sniffDoneState;
+                if (snifferState != PAUSED && advHopEnabled)
+                    advHopSeekMode();
             }
 
 
@@ -496,6 +500,8 @@ void reactToPDU(const BLE_Frame *frame)
             break;
         case 0x02: // LL_TERMINATE_IND
             snifferState = sniffDoneState;
+            if (snifferState != PAUSED && advHopEnabled)
+                advHopSeekMode();
             break;
         case 0x18: // LL_PHY_UPDATE_IND
             next_rconf.chanMap = rconf.chanMap;
@@ -532,6 +538,7 @@ void setAdvChan(uint8_t chan)
         return;
     advChan = chan;
     snifferState = ADVERT;
+    advHopEnabled = false;
     RadioWrapper_stop();
 }
 
@@ -545,6 +552,7 @@ void advHopSeekMode()
     aiInd = 0;
     connEventCount = 0;
     snifferState = ADVERT_SEEK;
+    advHopEnabled = true;
     RadioWrapper_stop();
 }
 
