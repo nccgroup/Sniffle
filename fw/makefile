@@ -1,4 +1,4 @@
-SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc26x2_sdk_2_20_00_36
+SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc26x2_sdk_2_30_00_34
 
 include $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/imports.mak
 
@@ -17,6 +17,7 @@ XDCTARGET = gnu.targets.arm.M4F
 PLATFORM = ti.platforms.simplelink:CC2642R1F
 
 CFLAGS = -I. \
+    -D__STRICT_ANSI__ \
     -DDeviceFamily_CC26X2 \
     "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source" \
     "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
@@ -43,7 +44,6 @@ LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     -l:third_party/spiffs/lib/gcc/m4f/spiffs_cc26xx.a \
     -l:ti/drivers/rf/lib/rf_multiMode_cc26x2_v1.am4fg \
     -l:ti/drivers/lib/drivers_cc26x2_v1.am4fg \
-    -l:ti/drivers/pdm/lib/pdm_cc26x2_v1.am4fg \
     "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
     -l:ti/dpl/lib/dpl_cc26x2_v1.am4fg \
     "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
