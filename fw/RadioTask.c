@@ -84,7 +84,7 @@ static volatile bool firstPacket;
 static uint32_t anchorOffset[16];
 static uint32_t aoInd = 0;
 
-static uint32_t endTrim = 10;
+static uint32_t endTrim = 0;
 static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[9];
@@ -208,8 +208,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 }
 
             } else {
-                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 100, rconf.hopIntervalTicks,
-                        indicatePacket);
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
+                        rconf.hopIntervalTicks, indicatePacket);
             }
 
             // state might have changed to DATA, in which case we must not mess with
