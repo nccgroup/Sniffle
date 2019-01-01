@@ -23,6 +23,8 @@ def main():
     aparse.add_argument("-r", "--rssi", default=-80, type=int,
             help="Filter packets by minimum RSSI")
     aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
+    aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
+            help="Sniff only advertisements, don't follow connections")
     args = aparse.parse_args()
 
     ser = serial.Serial(args.serport, 921600)
@@ -43,8 +45,11 @@ def main():
     pauseMsg = base64.b64encode(pauseCmd) + b'\r\n'
     ser.write(pauseMsg)
 
-    # set up endTrim in case we use advHopMode
-    etCmd = bytes([0x02, 0x15, 0x0A, 0x00, 0x00, 0x00])
+    # set up endTrim
+    if args.advonly:
+        etCmd = bytes([0x02, 0x15, 0xA0, 0x00, 0x00, 0x00])
+    else:
+        etCmd = bytes([0x02, 0x15, 0x10, 0x00, 0x00, 0x00])
     etMsg = base64.b64encode(etCmd) + b'\r\n'
     ser.write(etMsg)
 
