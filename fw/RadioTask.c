@@ -97,6 +97,9 @@ static bool advHopEnabled = false;
 // 1 ms @ 4 Mhz
 #define AO_TARG 4000
 
+// if endTrim is >= this, user probably doesn't want to follow connections
+#define ENDTRIM_MAX_CONN_FOLLOW 0x80
+
 /***** Prototypes *****/
 static void radioTaskFunction(UArg arg0, UArg arg1);
 static void computeMap1(uint64_t map);
@@ -393,7 +396,7 @@ void reactToPDU(const BLE_Frame *frame)
         }
 
         // all we care about is CONNECT_IND (0x5) for now
-        if (pduType == CONNECT_IND)
+        if ((pduType == CONNECT_IND) && (endTrim < ENDTRIM_MAX_CONN_FOLLOW))
         {
             uint16_t WinOffset, Interval;
 
