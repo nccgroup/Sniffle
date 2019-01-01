@@ -53,9 +53,11 @@ rfc_bleGenericRxOutput_t recvStats;
 
 static RadioWrapper_Callback userCallback = NULL;
 
-// In microseconds
+// In radio ticks (4 MHz)
 static uint32_t trigTime = 0;
 static uint32_t delay39 = 0;
+
+static bool trigTimeSet = false;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -240,8 +242,8 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para37.endTrigger.triggerType = TRIG_NEVER;
     para37.endTrigger.bEnaCmd = 1;
 
-    trigTime = 0xF0000000;
-    delay39 = delay1 >> 2;
+    trigTimeSet = false;
+    delay39 = delay1;
 
     sniff38.pNextOp = (RF_Op *)&sniff39;
     sniff38.pParams = &para38;
@@ -271,8 +273,10 @@ void RadioWrapper_trigAdv3()
     RF_runDirectCmd(bleRfHandle, 0x04040001);
 
     // helps in keeping track of which channel was sniffed when
-    if (trigTime == 0xF0000000)
-        trigTime = RF_getCurrentTime() >> 2;
+    if (!trigTimeSet) {
+        trigTime = RF_getCurrentTime();
+        trigTimeSet = true;
+    }
 }
 
 void RadioWrapper_stop()
@@ -316,12 +320,11 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         frame.rssi = recvStats.lastRssi;
 		frame.length = packetLength;
 
-        /* TODO: this logic probably falls apart after integer rollover (16 minutes @ 4 MHz) */
         if (last_channel < 40)
             frame.channel = last_channel;
-        else if (frame.timestamp < trigTime)
+        else if (!trigTimeSet)
             frame.channel = 37;
-        else if (frame.timestamp < trigTime + delay39)
+        else if (frame.timestamp*4 - trigTime < delay39)
             frame.channel = 38;
         else
             frame.channel = 39;

@@ -340,7 +340,7 @@ void reactToPDU(const BLE_Frame *frame)
                 else if ((frame->channel == 39))
                 {
                     // microseconds from 37 to 39 advertisement
-                    advInterval[aiInd++] = frame->timestamp - timestamp37;
+                    advInterval[aiInd++] = (frame->timestamp*4 - timestamp37*4) >> 2;
                     firstPacket = false;
                 }
             }
@@ -355,7 +355,7 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * To capture most advertisements, set endTrim >= 160
                  */
-                uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
+                uint32_t recvLatency = (RF_getCurrentTime() - frame->timestamp*4) >> 2;
                 uint32_t timeRemaining;
 
                 if (snifferState == ADVERT_SEEK)
