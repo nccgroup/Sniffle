@@ -89,6 +89,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != 2) continue;
             advHopSeekMode();
             break;
+        case COMMAND_ENDTRIM:
+            if (ret != 6) continue;
+            setEndTrim(*(uint32_t *)(msgBuf + 2));
+            break;
         default:
             break;
         }

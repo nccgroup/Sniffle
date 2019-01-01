@@ -84,6 +84,7 @@ static volatile bool firstPacket;
 static uint32_t anchorOffset[16];
 static uint32_t aoInd = 0;
 
+static uint32_t endTrim = 10;
 static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[9];
@@ -345,13 +346,12 @@ void reactToPDU(const BLE_Frame *frame)
             if ( (frame->channel == 37) &&
                 ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
             {
-                /* We will usually miss 38/39 advertisements this way, but we will
-                 * capture every message to the end of the window (except for
-                 * endTrim microseconds).
+                /* We will usually miss 38/39 advertisements with endTrim = 10,
+                 * but we will capture every message to the end of the window
+                 * (except for endTrim microseconds).
                  *
-                 * To capture all advertisements, set endTrim >= 160
+                 * To capture most advertisements, set endTrim >= 160
                  */
-                const uint32_t endTrim = 10;
                 uint32_t recvLatency = (RF_getCurrentTime() >> 2) - frame->timestamp;
                 uint32_t timeRemaining;
 
@@ -540,6 +540,15 @@ void setAdvChan(uint8_t chan)
     snifferState = ADVERT;
     advHopEnabled = false;
     RadioWrapper_stop();
+}
+
+void setEndTrim(uint32_t trim_us)
+{
+    // Radio tunimg latency is <200 us, so endTrim >200 is pointless
+    if (trim_us > 200)
+        endTrim = 200;
+    else
+        endTrim = trim_us;
 }
 
 // The idea behind this mode is that most devices send a single advertisement

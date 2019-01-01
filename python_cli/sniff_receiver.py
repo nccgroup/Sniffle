@@ -43,6 +43,11 @@ def main():
     pauseMsg = base64.b64encode(pauseCmd) + b'\r\n'
     ser.write(pauseMsg)
 
+    # set up endTrim in case we use advHopMode
+    etCmd = bytes([0x02, 0x15, 0x0A, 0x00, 0x00, 0x00])
+    etMsg = base64.b64encode(etCmd) + b'\r\n'
+    ser.write(etMsg)
+
     # configure RSSI filter
     global _rssi_min
     _rssi_min = args.rssi
