@@ -4,6 +4,8 @@ import serial
 import sys, binascii, base64, struct
 import argparse
 
+from pcap import PcapBlePHDRWriter
+
 # if true, filter on the first advertiser MAC seen
 # triggered through "-m top" option
 # should be paired with an RSSI filter
@@ -12,6 +14,9 @@ _rssi_min = 0
 
 # global variable to access serial port
 _ser = None
+
+# global variable for pcap writer
+_pcwriter = None
 
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
@@ -25,6 +30,7 @@ def main():
     aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
     aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
             help="Sniff only advertisements, don't follow connections")
+    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
     ser = serial.Serial(args.serport, 921600)
@@ -74,6 +80,10 @@ def main():
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
         _cmd_mac(macBytes)
+
+    global _pcwriter
+    if not (args.output is None):
+        _pcwriter = PcapBlePHDRWriter(args.output)
 
     while True:
         pkt = ser.readline()
@@ -125,6 +135,10 @@ def print_packet(data):
     # ignore low RSSI junk at start in RSSI filter mode for top MAC mode
     if _delay_top_mac and rssi < _rssi_min:
         return
+
+    # Right now, my PCAP export is crude and doesn't report access address
+    if _pcwriter:
+        _pcwriter.write_packet(ts, 0x00000000, chan, rssi, body)
 
     print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
         ts / 1000000., l, rssi, chan))
