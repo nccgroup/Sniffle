@@ -151,13 +151,17 @@ void indicatePacket(BLE_Frame *frame)
 {
     int queue_check;
 
-    // RSSI filtering
-    if (frame->rssi < minRssi)
-        return;
+    // It only makes sense to filter advertisements
+    if (frame->channel >= 37)
+    {
+        // RSSI filtering
+        if (frame->rssi < minRssi)
+            return;
 
-    // MAC filtering
-    if (filterMacs && frame->channel >= 37 && !macFilterCheck(frame))
-        return;
+        // MAC filtering
+        if (filterMacs && !macFilterCheck(frame))
+            return;
+    }
 
     // always process PDU regardless of queue state
     reactToPDU(frame);
