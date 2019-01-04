@@ -212,7 +212,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             } else {
                 RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
-                        rconf.hopIntervalTicks, indicatePacket);
+                        rconf.hopIntervalTicks * 2, indicatePacket);
             }
 
             // state might have changed to DATA, in which case we must not mess with
