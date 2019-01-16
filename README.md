@@ -1,6 +1,6 @@
 # Sniffle
 
-Sniffle is a sniffer for Bluetooth 5 and 4.x (LE) using TI CC26x2 hardware.
+**Sniffle is a sniffer for Bluetooth 5 and 4.x (LE) using TI CC26x2 hardware.**
 
 Sniffle has a number of useful features, including:
 
@@ -143,6 +143,10 @@ the RSSI filter. The `-m top` mode should thus always be used with an RSSI
 filter to avoid locking onto a spurious MAC address. Once the sniffer locks
 onto a MAC address, the RSSI filter will be disabled automatically by the
 sniff receiver script.
+
+If for some reason the sniffer firmware locks up and refuses to capture any
+traffic even with filters disabled, you should reset the sniffer MCU. On
+Launchpad boards, the reset button is located beside the micro USB port.
 
 ## Usage Examples
 
