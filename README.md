@@ -102,3 +102,53 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```
+
+For the `-r` (RSSI filter) option, a value of -40 tends to work well if the
+sniffer is very close to or nearly touching the transmitting device. The RSSI
+filter is very useful for ignoring irrelevant advertisements in a busy RF
+environment. The RSSI filter is only active when capturing advertisements,
+as you always want to capture data channel traffic for a connection being
+followed. You probably don't want to use an RSSI filter when MAC filtering
+is active, as you may lose advertisements from the MAC address of interest
+when the RSSI is too low.
+
+To hop along with advertisements and have reliable connection sniffing, you
+need to set up a MAC filter with the `-m` option. You should specify the
+MAC address of the peripheral device, not the central device. To figure out
+which MAC address to sniff, you can run the sniffer with RSSI filtering while
+placing the sniffer near the target. This will show you advertisements from
+the target device including its MAC address. It should be noted that many BLE
+devices advertise with a randomized MAC address rather than their "real" fixed
+MAC written on a label.
+
+For convenience, there is a special mode for the MAC filter by invoking the
+script with `-m top` instead of `-m` with a MAC address. In this mode, the
+sniffer will lock onto the first advertiser MAC address it sees that passes
+the RSSI filter. The `-m top` mode should thus always be used with an RSSI
+filter to avoid locking onto a spurious MAC address. Once the sniffer locks
+onto a MAC address, the RSSI filter will be disabled automatically by the
+sniff receiver script.
+
+## Usage Examples
+
+Sniff all advertisements on channel 38, ignore RSSI < -50, stay on advertising
+channel even when CONNECT\_REQs are seen.
+
+```
+./sniff_receiver.py -c 38 -r -50 -a
+```
+
+Sniff advertisements from MAC 12:34:56:78:9A:BC, stay on advertising channel
+even when CONNECT\_REQs are seen, save advertisements to `data1.pcap`.
+
+```
+./sniff_receiver.py -m 12:34:56:78:9A:BC -a -o data1.pcap
+```
+
+Sniff advertisements and connections for the first MAC address seen with
+RSSI >= -40. The RSSI filter will be disabled automatically once a MAC address
+has been locked onto. Save captured data to `data2.pcap`.
+
+```
+./sniff_receiver.py -m top -r -40 -o data2.pcap
+```
