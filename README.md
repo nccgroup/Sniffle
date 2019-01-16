@@ -2,6 +2,21 @@
 
 Sniffle is a sniffer for Bluetooth 5 and 4.x (LE) using TI CC26x2 hardware.
 
+Sniffle has a number of useful features, including:
+
+* Support for BT5/4.2 extended length advertisement and data packets
+* Support for BT5 Channel Selection Algorithms #1 and #2
+* Support for all BT5 PHY modes (regular 1M, 2M, and coded modes)
+* Support for sniffing only advertisements and ignoring connections
+* Support for channel map, connection parameter, and PHY change operations
+* Support for advertisement filtering by MAC address and RSSI
+* Support for capturing advertisements from a target MAC on all three primary
+  advertising channels using a single sniffer. **This makes connection detection
+  nearly 3x more reliable than most other sniffers that only sniff one advertising
+  channel.**
+* Easy to extend host-side software written in Python
+* PCAP export compatible with the Ubertooth
+
 ## Prerequisites
 
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
@@ -58,7 +73,7 @@ index d2edfee..4dad39c 100644
 
 ### Obtaining DSLite
 
-DSLite is TI's command line proramming and debug server tool for XDS110
+DSLite is TI's command line programming and debug server tool for XDS110
 debuggers. The CC26xx and CC13xx Launchpad boards both include XDS110 debuggers.
 Unfortunately, TI does not provide a standalone command line DSLite download.
 The easiest way to obtain DSLite is to install [UniFlash](http://processors.wiki.ti.com/index.php/Category:CCS_UniFlash)
@@ -76,7 +91,7 @@ Sniffle should be straight forward. Just navigate to the `fw` directory and
 run `make`. If you didn't install the SDK to the default directory, you may
 need to edit `SIMPLELINK_CC26X2_SDK_INSTALL_DIR` in the makefile.
 
-To intall Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
+To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 `make load` within the `fw` directory. You can also flash the compiled
 `sniffle.out` binary using the UniFlash GUI.
 
