@@ -4,7 +4,7 @@ import serial
 import sys, binascii, base64, struct
 import argparse
 
-from pcap import PcapBlePHDRWriter
+from pcap import PcapBleWriter
 
 # if true, filter on the first advertiser MAC seen
 # triggered through "-m top" option
@@ -17,6 +17,9 @@ _ser = None
 
 # global variable for pcap writer
 _pcwriter = None
+
+# current access address
+cur_aa = 0x8E89BED6
 
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
@@ -83,7 +86,7 @@ def main():
 
     global _pcwriter
     if not (args.output is None):
-        _pcwriter = PcapBlePHDRWriter(args.output)
+        _pcwriter = PcapBleWriter(args.output)
 
     while True:
         pkt = ser.readline()
@@ -136,9 +139,12 @@ def print_packet(data):
     if _delay_top_mac and rssi < _rssi_min:
         return
 
-    # Right now, my PCAP export is crude and doesn't report access address
+    global cur_aa
+    if chan >= 37 and cur_aa != 0x8E89BED6:
+        cur_aa = 0x8E89BED6
+
     if _pcwriter:
-        _pcwriter.write_packet(ts, 0x00000000, chan, rssi, body)
+        _pcwriter.write_packet(ts, cur_aa, chan, rssi, body)
 
     print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
         ts / 1000000., l, rssi, chan))
@@ -274,8 +280,13 @@ def decode_scan_req(body):
 def decode_connect_ind(body):
     inita = body[2:8]
     adva = body[8:14]
+    aa = struct.unpack('<L', body[14:18])[0]
     # TODO: decode the rest
-    print("InitA: %s AdvA: %s" % (_str_mac(inita), _str_mac(adva)))
+    print("InitA: %s AdvA: %s AA: 0x%08X" % (_str_mac(inita), _str_mac(adva), aa))
+
+    # PCAP write is already done here
+    global cur_aa
+    cur_aa = aa
 
     global _delay_top_mac
     if _delay_top_mac:

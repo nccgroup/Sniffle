@@ -36,10 +36,9 @@ from struct import pack
 
 class PcapBleWriter(object):
     """
-    PCAP BLE Link-layer writer.
+    PCAP BLE Link-layer with PHDR.
     """
-
-    DLT =  251  # DLT_BLUETOOTH_LE_LL
+    DLT = 256 # DLT_BLUETOOTH_LE_LL_WITH_PHDR
 
     def __init__(self, output=None):
         # open stream
@@ -82,11 +81,32 @@ class PcapBleWriter(object):
 
     def payload(self, aa, packet, chan, rssi):
         """
-        Generates Bluetooth LE LL packet format.
-        You must override this method for every inherited
-        writer classes.
+        Generate payload with specific header.
         """
-        return pack('<I', aa) + packet[10:]+ pack('<BBB',0,0,0) # fake CRC for now
+        payload_header = pack(
+            '<BbbBIH',
+            chan,
+            rssi,
+            -128,
+            0,
+            aa,
+            0xC13
+        )
+        payload_data = pack('<I', aa) + packet + pack('<BBB', 0, 0, 0)
+        return payload_header + payload_data
+
+    @staticmethod
+    def _ble_to_rf_chan(chan):
+        if chan == 37:
+            return 0
+        elif chan == 38:
+            return 12
+        elif chan == 39:
+            return 39
+        elif chan <= 10:
+            return chan + 1
+        else:
+            return chan + 2
 
     def write_packet(self, ts_usec, aa, chan, rssi, packet):
         """
@@ -94,9 +114,9 @@ class PcapBleWriter(object):
 
         Basically, generates payload and encapsulates in a header.
         """
-        ts_s = ts_usec // 10000000
+        ts_s = ts_usec // 1000000
         ts_u = int(ts_usec - ts_s*1000000)
-        payload = self.payload(aa, packet, chan, rssi)
+        payload = self.payload(aa, packet, self._ble_to_rf_chan(chan), rssi)
         self.write_packet_header(ts_s, ts_u, len(payload))
         self.output.write(payload)
 
@@ -106,63 +126,3 @@ class PcapBleWriter(object):
         """
         if not isinstance(self.output, BytesIO):
             self.output.close()
-
-class PcapBlePHDRWriter(PcapBleWriter):
-    """
-    PCAP BLE Link-layer with PHDR.
-    """
-    DLT = 256 # DLT_BLUETOOTH_LE_LL_WITH_PHDR
-
-    def __init__(self, output=None):
-        super().__init__(output=output)
-
-    def payload(self, aa, packet, chan, rssi):
-        """
-        Generate payload with specific header.
-        """
-        payload_header = pack(
-            '<BbbBIH',
-            chan,
-            rssi,
-            -100,
-            0,
-            aa,
-            0x813
-        )
-        payload_data = pack('<I', aa) + packet[10:] + pack('<BBB', 0, 0, 0)
-        return payload_header + payload_data
-
-
-class PcapNordicTapWriter(PcapBleWriter):
-    """
-    PCAP BLE Link-layer writer.
-    """
-
-    DLT = 272 # DLT_NORDIC_BLE
-    BTLEJACK_ID = 0xDC
-
-    def __init__(self, output=None):
-        super().__init__(output=output)
-        self.pkt_counter = 0
-
-    def payload(self, aa, packet, chan, rssi):
-        """
-        Create payload with Nordic Tap header.
-        """
-        payload_data = packet[:10] + pack('<I', aa) + packet[10:]
-        payload_data += pack('<BBB', 0, 0, 0)
-        pkt_size = len(payload_data)
-        if pkt_size > 256:
-            pkt_size = 256
-
-        payload_header = pack(
-            '<BBBBHB',
-            self.BTLEJACK_ID,
-            6,
-            pkt_size,
-            1,
-            self.pkt_counter,
-            0x06 # EVENT_PACKET
-        )
-
-        return payload_header + payload_data[:pkt_size]
