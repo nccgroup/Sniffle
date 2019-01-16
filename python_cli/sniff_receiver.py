@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import serial
-import sys, binascii, base64, struct
+import sys, binascii, base64, struct, time
 import argparse
 
 from pcap import PcapBleWriter
@@ -20,6 +20,15 @@ _pcwriter = None
 
 # current access address
 cur_aa = 0x8E89BED6
+
+# packet receive time tracking
+time_offset = 1
+first_epoch_time = 0
+ts_wraps = 0
+last_ts = -1
+
+# radio time wraparound period in seconds
+TS_WRAP_PERIOD = 0x100000000 / 4E6
 
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
@@ -143,11 +152,24 @@ def print_packet(data):
     if chan >= 37 and cur_aa != 0x8E89BED6:
         cur_aa = 0x8E89BED6
 
+    global time_offset, first_epoch_time
+    if time_offset > 0:
+        first_epoch_time = time.time()
+        time_offset = ts / -1000000.
+
+    global last_ts, ts_wraps
+    if ts < last_ts:
+        ts_wraps += 1
+    last_ts = ts
+
+    real_ts = time_offset + (ts / 1000000.) + (ts_wraps * TS_WRAP_PERIOD)
+    real_ts_epoch = first_epoch_time + real_ts
+
     if _pcwriter:
-        _pcwriter.write_packet(ts, cur_aa, chan, rssi, body)
+        _pcwriter.write_packet(int(real_ts_epoch * 1000000), cur_aa, chan, rssi, body)
 
     print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
-        ts / 1000000., l, rssi, chan))
+        real_ts, l, rssi, chan))
     if chan >= 37:
         decode_advert(body)
     else:
