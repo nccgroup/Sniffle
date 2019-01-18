@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Written by Sultan Qasim Khan
+# Copyright (c) 2018-2019, NCC Group plc
+# Released as open source under GPLv3
+
 import serial
 import sys, binascii, base64, struct, time
 import argparse

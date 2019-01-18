@@ -1,9 +1,6 @@
-"""
-Quick'n'dirty Pcap module
-
-This module only provides a specific class able to write
-PCAP files with Bluetooth Low Energy Link Layer.
-"""
+# Copyright (c) 2018 virtualabs
+# Copyright (c) 2018-2019, NCC Group plc
+# Released as open source under GPLv3
 
 """
 SQK: taken from virtuallabs btlejack code (rev d7e6555)

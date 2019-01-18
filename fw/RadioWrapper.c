@@ -1,7 +1,7 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2018, NCC Group plc
- * All rights reserved.
+ * Copyright (c) 2016-2019, NCC Group plc
+ * Released as open source under GPLv3
  */
 
 /*********************************************************************

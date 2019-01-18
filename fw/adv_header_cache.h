@@ -1,7 +1,7 @@
 /*
  * Written by Sultan Qasim Khan
  * Copyright (c) 2018, NCC Group plc
- * All rights reserved.
+ * Released as open source under GPLv3
  */
 
 #ifndef ADV_HEADER_CACHE_H
