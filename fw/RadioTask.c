@@ -38,12 +38,14 @@
 #define RADIO_EVENT_VALID_PACKET_RECEIVED   (uint32_t)(1 << 0)
 #define RADIO_EVENT_INVALID_PACKET_RECEIVED (uint32_t)(1 << 1)
 
+#define BLE_ADV_AA 0x8E89BED6
+
 #define ARR_SZ(x) (sizeof(x) / sizeof(x[0]))
 
 // more states will be added later, eg. auxiliary advertising channel
 typedef enum
 {
-    ADVERT,
+    STATIC,
     ADVERT_SEEK,
     ADVERT_HOP,
     DATA,
@@ -56,8 +58,8 @@ Task_Struct radioTask; /* not static so you can see in ROV */
 static uint8_t radioTaskStack[RADIO_TASK_STACK_SIZE];
 static uint8_t mapping_table[37];
 
-static volatile SnifferState snifferState = ADVERT;
-static SnifferState sniffDoneState = ADVERT;
+static volatile SnifferState snifferState = STATIC;
+static SnifferState sniffDoneState = STATIC;
 
 struct RadioConfig {
     uint64_t chanMap;
@@ -69,7 +71,7 @@ struct RadioConfig {
 
 static uint8_t advChan = 37;
 static struct RadioConfig rconf;
-static uint32_t accessAddress;
+static uint32_t accessAddress = BLE_ADV_AA;
 static uint8_t curUnmapped;
 static uint8_t hopIncrement;
 static uint32_t crcInit;
@@ -103,6 +105,7 @@ static bool advHopEnabled = false;
 /***** Prototypes *****/
 static void radioTaskFunction(UArg arg0, UArg arg1);
 static void computeMap1(uint64_t map);
+static void handleConnFinished(void);
 
 /***** Function definitions *****/
 void RadioTask_init(void)
@@ -148,10 +151,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             lastState = snifferState;
         }
 
-        if (snifferState == ADVERT)
+        if (snifferState == STATIC)
         {
             /* receive forever (until stopped) */
-            RadioWrapper_recvFrames(PHY_1M, advChan, 0x8E89BED6, 0x555555, 0xFFFFFFFF,
+            RadioWrapper_recvFrames(PHY_1M, advChan, accessAddress, 0x555555, 0xFFFFFFFF,
                     indicatePacket);
         } else if (snifferState == ADVERT_SEEK) {
             firstPacket = true;
@@ -238,11 +241,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             if (!firstPacket) empty_hops = 0;
             else empty_hops++;
             if (empty_hops > rconf.slaveLatency + 3) {
-                snifferState = sniffDoneState;
-                if (snifferState != PAUSED && advHopEnabled)
-                    advHopSeekMode();
+                handleConnFinished();
             }
-
 
             curUnmapped = (curUnmapped + hopIncrement) % 37;
             connEventCount++;
@@ -502,9 +502,7 @@ void reactToPDU(const BLE_Frame *frame)
             nextInstant = *(uint16_t *)(frame->pData + 8);
             break;
         case 0x02: // LL_TERMINATE_IND
-            snifferState = sniffDoneState;
-            if (snifferState != PAUSED && advHopEnabled)
-                advHopSeekMode();
+            handleConnFinished();
             break;
         case 0x18: // LL_PHY_UPDATE_IND
             next_rconf.chanMap = rconf.chanMap;
@@ -535,12 +533,21 @@ void reactToPDU(const BLE_Frame *frame)
     }
 }
 
-void setAdvChan(uint8_t chan)
+static void handleConnFinished()
 {
-    if (chan > 39 || chan < 37)
+    snifferState = sniffDoneState;
+    accessAddress = BLE_ADV_AA;
+    if (snifferState != PAUSED && advHopEnabled)
+        advHopSeekMode();
+}
+
+void setChanAA(uint8_t chan, uint32_t aa)
+{
+    if (chan > 39)
         return;
     advChan = chan;
-    snifferState = ADVERT;
+    snifferState = STATIC;
+    accessAddress = aa;
     advHopEnabled = false;
     RadioWrapper_stop();
 }
@@ -573,5 +580,5 @@ void pauseAfterSniffDone(bool do_pause)
     if (do_pause)
         sniffDoneState = PAUSED;
     else
-        sniffDoneState = ADVERT;
+        sniffDoneState = STATIC;
 }

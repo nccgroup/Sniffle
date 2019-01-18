@@ -67,9 +67,9 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
 
         switch (msgBuf[1])
         {
-        case COMMAND_ADVCHAN:
-            if (ret != 3) continue;
-            setAdvChan(msgBuf[2]);
+        case COMMAND_SETCHANAA:
+            if (ret != 7) continue;
+            setChanAA(msgBuf[2], *(uint32_t *)(msgBuf + 3));
             break;
         case COMMAND_PAUSEDONE:
             if (ret != 3) continue;

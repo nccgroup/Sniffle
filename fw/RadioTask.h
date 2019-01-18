@@ -18,8 +18,8 @@ void RadioTask_init(void);
 /* Update radio state/configuration based on received PDU */
 void reactToPDU(const BLE_Frame *frame);
 
-/* Return to advertising mode and set sniff channel */
-void setAdvChan(uint8_t chan);
+/* Stay on specified channel and sync on specified access address */
+void setChanAA(uint8_t chan, uint32_t aa);
 
 /* Set whether or not sniffer should pause after disconnect */
 void pauseAfterSniffDone(bool do_pause);

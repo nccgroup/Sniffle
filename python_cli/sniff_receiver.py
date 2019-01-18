@@ -58,7 +58,7 @@ def main():
     ser.write(b'@@@@@@@@\r\n')
 
     # set the advertising channel (and return to ad-sniffing mode)
-    advCmd = bytes([0x01, 0x10, args.advchan])
+    advCmd = bytes([0x03, 0x10, args.advchan, 0xD6, 0xBE, 0x89, 0x8E])
     advMsg = base64.b64encode(advCmd) + b'\r\n'
     ser.write(advMsg)
 
