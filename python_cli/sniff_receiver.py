@@ -4,23 +4,21 @@
 # Copyright (c) 2018-2019, NCC Group plc
 # Released as open source under GPLv3
 
-import serial
-import sys, binascii, base64, struct, time
-import argparse
-
+import argparse, sys, struct, time
 from pcap import PcapBleWriter
+from sniffle_hw import SniffleHW
+
+# global variable to access hardware
+hw = None
+
+# global variable for pcap writer
+pcwriter = None
 
 # if true, filter on the first advertiser MAC seen
 # triggered through "-m top" option
 # should be paired with an RSSI filter
 _delay_top_mac = False
 _rssi_min = 0
-
-# global variable to access serial port
-_ser = None
-
-# global variable for pcap writer
-_pcwriter = None
 
 # current access address
 cur_aa = 0x8E89BED6
@@ -39,7 +37,7 @@ def main():
     aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
     aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
-    aparse.add_argument("-p", "--pause", action="store_const", default=0, const=1,
+    aparse.add_argument("-p", "--pause", action="store_const", default=False, const=True,
             help="Pause sniffer after disconnect")
     aparse.add_argument("-r", "--rssi", default=-80, type=int,
             help="Filter packets by minimum RSSI")
@@ -49,37 +47,32 @@ def main():
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
-    ser = serial.Serial(args.serport, 921600)
-
-    global _ser
-    _ser = ser
-
-    # command sync
-    ser.write(b'@@@@@@@@\r\n')
+    global hw
+    hw = SniffleHW(args.serport)
 
     # set the advertising channel (and return to ad-sniffing mode)
-    _send_cmd([0x10, args.advchan, 0xD6, 0xBE, 0x89, 0x8E, 0x00])
+    hw.cmd_chan_aa_phy(args.advchan)
 
     # set whether or not to pause after sniffing
-    _send_cmd([0x11, args.pause])
+    hw.cmd_pause_done(args.pause)
 
     # set up endTrim
     if args.advonly:
-        _send_cmd([0x15, 0xB0, 0x00, 0x00, 0x00])
+        hw.cmd_endtrim(0xB0)
     else:
-        _send_cmd([0x15, 0x10, 0x00, 0x00, 0x00])
+        hw.cmd_endtrim(0x10)
 
     # configure RSSI filter
     global _rssi_min
     _rssi_min = args.rssi
-    _cmd_rssi(args.rssi)
+    hw.cmd_rssi(args.rssi)
 
     # configure MAC filter
     global _delay_top_mac
     if args.mac is None:
-        _cmd_mac()
+        hw.cmd_mac()
     elif args.mac == "top":
-        _cmd_mac()
+        hw.cmd_mac()
         _delay_top_mac = True
     else:
         try:
@@ -89,47 +82,21 @@ def main():
         except:
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
-        _cmd_mac(macBytes)
+        hw.cmd_mac(macBytes)
 
-    global _pcwriter
+    global pcwriter
     if not (args.output is None):
-        _pcwriter = PcapBleWriter(args.output)
+        pcwriter = PcapBleWriter(args.output)
 
     while True:
-        pkt = ser.readline()
-        try:
-            data = base64.b64decode(pkt.rstrip())
-        except binascii.Error as e:
-            print("Ignoring message:", e, file=sys.stderr)
-            continue
-        print_message(data)
+        msg_type, msg_body = hw.recv_msg()
+        print_message(msg_type, msg_body)
 
-def _send_cmd(cmd_byte_list):
-    b0 = (len(cmd_byte_list) + 3) // 3
-    cmd = bytes([b0, *cmd_byte_list])
-    msg = base64.b64encode(cmd) + b'\r\n'
-    _ser.write(msg)
-
-def _cmd_rssi(rssi=-80):
-    _send_cmd([0x12, rssi & 0xFF])
-
-def _cmd_mac(macBytes=None):
-    if macBytes is None:
-        _send_cmd([0x13])
-    else:
-        if len(macBytes) != 6:
-            raise ValueError("MAC must be 6 bytes!")
-        _send_cmd([0x13, *macBytes])
-
-    # Hop with advertisements from locked MAC
-    if not (macBytes is None):
-        _send_cmd([0x14])
-
-def print_message(data):
-    if data[0] == 0x10:
-        print_packet(data[1:])
-    elif data[0] == 0x11: # debug print
-        print("DEBUG:", str(data[1:], encoding='utf-8'))
+def print_message(mtype, body):
+    if mtype == 0x10:
+        print_packet(body)
+    elif mtype == 0x11: # debug print
+        print("DEBUG:", str(body, encoding='utf-8'))
         return
     else:
         print("Unknown message type!", file=sys.stderr)
@@ -165,8 +132,8 @@ def print_packet(data):
     real_ts = time_offset + (ts / 1000000.) + (ts_wraps * TS_WRAP_PERIOD)
     real_ts_epoch = first_epoch_time + real_ts
 
-    if _pcwriter:
-        _pcwriter.write_packet(int(real_ts_epoch * 1000000), cur_aa, chan, rssi, body)
+    if pcwriter:
+        pcwriter.write_packet(int(real_ts_epoch * 1000000), cur_aa, chan, rssi, body)
 
     print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
         real_ts, l, rssi, chan))
@@ -267,11 +234,13 @@ def decode_ll_control_opcode(opcode):
 def _str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
 
+# If we are in _delay_top_mac mode and received a high RSSI advertisement,
+# lock onto it
 def _dtm(adva):
     global _delay_top_mac
     if _delay_top_mac:
-        _cmd_mac(adva)
-        _cmd_rssi()
+        hw.cmd_mac(adva)
+        hw.cmd_rssi()
         _delay_top_mac = False
 
 def decode_adva(body):
