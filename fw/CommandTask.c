@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018, NCC Group plc
+ * Copyright (c) 2018-2019, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -67,9 +67,11 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
 
         switch (msgBuf[1])
         {
-        case COMMAND_SETCHANAA:
-            if (ret != 7) continue;
-            setChanAA(msgBuf[2], *(uint32_t *)(msgBuf + 3));
+        case COMMAND_SETCHANAAPHY:
+            if (ret != 8) continue;
+            if (msgBuf[2] > 39) continue;
+            if (msgBuf[7] > 2) continue;
+            setChanAAPHY(msgBuf[2], *(uint32_t *)(msgBuf + 3), (PHY_Mode)msgBuf[7]);
             break;
         case COMMAND_PAUSEDONE:
             if (ret != 3) continue;

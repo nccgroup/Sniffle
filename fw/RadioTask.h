@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2018, NCC Group plc
+ * Copyright (c) 2016-2019, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -18,8 +18,8 @@ void RadioTask_init(void);
 /* Update radio state/configuration based on received PDU */
 void reactToPDU(const BLE_Frame *frame);
 
-/* Stay on specified channel and sync on specified access address */
-void setChanAA(uint8_t chan, uint32_t aa);
+/* Stay on specified channel, PHY, and access address */
+void setChanAAPHY(uint8_t chan, uint32_t aa, PHY_Mode phy);
 
 /* Set whether or not sniffer should pause after disconnect */
 void pauseAfterSniffDone(bool do_pause);
