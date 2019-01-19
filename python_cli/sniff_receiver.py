@@ -58,22 +58,16 @@ def main():
     ser.write(b'@@@@@@@@\r\n')
 
     # set the advertising channel (and return to ad-sniffing mode)
-    advCmd = bytes([0x03, 0x10, args.advchan, 0xD6, 0xBE, 0x89, 0x8E, 0x00])
-    advMsg = base64.b64encode(advCmd) + b'\r\n'
-    ser.write(advMsg)
+    _send_cmd([0x10, args.advchan, 0xD6, 0xBE, 0x89, 0x8E, 0x00])
 
     # set whether or not to pause after sniffing
-    pauseCmd = bytes([0x01, 0x11, args.pause])
-    pauseMsg = base64.b64encode(pauseCmd) + b'\r\n'
-    ser.write(pauseMsg)
+    _send_cmd([0x11, args.pause])
 
     # set up endTrim
     if args.advonly:
-        etCmd = bytes([0x02, 0x15, 0xB0, 0x00, 0x00, 0x00])
+        _send_cmd([0x15, 0xB0, 0x00, 0x00, 0x00])
     else:
-        etCmd = bytes([0x02, 0x15, 0x10, 0x00, 0x00, 0x00])
-    etMsg = base64.b64encode(etCmd) + b'\r\n'
-    ser.write(etMsg)
+        _send_cmd([0x15, 0x10, 0x00, 0x00, 0x00])
 
     # configure RSSI filter
     global _rssi_min
@@ -89,7 +83,7 @@ def main():
         _delay_top_mac = True
     else:
         try:
-            macBytes = bytes([int(h, 16) for h in reversed(args.mac.split(":"))])
+            macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
             if len(macBytes) != 6:
                 raise Exception("Wrong length!")
         except:
@@ -110,24 +104,26 @@ def main():
             continue
         print_message(data)
 
+def _send_cmd(cmd_byte_list):
+    b0 = (len(cmd_byte_list) + 3) // 3
+    cmd = bytes([b0, *cmd_byte_list])
+    msg = base64.b64encode(cmd) + b'\r\n'
+    _ser.write(msg)
+
 def _cmd_rssi(rssi=-80):
-    rssiCmd = bytes([0x01, 0x12, rssi & 0xFF])
-    rssiMsg = base64.b64encode(rssiCmd) + b'\r\n'
-    _ser.write(rssiMsg)
+    _send_cmd([0x12, rssi & 0xFF])
 
 def _cmd_mac(macBytes=None):
     if macBytes is None:
-        macCmd = b'\x01\x13'
+        _send_cmd([0x13])
     else:
         if len(macBytes) != 6:
             raise ValueError("MAC must be 6 bytes!")
-        macCmd = b'\x03\x13' + macBytes
-    macMsg = base64.b64encode(macCmd) + b'\r\n'
-    _ser.write(macMsg)
+        _send_cmd([0x13, *macBytes])
 
+    # Hop with advertisements from locked MAC
     if not (macBytes is None):
-        advHopMsg = base64.b64encode(bytes([0x01, 0x14])) + b'\r\n'
-        _ser.write(advHopMsg)
+        _send_cmd([0x14])
 
 def print_message(data):
     if data[0] == 0x10:
@@ -271,37 +267,32 @@ def decode_ll_control_opcode(opcode):
 def _str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
 
-def decode_adva(body):
-    adva = body[2:8]
-    print("AdvA: %s" % _str_mac(adva))
-
+def _dtm(adva):
     global _delay_top_mac
     if _delay_top_mac:
         _cmd_mac(adva)
         _cmd_rssi()
         _delay_top_mac = False
+
+def decode_adva(body):
+    adva = body[2:8]
+    print("AdvA: %s" % _str_mac(adva))
+    _dtm(adva)
 
 def decode_adv_direct_ind(body):
     adva = body[2:8]
     targeta = body[8:14]
     print("AdvA: %s TargetA: %s" % (_str_mac(adva), _str_mac(targeta)))
-
-    global _delay_top_mac
-    if _delay_top_mac:
-        _cmd_mac(adva)
-        _cmd_rssi()
-        _delay_top_mac = False
+    _dtm(adva)
 
 def decode_scan_req(body):
     scana = body[2:8]
     adva = body[8:14]
     print("ScanA: %s AdvA: %s" % (_str_mac(scana), _str_mac(adva)))
-
-    global _delay_top_mac
-    if _delay_top_mac:
-        _cmd_mac(adva)
-        _cmd_rssi()
-        _delay_top_mac = False
+    # No _dtm(adva) here because it wouldn't make sense.
+    # Receiving a high RSSI SCAN_REQ only means the scanner is nearby.
+    # We want to lock onto nearby advertisers (peripherals), not nearby
+    # scanners (centrals).
 
 def decode_connect_ind(body):
     inita = body[2:8]
@@ -309,16 +300,11 @@ def decode_connect_ind(body):
     aa = struct.unpack('<L', body[14:18])[0]
     # TODO: decode the rest
     print("InitA: %s AdvA: %s AA: 0x%08X" % (_str_mac(inita), _str_mac(adva), aa))
+    # No _dtm(adva) here because it wouldn't make sense. See comment above.
 
     # PCAP write is already done here
     global cur_aa
     cur_aa = aa
-
-    global _delay_top_mac
-    if _delay_top_mac:
-        _cmd_mac(adva)
-        _cmd_rssi()
-        _delay_top_mac = False
 
 if __name__ == "__main__":
     main()
