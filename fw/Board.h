@@ -41,6 +41,7 @@ extern "C" {
 
 #include "CC26X2R1_LAUNCHXL.h"
 
+#define Board_init()            CC26X2R1_LAUNCHXL_initGeneral()
 #define Board_initGeneral()     CC26X2R1_LAUNCHXL_initGeneral()
 
 #define Board_shutDownExtFlash() CC26X2R1_LAUNCHXL_shutDownExtFlash()
@@ -60,8 +61,12 @@ extern "C" {
 #define Board_ECDSA0            CC26X2R1_LAUNCHXL_ECDSA0
 #define Board_ECJPAKE0          CC26X2R1_LAUNCHXL_ECJPAKE0
 #define Board_AESCCM0           CC26X2R1_LAUNCHXL_AESCCM0
+#define Board_AESGCM0           CC26X2R1_LAUNCHXL_AESGCM0
+#define Board_AESCBC0           CC26X2R1_LAUNCHXL_AESCBC0
+#define Board_AESCTR0           CC26X2R1_LAUNCHXL_AESCTR0
 #define Board_AESECB0           CC26X2R1_LAUNCHXL_AESECB0
 #define Board_SHA20             CC26X2R1_LAUNCHXL_SHA20
+#define Board_TRNG0             CC26X2R1_LAUNCHXL_TRNG0
 
 #define Board_DIO0              CC26X2R1_LAUNCHXL_DIO0
 #define Board_DIO1_RFSW         CC26X2R1_LAUNCHXL_DIO1_RFSW
@@ -92,6 +97,7 @@ extern "C" {
 #define Board_GPIO_GLED         CC26X2R1_LAUNCHXL_GPIO_LED_GREEN
 #define Board_GPIO_LED_ON       CC26X2R1_LAUNCHXL_GPIO_LED_ON
 #define Board_GPIO_LED_OFF      CC26X2R1_LAUNCHXL_GPIO_LED_OFF
+#define Board_GPIO_TMP116_EN    CC26X2R1_LAUNCHXL_GPIO_TMP116_EN
 
 #define Board_GPTIMER0A         CC26X2R1_LAUNCHXL_GPTIMER0A
 #define Board_GPTIMER0B         CC26X2R1_LAUNCHXL_GPTIMER0B
@@ -144,10 +150,6 @@ extern "C" {
 #define Board_UART1             CC26X2R1_LAUNCHXL_UART1
 
 #define Board_WATCHDOG0         CC26X2R1_LAUNCHXL_WATCHDOG0
-
-/* Board specific I2C addresses */
-#define Board_TMP_ADDR          (0x40)
-#define Board_SENSORS_BP_TMP_ADDR Board_TMP_ADDR
 
 #ifdef __cplusplus
 }

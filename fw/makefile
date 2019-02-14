@@ -1,4 +1,4 @@
-SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc26x2_sdk_2_30_00_34
+SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_2_40_00_81
 
 include $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/imports.mak
 
@@ -32,12 +32,12 @@ LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     -l:ti/display/lib/display.am4fg \
     -l:ti/grlib/lib/gcc/m4f/grlib.a \
     -l:third_party/spiffs/lib/gcc/m4f/spiffs_cc26xx.a \
-    -l:ti/drivers/rf/lib/rf_multiMode_cc26x2_v1.am4fg \
-    -l:ti/drivers/lib/drivers_cc26x2_v1.am4fg \
+    -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg \
+    -l:ti/drivers/lib/drivers_cc26x2.am4fg \
     "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
-    -l:ti/dpl/lib/dpl_cc26x2_v1.am4fg \
+    -l:ti/dpl/lib/dpl_cc26x2.am4fg \
     "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
-    -l:ti/devices/cc13x2_cc26x2_v1/driverlib/bin/gcc/driverlib.lib \
+    -l:ti/devices/cc13x2_cc26x2/driverlib/bin/gcc/driverlib.lib \
     -march=armv7e-m \
     -mthumb \
     -mfloat-abi=hard \

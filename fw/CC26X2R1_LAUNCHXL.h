@@ -51,7 +51,7 @@ extern "C" {
 
 /* Includes */
 #include <ti/drivers/PIN.h>
-#include <ti/devices/cc13x2_cc26x2_v1/driverlib/ioc.h>
+#include <ti/devices/cc13x2_cc26x2/driverlib/ioc.h>
 
 /* Externs */
 extern const PIN_Config BoardGpioInitTable[];
@@ -259,6 +259,36 @@ typedef enum CC26X2R1_LAUNCHXL_AESCCMName {
 } CC26X2R1_LAUNCHXL_AESCCMName;
 
 /*!
+ *  @def    CC26X2R1_LAUNCHXL_AESGCMName
+ *  @brief  Enum of AESGCM names
+ */
+typedef enum CC26X2R1_LAUNCHXL_AESGCMName {
+    CC26X2R1_LAUNCHXL_AESGCM0 = 0,
+
+    CC26X2R1_LAUNCHXL_AESGCMCOUNT
+} CC26X2R1_LAUNCHXL_AESGCMName;
+
+/*!
+ *  @def    CC26X2R1_LAUNCHXL_AESCBCName
+ *  @brief  Enum of AESCBC names
+ */
+typedef enum CC26X2R1_LAUNCHXL_AESCBCName {
+    CC26X2R1_LAUNCHXL_AESCBC0 = 0,
+
+    CC26X2R1_LAUNCHXL_AESCBCCOUNT
+} CC26X2R1_LAUNCHXL_AESCBCName;
+
+/*!
+ *  @def    CC26X2R1_LAUNCHXL_AESCTRName
+ *  @brief  Enum of AESCTR names
+ */
+typedef enum CC26X2R1_LAUNCHXL_AESCTRName {
+    CC26X2R1_LAUNCHXL_AESCTR0 = 0,
+
+    CC26X2R1_LAUNCHXL_AESCTRCOUNT
+} CC26X2R1_LAUNCHXL_AESCTRName;
+
+/*!
  *  @def    CC26X2R1_LAUNCHXL_AESECBName
  *  @brief  Enum of AESECB names
  */
@@ -279,6 +309,16 @@ typedef enum CC26X2R1_LAUNCHXL_SHA2Name {
 } CC26X2R1_LAUNCHXL_SHA2Name;
 
 /*!
+ *  @def    CC26X2R1_LAUNCHXL_TRNGName
+ *  @brief  Enum of TRNG names
+ */
+typedef enum CC26X2R1_LAUNCHXL_TRNGName {
+    CC26X2R1_LAUNCHXL_TRNG0 = 0,
+
+    CC26X2R1_LAUNCHXL_TRNGCOUNT
+} CC26X2R1_LAUNCHXL_TRNGName;
+
+/*!
  *  @def    CC26X2R1_LAUNCHXL_GPIOName
  *  @brief  Enum of GPIO names
  */
@@ -289,6 +329,7 @@ typedef enum CC26X2R1_LAUNCHXL_GPIOName {
     CC26X2R1_LAUNCHXL_SPI_SLAVE_READY,
     CC26X2R1_LAUNCHXL_GPIO_LED_GREEN,
     CC26X2R1_LAUNCHXL_GPIO_LED_RED,
+    CC26X2R1_LAUNCHXL_GPIO_TMP116_EN,
     CC26X2R1_LAUNCHXL_GPIO_SPI_FLASH_CS,
     CC26X2R1_LAUNCHXL_SDSPI_CS,
     CC26X2R1_LAUNCHXL_GPIO_LCD_CS,

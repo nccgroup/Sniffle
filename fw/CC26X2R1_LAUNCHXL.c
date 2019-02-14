@@ -40,10 +40,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <ti/devices/cc13x2_cc26x2_v1/driverlib/ioc.h>
-#include <ti/devices/cc13x2_cc26x2_v1/driverlib/udma.h>
-#include <ti/devices/cc13x2_cc26x2_v1/inc/hw_ints.h>
-#include <ti/devices/cc13x2_cc26x2_v1/inc/hw_memmap.h>
+#include <ti/devices/cc13x2_cc26x2/driverlib/ioc.h>
+#include <ti/devices/cc13x2_cc26x2/driverlib/udma.h>
+#include <ti/devices/cc13x2_cc26x2/inc/hw_ints.h>
+#include <ti/devices/cc13x2_cc26x2/inc/hw_memmap.h>
 
 #include "CC26X2R1_LAUNCHXL.h"
 
@@ -233,7 +233,6 @@ ECDHCC26X2_Object ecdhCC26X2Objects[CC26X2R1_LAUNCHXL_ECDHCOUNT];
 const ECDHCC26X2_HWAttrs ecdhCC26X2HWAttrs[CC26X2R1_LAUNCHXL_ECDHCOUNT] = {
     {
         .intPriority       = ~0,
-        .swiPriority       = 0,
     }
 };
 
@@ -257,7 +256,6 @@ ECDSACC26X2_Object ecdsaCC26X2Objects[CC26X2R1_LAUNCHXL_ECDSACOUNT];
 const ECDSACC26X2_HWAttrs ecdsaCC26X2HWAttrs[CC26X2R1_LAUNCHXL_ECDSACOUNT] = {
     {
         .intPriority       = ~0,
-        .swiPriority       = 0,
     }
 };
 
@@ -281,7 +279,6 @@ ECJPAKECC26X2_Object ecjpakeCC26X2Objects[CC26X2R1_LAUNCHXL_ECJPAKECOUNT];
 const ECJPAKECC26X2_HWAttrs ecjpakeCC26X2HWAttrs[CC26X2R1_LAUNCHXL_ECJPAKECOUNT] = {
     {
         .intPriority       = ~0,
-        .swiPriority       = 0,
     }
 };
 
@@ -305,7 +302,6 @@ SHA2CC26X2_Object sha2CC26X2Objects[CC26X2R1_LAUNCHXL_SHA2COUNT];
 const SHA2CC26X2_HWAttrs sha2CC26X2HWAttrs[CC26X2R1_LAUNCHXL_SHA2COUNT] = {
     {
         .intPriority       = ~0,
-        .swiPriority       = 0,
     }
 };
 
@@ -329,7 +325,6 @@ AESCCMCC26XX_Object aesccmCC26XXObjects[CC26X2R1_LAUNCHXL_AESCCMCOUNT];
 const AESCCMCC26XX_HWAttrs aesccmCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESCCMCOUNT] = {
     {
         .intPriority       = ~0,
-        .swiPriority       = 0,
     }
 };
 
@@ -343,6 +338,75 @@ const AESCCM_Config AESCCM_config[CC26X2R1_LAUNCHXL_AESCCMCOUNT] = {
 const uint_least8_t AESCCM_count = CC26X2R1_LAUNCHXL_AESCCMCOUNT;
 
 /*
+ *  =============================== AESGCM ===============================
+ */
+#include <ti/drivers/AESGCM.h>
+#include <ti/drivers/aesgcm/AESGCMCC26XX.h>
+
+AESGCMCC26XX_Object aesgcmCC26XXObjects[CC26X2R1_LAUNCHXL_AESGCMCOUNT];
+
+const AESGCMCC26XX_HWAttrs aesgcmCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESGCMCOUNT] = {
+    {
+        .intPriority       = ~0,
+    }
+};
+
+const AESGCM_Config AESGCM_config[CC26X2R1_LAUNCHXL_AESGCMCOUNT] = {
+    {
+         .object  = &aesgcmCC26XXObjects[CC26X2R1_LAUNCHXL_AESGCM0],
+         .hwAttrs = &aesgcmCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESGCM0]
+    },
+};
+
+const uint_least8_t AESGCM_count = CC26X2R1_LAUNCHXL_AESGCMCOUNT;
+
+/*
+ *  =============================== AESCBC ===============================
+ */
+#include <ti/drivers/AESCBC.h>
+#include <ti/drivers/aescbc/AESCBCCC26XX.h>
+
+AESCBCCC26XX_Object aescbcCC26XXObjects[CC26X2R1_LAUNCHXL_AESCBCCOUNT];
+
+const AESCBCCC26XX_HWAttrs aescbcCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESCBCCOUNT] = {
+    {
+        .intPriority       = ~0,
+    }
+};
+
+const AESCBC_Config AESCBC_config[CC26X2R1_LAUNCHXL_AESCBCCOUNT] = {
+    {
+         .object  = &aescbcCC26XXObjects[CC26X2R1_LAUNCHXL_AESCBC0],
+         .hwAttrs = &aescbcCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESCBC0]
+    },
+};
+
+const uint_least8_t AESCBC_count = CC26X2R1_LAUNCHXL_AESCBCCOUNT;
+
+/*
+ *  =============================== AESCTR ===============================
+ */
+#include <ti/drivers/AESCTR.h>
+#include <ti/drivers/aesctr/AESCTRCC26XX.h>
+
+AESCTRCC26XX_Object aesctrCC26XXObjects[CC26X2R1_LAUNCHXL_AESCTRCOUNT];
+
+const AESCTRCC26XX_HWAttrs aesctrCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESCTRCOUNT] = {
+    {
+        .intPriority       = ~0,
+    }
+};
+
+const AESCTR_Config AESCTR_config[CC26X2R1_LAUNCHXL_AESCTRCOUNT] = {
+    {
+         .object  = &aesctrCC26XXObjects[CC26X2R1_LAUNCHXL_AESCTR0],
+         .hwAttrs = &aesctrCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESCTR0]
+    },
+};
+
+const uint_least8_t AESCTR_count = CC26X2R1_LAUNCHXL_AESCTRCOUNT;
+
+/*
  *  =============================== AESECB ===============================
  */
 #include <ti/drivers/AESECB.h>
@@ -353,7 +417,6 @@ AESECBCC26XX_Object aesecbCC26XXObjects[CC26X2R1_LAUNCHXL_AESECBCOUNT];
 const AESECBCC26XX_HWAttrs aesecbCC26XXHWAttrs[CC26X2R1_LAUNCHXL_AESECBCOUNT] = {
     {
         .intPriority       = ~0,
-        .swiPriority       = 0,
     }
 };
 
@@ -365,6 +428,31 @@ const AESECB_Config AESECB_config[CC26X2R1_LAUNCHXL_AESECBCOUNT] = {
 };
 
 const uint_least8_t AESECB_count = CC26X2R1_LAUNCHXL_AESECBCOUNT;
+
+/*
+ *  =============================== TRNG ===============================
+ */
+#include <ti/drivers/TRNG.h>
+#include <ti/drivers/trng/TRNGCC26X2.h>
+
+TRNGCC26X2_Object trngCC26X2Objects[CC26X2R1_LAUNCHXL_TRNGCOUNT];
+
+const TRNGCC26X2_HWAttrs trngCC26X2HWAttrs[CC26X2R1_LAUNCHXL_TRNGCOUNT] = {
+    {
+        .intPriority       = ~0,
+        .swiPriority       = 0,
+        .samplesPerCycle   = 240000,
+    }
+};
+
+const TRNG_Config TRNG_config[CC26X2R1_LAUNCHXL_TRNGCOUNT] = {
+    {
+         .object  = &trngCC26X2Objects[CC26X2R1_LAUNCHXL_TRNG0],
+         .hwAttrs = &trngCC26X2HWAttrs[CC26X2R1_LAUNCHXL_TRNG0]
+    },
+};
+
+const uint_least8_t TRNG_count = CC26X2R1_LAUNCHXL_TRNGCOUNT;
 
 
 /*
@@ -378,9 +466,8 @@ const uint_least8_t AESECB_count = CC26X2R1_LAUNCHXL_AESECBCOUNT;
 #define BOARD_DISPLAY_UART_STRBUF_SIZE    128
 #endif
 
-#ifndef BOARD_DISPLAY_SHARP_SIZE
-#define BOARD_DISPLAY_SHARP_SIZE    96
-#endif
+/* This value can be changed to 96 for use with the 430BOOST-SHARP96 BoosterPack. */
+#define BOARD_DISPLAY_SHARP_SIZE    128
 
 DisplayUart_Object     displayUartObject;
 DisplaySharp_Object    displaySharpObject;
@@ -478,6 +565,7 @@ GPIO_PinConfig gpioPinConfigs[] = {
     /* Output pins */
     GPIOCC26XX_DIO_07 | GPIO_DO_NOT_CONFIG,  /* Green LED */
     GPIOCC26XX_DIO_06 | GPIO_DO_NOT_CONFIG,  /* Red LED */
+    GPIOCC26XX_DIO_30 | GPIO_DO_NOT_CONFIG,  /* TMP116_EN */
 
     /* SPI Flash CSN */
     GPIOCC26XX_DIO_20 | GPIO_DO_NOT_CONFIG,
@@ -660,6 +748,7 @@ const NVSSPI25X_HWAttrs nvsSPI25XHWAttrs[1] = {
         .spiIndex = 0,
         .spiBitRate = 4000000,
         .spiCsnGpioIndex = CC26X2R1_LAUNCHXL_GPIO_SPI_FLASH_CS,
+        .statusPollDelayUs = 100,
     },
 };
 
@@ -768,7 +857,7 @@ const uint_least8_t PWM_count = CC26X2R1_LAUNCHXL_PWMCOUNT;
 const RFCC26XX_HWAttrsV2 RFCC26XX_hwAttrs = {
     .hwiPriority        = ~0,       /* Lowest HWI priority */
     .swiPriority        = 0,        /* Lowest SWI priority */
-    .xoscHfAlwaysNeeded = true,     /* Keep XOSC dependency while in stanby */
+    .xoscHfAlwaysNeeded = true,     /* Keep XOSC dependency while in standby */
     .globalCallback     = NULL,     /* No board specific callback */
     .globalEventMask    = 0         /* No events subscribed to */
 };
@@ -802,16 +891,16 @@ const uint_least8_t SD_count = CC26X2R1_LAUNCHXL_SDCOUNT;
  *  =============================== SPI DMA ===============================
  */
 #include <ti/drivers/SPI.h>
-#include <ti/drivers/spi/SPICC26XXDMA.h>
+#include <ti/drivers/spi/SPICC26X2DMA.h>
 
-SPICC26XXDMA_Object spiCC26XXDMAObjects[CC26X2R1_LAUNCHXL_SPICOUNT];
+SPICC26X2DMA_Object spiCC26X2DMAObjects[CC26X2R1_LAUNCHXL_SPICOUNT];
 
 /*
  * NOTE: The SPI instances below can be used by the SD driver to communicate
  * with a SD card via SPI.  The 'defaultTxBufValue' fields below are set to 0xFF
  * to satisfy the SDSPI driver requirement.
  */
-const SPICC26XXDMA_HWAttrsV1 spiCC26XXDMAHWAttrs[CC26X2R1_LAUNCHXL_SPICOUNT] = {
+const SPICC26X2DMA_HWAttrs spiCC26X2DMAHWAttrs[CC26X2R1_LAUNCHXL_SPICOUNT] = {
     {
         .baseAddr           = SSI0_BASE,
         .intNum             = INT_SSI0_COMB,
@@ -846,14 +935,14 @@ const SPICC26XXDMA_HWAttrsV1 spiCC26XXDMAHWAttrs[CC26X2R1_LAUNCHXL_SPICOUNT] = {
 
 const SPI_Config SPI_config[CC26X2R1_LAUNCHXL_SPICOUNT] = {
     {
-         .fxnTablePtr = &SPICC26XXDMA_fxnTable,
-         .object      = &spiCC26XXDMAObjects[CC26X2R1_LAUNCHXL_SPI0],
-         .hwAttrs     = &spiCC26XXDMAHWAttrs[CC26X2R1_LAUNCHXL_SPI0]
+         .fxnTablePtr = &SPICC26X2DMA_fxnTable,
+         .object      = &spiCC26X2DMAObjects[CC26X2R1_LAUNCHXL_SPI0],
+         .hwAttrs     = &spiCC26X2DMAHWAttrs[CC26X2R1_LAUNCHXL_SPI0]
     },
     {
-         .fxnTablePtr = &SPICC26XXDMA_fxnTable,
-         .object      = &spiCC26XXDMAObjects[CC26X2R1_LAUNCHXL_SPI1],
-         .hwAttrs     = &spiCC26XXDMAHWAttrs[CC26X2R1_LAUNCHXL_SPI1]
+         .fxnTablePtr = &SPICC26X2DMA_fxnTable,
+         .object      = &spiCC26X2DMAObjects[CC26X2R1_LAUNCHXL_SPI1],
+         .hwAttrs     = &spiCC26X2DMAHWAttrs[CC26X2R1_LAUNCHXL_SPI1]
     },
 };
 

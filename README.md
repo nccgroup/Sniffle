@@ -21,7 +21,7 @@ Sniffle has a number of useful features, including:
 
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
-* TI CC26x2 SDK 2.30.00.34: <https://www.ti.com/tool/download/simplelink_cc26x2_sdk/2.30.00.34>
+* TI CC26x2 SDK 2.40.00.81: <http://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
 * TI DSLite Programmer Software: see below
 * Python 3.x with PySerial installed
 
@@ -43,27 +43,27 @@ installation directory is inside`~/ti/`. This works fine and my makefiles
 expect this path, so I suggest just going with the default here.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within the `~/ti/simplelink_cc26x2_sdk_2_30_00_34`
+your build environment. Within the `~/ti/simplelink_cc13x2_26x2_sdk_2_40_00_81`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
 The only paths that need to be set here to build Sniffle are for GCC and XDC.
 See the diff below as an example, and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index d2edfee..4dad39c 100644
+index b34005f..263736e 100644
 --- a/imports.mak
 +++ b/imports.mak
 @@ -18,13 +18,13 @@
  # will build using each non-empty *_ARMCOMPILER cgtool.
  #
  
--XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_50_08_24_core
-+XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_50_08_24_core
- SYSCONFIG_TOOL         ?= /home/username/ti/ccsv8/utils/sysconfig/cli/cli.js
+-XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_51_01_18_core
++XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_51_01_18_core
+ SYSCONFIG_TOOL         ?= /home/username/ti/ccsv8/utils/sysconfig/cli.js
  NODE_JS                ?= /home/username/ti/ccsv8/tools/node/node
  
  
- CCS_ARMCOMPILER        ?= /home/username/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.3.LTS
+ CCS_ARMCOMPILER        ?= /home/username/ti/ccsv8/tools/compiler/ti-cgt-arm_18.1.4.LTS
 -GCC_ARMCOMPILER        ?= /home/username/ti/ccsv8/tools/compiler/gcc-arm-none-eabi-7-2017-q4-major
 +GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/gcc-arm-none-eabi-7-2018-q2-update
  
