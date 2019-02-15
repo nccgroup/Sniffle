@@ -19,22 +19,12 @@ PLATFORM = ti.platforms.simplelink:CC2642R1F
 CFLAGS = -I. \
     -D__STRICT_ANSI__ \
     -DDeviceFamily_CC26X2 \
-    "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source" \
     "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
-    -mcpu=cortex-m4 \
-    -march=armv7e-m \
-    -mthumb \
     -std=c99 \
-    -mfloat-abi=hard \
-    -mfpu=fpv4-sp-d16 \
     -ffunction-sections \
     -fdata-sections \
-    -g \
     -gstrict-dwarf \
-    -Wall \
-    "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/include/newlib-nano" \
-    "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/include" \
-    "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include"
+    -Wall
 
 LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     "-Wl,-Map,$(NAME).map" \
