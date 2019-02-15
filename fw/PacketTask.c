@@ -7,6 +7,8 @@
 /***** Includes *****/
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdatomic.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
@@ -59,13 +61,15 @@ static PIN_Config ledPinTable[] = {
     PIN_TERMINATE
 };
 
-#define JANKY_QUEUE_SIZE 8
+// size must be a power of 2
+#define JANKY_QUEUE_SIZE 8u
+#define JANKY_QUEUE_MASK (JANKY_QUEUE_SIZE - 1)
 
 static uint8_t packet_buf[256*JANKY_QUEUE_SIZE];
 static BLE_Frame s_frames[JANKY_QUEUE_SIZE];
 
-static volatile int queue_head = 0; // insert here
-static volatile int queue_tail = 0; // take out item from here
+static volatile atomic_uint queue_head; // insert here
+static volatile atomic_uint queue_tail; // take out item from here
 
 /***** Function definitions *****/
 void PacketTask_init(void) {
@@ -137,19 +141,19 @@ static void packetTaskFunction(UArg arg0, UArg arg1)
         PIN_setOutputValue(ledPinHandle, RX_ACTIVITY_LED, 1);
 
         // send packet
-        sendPacket(s_frames + queue_tail);
+        sendPacket(s_frames + (atomic_load(&queue_tail) & JANKY_QUEUE_MASK));
 
         // deactivate LED
         PIN_setOutputValue(ledPinHandle, RX_ACTIVITY_LED, 0);
 
-        // we can now handle a new packet
-        queue_tail = (queue_tail + 1) % JANKY_QUEUE_SIZE;
+        // we can now handle a new packet (wraparound is OK)
+        atomic_fetch_add(&queue_tail, 1);
     }
 }
 
 void indicatePacket(BLE_Frame *frame)
 {
-    int queue_check;
+    int queue_check, queue_head_;
 
     // It only makes sense to filter advertisements
     if (frame->channel >= 37)
@@ -167,16 +171,18 @@ void indicatePacket(BLE_Frame *frame)
     reactToPDU(frame);
 
     // discard the packet if we're full
-    queue_check = (queue_tail - queue_head) % JANKY_QUEUE_SIZE;
-    if (queue_check == 1 || queue_check == (1 - JANKY_QUEUE_SIZE)) return;
+    queue_check = (atomic_load(&queue_head) - atomic_load(&queue_tail)) & JANKY_QUEUE_MASK;
+    if (queue_check == JANKY_QUEUE_MASK) return;
 
-    memcpy(s_frames[queue_head].pData, frame->pData, frame->length & 0xFF);
-    s_frames[queue_head].length = frame->length;
-    s_frames[queue_head].rssi = frame->rssi;
-    s_frames[queue_head].timestamp = frame->timestamp;
-    s_frames[queue_head].channel = frame->channel;
+    // wraparound is safe due to our masking
+    queue_head_ = atomic_fetch_add(&queue_head, 1) & JANKY_QUEUE_MASK;
+
+    memcpy(s_frames[queue_head_].pData, frame->pData, frame->length & 0xFF);
+    s_frames[queue_head_].length = frame->length;
+    s_frames[queue_head_].rssi = frame->rssi;
+    s_frames[queue_head_].timestamp = frame->timestamp;
+    s_frames[queue_head_].channel = frame->channel;
     Semaphore_post(packetAvailSem);
-    queue_head = (queue_head + 1) % JANKY_QUEUE_SIZE;
 }
 
 void setMinRssi(int8_t rssi)
