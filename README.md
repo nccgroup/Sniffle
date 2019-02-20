@@ -23,7 +23,7 @@ Sniffle has a number of useful features, including:
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
 * TI CC26x2 SDK 2.40.00.81: <http://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
 * TI DSLite Programmer Software: see below
-* Python 3.x with PySerial installed
+* Python 3.5+ with PySerial installed
 
 Note: it should be possible to compile Sniffle to run on CC1352R and CC1352P
 Launchpad boards with minimal modifications, but I have not yet tried this.
