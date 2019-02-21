@@ -31,7 +31,7 @@
 #define PACKET_TASK_STACK_SIZE 1024
 #define PACKET_TASK_PRIORITY   3
 
-#define RX_ACTIVITY_LED CC26X2R1_LAUNCHXL_PIN_RLED
+#define RX_ACTIVITY_LED Board_PIN_RLED
 
 /***** Type declarations *****/
 

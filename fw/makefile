@@ -1,41 +1,68 @@
-SIMPLELINK_CC26X2_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_2_40_00_81
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_2_40_00_81
 
-include $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/imports.mak
+include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
-XDCPATH = $(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source;$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages;
+XDCPATH = $(SIMPLELINK_SDK_INSTALL_DIR)/source;$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages;
 
 CC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 
-SOURCES = $(wildcard *.c)
-OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
-
 CONFIGPKG = rtos_build
 NAME = sniffle
 
-XDCTARGET = gnu.targets.arm.M4F
-PLATFORM = ti.platforms.simplelink:CC2642R1F
+CC26X2_PLATFORMS = CC2642R1F CC2652R1F
+CC1352_PLATFORMS = CC1352R1F3
+SUPPORTED_PLATFORMS = $(CC26X2_PLATFORMS) $(CC1352_PLATFORMS)
 
-CFLAGS = -I. \
+ifeq ($(PLATFORM),)
+    PLATFORM = CC2642R1F
+endif
+
+ifeq ($(filter $(PLATFORM), $(SUPPORTED_PLATFORMS)),)
+    $(error "PLATFORM not in $(SUPPORTED_PLATFORMS)")
+endif
+
+ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
+    SOURCES = $(wildcard CC26X2/*.c)
+    CCXML = CC26X2/CC2652R1F.ccxml
+    CFLAGS += -DDeviceFamily_CC26X2
+    CFLAGS += -ICC26X2
+    LFLAGS += -Wl,-T,CC26X2/CC26X2R1_LAUNCHXL_TIRTOS.lds
+    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
+    LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
+    LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
+endif
+ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
+    SOURCES = $(wildcard CC1352/*.c)
+    CCXML = CC1352/CC1352R1F3.ccxml
+    CFLAGS += -DDeviceFamily_CC13X2
+    CFLAGS += -ICC1352
+    LFLAGS += -Wl,-T,CC1352/CC1352R1_LAUNCHXL_TIRTOS.lds
+    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
+    LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
+    LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
+endif
+
+
+XDCTARGET = gnu.targets.arm.M4F
+TI_PLTFRM = ti.platforms.simplelink:$(PLATFORM)
+
+CFLAGS += -I. \
     -D__STRICT_ANSI__ \
-    -DDeviceFamily_CC26X2 \
-    "-I$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
+    "-I$(SIMPLELINK_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
     -std=c99 \
     -ffunction-sections \
     -fdata-sections \
     -gstrict-dwarf \
     -Wall
 
-LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
+LFLAGS += \
     "-Wl,-Map,$(NAME).map" \
-    "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/source" \
+    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
     -l:ti/display/lib/display.am4fg \
     -l:ti/grlib/lib/gcc/m4f/grlib.a \
     -l:third_party/spiffs/lib/gcc/m4f/spiffs_cc26xx.a \
-    -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg \
-    -l:ti/drivers/lib/drivers_cc26x2.am4fg \
-    "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
-    -l:ti/dpl/lib/dpl_cc26x2.am4fg \
+    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
     "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
     -l:ti/devices/cc13x2_cc26x2/driverlib/bin/gcc/driverlib.lib \
     -march=armv7e-m \
@@ -45,13 +72,16 @@ LFLAGS = -Wl,-T,CC26X2R1_LAUNCHXL_TIRTOS.lds \
     -nostartfiles \
     -static \
     -Wl,--gc-sections \
-    "-L$(SIMPLELINK_CC26X2_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard" \
+    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard" \
     "-L$(GCC_ARMCOMPILER)/arm-none-eabi/lib" \
     -lgcc \
     -lc \
     -lm \
     -lnosys \
     --specs=nano.specs
+
+SOURCES += $(wildcard *.c)
+OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
 .PRECIOUS: $(CONFIGPKG)/compiler.opt $(CONFIGPKG)/linker.cmd
 
@@ -61,7 +91,8 @@ $(CONFIGPKG)/compiler.opt: $(CONFIGPKG)/linker.cmd
 
 $(CONFIGPKG)/linker.cmd: sniffle.cfg
 	@ echo Running Configuro...
-	@ $(XDC_INSTALL_DIR)/xs --xdcpath="$(XDCPATH)" xdc.tools.configuro -c "$(GCC_ARMCOMPILER)" -t $(XDCTARGET) -p $(PLATFORM) --compileOptions "$(CFLAGS)" -o "$(CONFIGPKG)" $<
+	@ $(XDC_INSTALL_DIR)/xs --xdcpath="$(XDCPATH)" xdc.tools.configuro -c "$(GCC_ARMCOMPILER)" \
+        -t $(XDCTARGET) -p $(TI_PLTFRM) --compileOptions "$(CFLAGS)" -o "$(CONFIGPKG)" $<
 
 %.obj: %.c $(CONFIGPKG)/compiler.opt
 	@ echo Building $@
@@ -82,4 +113,4 @@ clean:
 
 load: $(NAME).out
 	@ echo Flashing...
-	@ DSLite load -f $< -c CC2652R1F.ccxml
+	@ DSLite load -f $< -c $(CCXML)
