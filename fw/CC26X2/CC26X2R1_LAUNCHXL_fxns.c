@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Texas Instruments Incorporated
+ * Copyright (c) 2018-2019, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 
 #include <ti/drivers/pin/PINCC26XX.h>
 
-#include "Board.h"
+#include <ti/drivers/Board.h>
 
 /*
  *  ======== CC26X2R1_LAUNCHXL_sendExtFlashByte ========

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Texas Instruments Incorporated
+ * Copyright (c) 2016-2019, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -430,14 +430,37 @@ const AESECB_Config AESECB_config[CC26X2R1_LAUNCHXL_AESECBCOUNT] = {
 const uint_least8_t AESECB_count = CC26X2R1_LAUNCHXL_AESECBCOUNT;
 
 /*
+ *  =============================== AESCTRDRBG ===============================
+ */
+#include <ti/drivers/AESCTRDRBG.h>
+#include <ti/drivers/aesctrdrbg/AESCTRDRBGXX.h>
+
+AESCTRDRBGXX_Object aesctrdrbgXXObjects[CC26X2R1_LAUNCHXL_AESCTRDRBGCOUNT];
+
+const AESCTRDRBGXX_HWAttrs aesctrdrbgXXHWAttrs[CC26X2R1_LAUNCHXL_AESCTRDRBGCOUNT] = {
+    {
+        .aesctrIndex       = CC26X2R1_LAUNCHXL_AESCTR0,
+    }
+};
+
+const AESCTRDRBG_Config AESCTRDRBG_config[CC26X2R1_LAUNCHXL_AESCTRDRBGCOUNT] = {
+    {
+         .object  = &aesctrdrbgXXObjects[CC26X2R1_LAUNCHXL_AESCTRDRBG0],
+         .hwAttrs = &aesctrdrbgXXHWAttrs[CC26X2R1_LAUNCHXL_AESCTRDRBG0]
+    },
+};
+
+const uint_least8_t AESCTRDRBG_count = CC26X2R1_LAUNCHXL_AESCTRDRBGCOUNT;
+
+/*
  *  =============================== TRNG ===============================
  */
 #include <ti/drivers/TRNG.h>
-#include <ti/drivers/trng/TRNGCC26X2.h>
+#include <ti/drivers/trng/TRNGCC26XX.h>
 
-TRNGCC26X2_Object trngCC26X2Objects[CC26X2R1_LAUNCHXL_TRNGCOUNT];
+TRNGCC26XX_Object trngCC26XXObjects[CC26X2R1_LAUNCHXL_TRNGCOUNT];
 
-const TRNGCC26X2_HWAttrs trngCC26X2HWAttrs[CC26X2R1_LAUNCHXL_TRNGCOUNT] = {
+const TRNGCC26XX_HWAttrs trngCC26X2HWAttrs[CC26X2R1_LAUNCHXL_TRNGCOUNT] = {
     {
         .intPriority       = ~0,
         .swiPriority       = 0,
@@ -447,7 +470,7 @@ const TRNGCC26X2_HWAttrs trngCC26X2HWAttrs[CC26X2R1_LAUNCHXL_TRNGCOUNT] = {
 
 const TRNG_Config TRNG_config[CC26X2R1_LAUNCHXL_TRNGCOUNT] = {
     {
-         .object  = &trngCC26X2Objects[CC26X2R1_LAUNCHXL_TRNG0],
+         .object  = &trngCC26XXObjects[CC26X2R1_LAUNCHXL_TRNG0],
          .hwAttrs = &trngCC26X2HWAttrs[CC26X2R1_LAUNCHXL_TRNG0]
     },
 };
@@ -663,6 +686,34 @@ const I2C_Config I2C_config[CC26X2R1_LAUNCHXL_I2CCOUNT] = {
 const uint_least8_t I2C_count = CC26X2R1_LAUNCHXL_I2CCOUNT;
 
 /*
+ *  =============================== I2S ===============================
+*/
+#include <ti/drivers/I2S.h>
+#include <ti/drivers/i2s/I2SCC26XX.h>
+
+I2SCC26XX_Object i2sCC26XXObjects[CC26X2R1_LAUNCHXL_I2SCOUNT];
+
+const I2SCC26XX_HWAttrs i2sCC26XXHWAttrs[CC26X2R1_LAUNCHXL_I2SCOUNT] = {
+    {
+        .pinSD1      =  CC26X2R1_LAUNCHXL_I2S_ADI,
+        .pinSD0      =  CC26X2R1_LAUNCHXL_I2S_ADO,
+        .pinSCK      =  CC26X2R1_LAUNCHXL_I2S_BCLK,
+        .pinMCLK     =  CC26X2R1_LAUNCHXL_I2S_MCLK,
+        .pinWS       =  CC26X2R1_LAUNCHXL_I2S_WCLK,
+        .intPriority = ~0,
+    }
+};
+
+const I2S_Config I2S_config[CC26X2R1_LAUNCHXL_I2SCOUNT] = {
+    {
+        .object      = &i2sCC26XXObjects[CC26X2R1_LAUNCHXL_I2S0],
+        .hwAttrs     = &i2sCC26XXHWAttrs[CC26X2R1_LAUNCHXL_I2S0]
+    },
+};
+
+const uint_least8_t I2S_count = CC26X2R1_LAUNCHXL_I2SCOUNT;
+
+/*
  *  =============================== NVS ===============================
  */
 #include <ti/drivers/NVS.h>
@@ -788,7 +839,7 @@ const PIN_Config BoardGpioInitTable[] = {
     CC26X2R1_LAUNCHXL_PIN_BTN2 | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_BOTHEDGES | PIN_HYSTERESIS,          /* Button is active low */
     CC26X2R1_LAUNCHXL_SPI_FLASH_CS | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MIN,  /* External flash chip select */
     CC26X2R1_LAUNCHXL_UART0_RX | PIN_INPUT_EN | PIN_PULLDOWN,                                             /* UART RX via debugger back channel */
-    CC26X2R1_LAUNCHXL_UART0_TX | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL,                       /* UART TX via debugger back channel */
+    CC26X2R1_LAUNCHXL_UART0_TX | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL,                        /* UART TX via debugger back channel */
     CC26X2R1_LAUNCHXL_SPI0_MOSI | PIN_INPUT_EN | PIN_PULLDOWN,                                            /* SPI master out - slave in */
     CC26X2R1_LAUNCHXL_SPI0_MISO | PIN_INPUT_EN | PIN_PULLDOWN,                                            /* SPI master in - slave out */
     CC26X2R1_LAUNCHXL_SPI0_CLK | PIN_INPUT_EN | PIN_PULLDOWN,                                             /* SPI clock */
@@ -1078,4 +1129,12 @@ void CC26X2R1_LAUNCHXL_initGeneral(void)
 
     /* Perform board-specific initialization */
     Board_initHook();
+}
+
+/*
+ *  ======== Board_init ========
+ */
+void Board_init(void)
+{
+    CC26X2R1_LAUNCHXL_initGeneral();
 }

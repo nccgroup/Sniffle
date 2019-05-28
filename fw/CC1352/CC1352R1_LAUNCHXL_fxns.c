@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Texas Instruments Incorporated
+ * Copyright (c) 2018-2019, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@
 #include <ti/drivers/rf/RF.h>
 #include <ti/drivers/pin/PINCC26XX.h>
 
-#include "Board.h"
+#include <ti/drivers/Board.h>
 
 /*
  *  ======== CC1352R1_LAUNCHXL_sendExtFlashByte ========
@@ -155,64 +155,3 @@ void Board_initHook()
 {
     CC1352R1_LAUNCHXL_shutDownExtFlash();
 }
-
-/*
- *  For the SysConfig generated Board.h file, Board_RF_SUB1GHZ will not be
- *  defined unless the RF module is added to the configuration.  Therefore,
- *  we don't include this code if Board_RF_SUB1GHZ is not defined.
- */
-#if defined(Board_RF_SUB1GHZ)
-
-/*
- * ======== rfDriverCallback ========
- * This is an implementation for the CC1352R1 LaunchPad which uses a
- * single signal for antenna switching.
- */
-void rfDriverCallback(RF_Handle client, RF_GlobalEvent events, void *arg)
-{
-    /* Decode input arguments. */
-    (void)client;
-    RF_RadioSetup* setupCommand = (RF_RadioSetup*)arg;
-
-    /* Local variable. */
-    bool    sub1GHz   = false;
-    uint8_t loDivider = 0;
-
-    if (events & RF_GlobalEventRadioSetup) {
-        /* Decision about the frequency band shall be made based on the
-           loDivider field. */
-        switch (setupCommand->common.commandNo) {
-            case (CMD_RADIO_SETUP):
-            case (CMD_BLE5_RADIO_SETUP):
-                    loDivider = RF_LODIVIDER_MASK & setupCommand->common.loDivider;
-
-                    /* Sub-1GHz front-end. */
-                    if (loDivider != 0) {
-                        sub1GHz = true;
-                    }
-                    break;
-            case (CMD_PROP_RADIO_DIV_SETUP):
-                    loDivider = RF_LODIVIDER_MASK & setupCommand->prop_div.loDivider;
-
-                    /* Sub-1GHz front-end. */
-                    if (loDivider != 0) {
-                        sub1GHz = true;
-                    }
-                    break;
-            default:break;
-        }
-
-        /* Select the correct antenna. */
-        if (sub1GHz) {
-            PINCC26XX_setOutputValue(Board_RF_SUB1GHZ, 1);
-        }
-        else {
-            PINCC26XX_setOutputValue(Board_RF_SUB1GHZ, 0);
-        }
-    }
-    else if (events & RF_GlobalEventRadioPowerDown) {
-        /* Set the antenna to 2.4 GHz as default. */
-        PINCC26XX_setOutputValue(Board_RF_SUB1GHZ, 0);
-    }
-}
-#endif

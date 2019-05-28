@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Texas Instruments Incorporated
+ * Copyright (c) 2015-2019, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,10 +39,11 @@
 extern "C" {
 #endif
 
-#include "CC26X2R1_LAUNCHXL.h"
+#include <ti/drivers/Board.h>
 
-#define Board_init()            CC26X2R1_LAUNCHXL_initGeneral()
-#define Board_initGeneral()     CC26X2R1_LAUNCHXL_initGeneral()
+#define Board_initGeneral()     Board_init()  /* deprecated */
+
+#include "CC26X2R1_LAUNCHXL.h"
 
 #define Board_shutDownExtFlash() CC26X2R1_LAUNCHXL_shutDownExtFlash()
 
@@ -65,6 +66,7 @@ extern "C" {
 #define Board_AESCBC0           CC26X2R1_LAUNCHXL_AESCBC0
 #define Board_AESCTR0           CC26X2R1_LAUNCHXL_AESCTR0
 #define Board_AESECB0           CC26X2R1_LAUNCHXL_AESECB0
+#define Board_AESCTRDRBG0       CC26X2R1_LAUNCHXL_AESCTRDRBG0
 #define Board_SHA20             CC26X2R1_LAUNCHXL_SHA20
 #define Board_TRNG0             CC26X2R1_LAUNCHXL_TRNG0
 
@@ -110,6 +112,13 @@ extern "C" {
 
 #define Board_I2C0              CC26X2R1_LAUNCHXL_I2C0
 #define Board_I2C_TMP           Board_I2C0
+
+#define Board_I2S0              CC26X2R1_LAUNCHXL_I2S0
+#define Board_I2S_ADO           CC26X2R1_LAUNCHXL_I2S_ADO
+#define Board_I2S_ADI           CC26X2R1_LAUNCHXL_I2S_ADI
+#define Board_I2S_BCLK          CC26X2R1_LAUNCHXL_I2S_BCLK
+#define Board_I2S_MCLK          CC26X2R1_LAUNCHXL_I2S_MCLK
+#define Board_I2S_WCLK          CC26X2R1_LAUNCHXL_I2S_WCLK
 
 #define Board_NVSINTERNAL       CC26X2R1_LAUNCHXL_NVSCC26XX0
 #define Board_NVSEXTERNAL       CC26X2R1_LAUNCHXL_NVSSPI25X0
