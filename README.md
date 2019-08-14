@@ -21,7 +21,7 @@ Sniffle has a number of useful features, including:
 
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
-* TI CC26x2 SDK 3.10.00.53: <http://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
+* TI CC26x2 SDK 3.20.00.68: <http://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
@@ -43,29 +43,28 @@ installation directory is inside`~/ti/`. This works fine and my makefiles
 expect this path, so I suggest just going with the default here.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within the `~/ti/simplelink_cc13x2_26x2_sdk_3_10_00_53`
+your build environment. Within `~/ti/simplelink_cc13x2_26x2_sdk_3_20_00_68`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
 The only paths that need to be set here to build Sniffle are for GCC and XDC.
 See the diff below as an example, and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index 30bfdb21..8a2a0751 100644
+index 270196a5..1918effd 100644
 --- a/imports.mak
 +++ b/imports.mak
-@@ -18,14 +18,14 @@
+@@ -18,13 +18,13 @@
  # will build using each non-empty *_ARMCOMPILER cgtool.
  #
  
--XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_51_02_21_core
-+XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_51_02_21_core
- SYSCONFIG_TOOL         ?= /home/username/ti/ccs900/ccs/utils/sysconfig/cli.js
- NODE_JS                ?= /home/username/ti/ccs900/ccs/tools/node/node
+-XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_51_03_28_core
++XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_51_03_28_core
+ SYSCONFIG_TOOL         ?= /home/username/ti/ccs910/ccs/utils/sysconfig/sysconfig_cli.sh
  
  
- CCS_ARMCOMPILER        ?= /home/username/ti/ccs900/ccs/tools/compiler/ti-cgt-arm_18.12.1.LTS
+ CCS_ARMCOMPILER        ?= /home/username/ti/ccs910/ccs/tools/compiler/ti-cgt-arm_18.12.2.LTS
  CLANG_ARMCOMPILER      ?= /path/to/clang/compiler
--GCC_ARMCOMPILER        ?= /home/username/ti/ccs900/ccs/tools/compiler/gcc-arm-none-eabi-7-2017-q4-major
+-GCC_ARMCOMPILER        ?= /home/username/ti/ccs910/ccs/tools/compiler/gcc-arm-none-eabi-7-2017-q4-major
 +GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/gcc-arm-none-eabi-8-2018-q4-major
  
  # The IAR compiler is not supported on Linux
