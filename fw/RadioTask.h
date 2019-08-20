@@ -46,6 +46,9 @@ void advHopSeekMode(void);
  */
 void setEndTrim(uint32_t trim_us);
 
+/* Enable hopping to auxiliary advertisements */
+void setAuxAdvEnabled(bool enable);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,

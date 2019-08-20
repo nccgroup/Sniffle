@@ -47,6 +47,12 @@ class SniffleHW:
     def cmd_endtrim(self, end_trim=0x10):
         self._send_cmd([0x15, *list(pack("<L", end_trim))])
 
+    def cmd_auxadv(self, enable=True):
+        if enable:
+            self._send_cmd([0x16, 0x01])
+        else:
+            self._send_cmd([0x16, 0x00])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

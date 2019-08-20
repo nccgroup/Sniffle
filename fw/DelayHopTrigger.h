@@ -1,3 +1,9 @@
+/*
+ * Written by Sultan Qasim Khan
+ * Copyright (c) 2018, NCC Group plc
+ * Released as open source under GPLv3
+ */
+
 #ifndef DELAYHOPTRIGGER_H
 #define DELAYHOPTRIGGER_H
 

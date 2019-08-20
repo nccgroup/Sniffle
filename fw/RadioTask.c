@@ -29,6 +29,8 @@
 #include <RadioWrapper.h>
 #include <PacketTask.h>
 #include <DelayHopTrigger.h>
+#include <DelayStopTrigger.h>
+#include <AuxAdvScheduler.h>
 
 /***** Defines *****/
 #define RADIO_TASK_STACK_SIZE 1024
@@ -95,10 +97,18 @@ static uint32_t aiInd = 0;
 static bool postponed = false;
 
 static bool advHopEnabled = false;
+static bool auxAdvEnabled = false;
 
 // target offset before anchor point to start listing on next data channel
 // 1 ms @ 4 Mhz
 #define AO_TARG 4000
+
+// be ready some microseconds before aux advertisement is received
+#define AUX_OFF_TARG_USEC 600
+
+// don't bother listening for fewer than this many ticks
+// radio will get stuck if end time is in past
+#define LISTEN_TICKS_MIN 2000
 
 // if endTrim is >= this, user probably doesn't want to follow connections
 #define ENDTRIM_MAX_CONN_FOLLOW 0x80
@@ -107,6 +117,8 @@ static bool advHopEnabled = false;
 static void radioTaskFunction(UArg arg0, UArg arg1);
 static void computeMap1(uint64_t map);
 static void handleConnFinished(void);
+static void reactToDataPDU(const BLE_Frame *frame);
+static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen);
 
 /***** Function definitions *****/
 void RadioTask_init(void)
@@ -154,9 +166,27 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
         if (snifferState == STATIC)
         {
-            /* receive forever (until stopped) */
-            RadioWrapper_recvFrames(statPHY, statChan, accessAddress, 0x555555, 0xFFFFFFFF,
-                    indicatePacket);
+            if (auxAdvEnabled)
+            {
+                uint8_t chan;
+                PHY_Mode phy;
+                uint32_t aa = BLE_ADV_AA;
+                uint32_t cur_t = RF_getCurrentTime();
+                uint32_t etime = AuxAdvScheduler_next(cur_t, &chan, &phy);
+                if (etime - LISTEN_TICKS_MIN - cur_t >= 0x80000000)
+                    continue; // pointless to listen for tiny period, may stall radio with etime in past
+                if (chan == 0xFF)
+                {
+                    chan = statChan;
+                    phy = statPHY;
+                    aa = accessAddress;
+                }
+                RadioWrapper_recvFrames(phy, chan, aa, 0x555555, etime, indicatePacket);
+            } else {
+                /* receive forever (until stopped) */
+                RadioWrapper_recvFrames(statPHY, statChan, accessAddress, 0x555555, 0xFFFFFFFF,
+                        indicatePacket);
+            }
         } else if (snifferState == ADVERT_SEEK) {
             firstPacket = true;
             RadioWrapper_recvAdv3(750, 22*4000, indicatePacket);
@@ -215,8 +245,29 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 }
 
             } else {
-                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
-                        rconf.hopIntervalTicks * 2, indicatePacket);
+                if (auxAdvEnabled)
+                {
+                    uint8_t chan;
+                    PHY_Mode phy;
+                    uint32_t cur_t = RF_getCurrentTime();
+                    uint32_t etime = AuxAdvScheduler_next(cur_t, &chan, &phy);
+                    if (etime - LISTEN_TICKS_MIN - cur_t >= 0x80000000)
+                        continue; // pointless to listen for tiny period, may stall radio with etime in past
+                    if (chan != 0xFF)
+                    {
+                        RadioWrapper_recvFrames(phy, chan, BLE_ADV_AA, 0x555555, etime,
+                                indicatePacket);
+                        continue; // don't touch connEventCount
+                    } else {
+                        // we need to force cancel recvAdv3 eventually
+                        DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
+                        RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
+                                rconf.hopIntervalTicks * 2, indicatePacket);
+                    }
+                } else {
+                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
+                            rconf.hopIntervalTicks * 2, indicatePacket);
+                }
             }
 
             // state might have changed to DATA, in which case we must not mess with
@@ -300,8 +351,9 @@ static void computeMap1(uint64_t map)
 // change radio configuration based on a packet received
 void reactToPDU(const BLE_Frame *frame)
 {
-    if (frame->channel >= 37)
+    if (snifferState != DATA || frame->channel >= 37)
     {
+        // Advertising PDU
         uint8_t pduType;
         uint8_t ChSel;
         //bool TxAdd;
@@ -323,15 +375,12 @@ void reactToPDU(const BLE_Frame *frame)
         if (frame->length - 2 < advLen)
             return;
 
-        /* for advertisements, jump along and track intervals if needed
-         * ADV_IND (0x0)
-         * ADV_DIRECT_IND (0x1)
-         * ADV_NONCONN_IND (0x2)
-         * ADV_SCAN_IND (0x6)
-         *
-         * I'm not handling BT5 ADV_EXT_IND for now
-         */
-        if (pduType == 0x0 || pduType == 0x1 || pduType == 0x2 || pduType == 0x6)
+        // for advertisements, jump along and track intervals if needed
+        if (pduType == ADV_IND ||
+            pduType == ADV_DIRECT_IND ||
+            pduType == ADV_NONCONN_IND ||
+            pduType == ADV_SCAN_IND ||
+            pduType == ADV_EXT_IND)
         {
             // advertisement interval tracking
             if (firstPacket)
@@ -390,13 +439,21 @@ void reactToPDU(const BLE_Frame *frame)
          * For now, I haven't implemented support for secondary advertising
          * channels, so I'll just ignore ADV_EXT_IND.
          */
-        if (pduType == 0x0 || pduType == 0x1)
+        if (pduType == ADV_IND ||
+            pduType == ADV_DIRECT_IND)
         {
             adv_cache_store(frame->pData + 2, frame->pData[0]);
             return;
         }
 
-        // all we care about is CONNECT_IND (0x5) for now
+        if (pduType == ADV_EXT_IND && auxAdvEnabled)
+        {
+            reactToAdvExtPDU(frame, advLen);
+            return;
+        }
+
+        // handle CONNECT_IND or AUX_CONNECT_REQ (0x5)
+        // TODO: deal with AUX_CONNECT_RSP (wait for it? require it? need to decide)
         if ((pduType == CONNECT_IND) && (endTrim < ENDTRIM_MAX_CONN_FOLLOW))
         {
             uint16_t WinOffset, Interval;
@@ -444,93 +501,227 @@ void reactToPDU(const BLE_Frame *frame)
             RadioWrapper_stop();
         }
     } else {
-        uint8_t LLID;
-        //uint8_t NESN, SN;
-        //uint8_t MD;
-        uint8_t datLen;
-        uint8_t opcode;
+        reactToDataPDU(frame);
+    }
+}
 
-        /* clock synchronization
-         * first packet on each channel is anchor point
-         * this is only used in DATA state
-         */
-        if (firstPacket)
+static void reactToDataPDU(const BLE_Frame *frame)
+{
+    uint8_t LLID;
+    //uint8_t NESN, SN;
+    //uint8_t MD;
+    uint8_t datLen;
+    uint8_t opcode;
+
+    /* clock synchronization
+     * first packet on each channel is anchor point
+     * this is only used in DATA state
+     */
+    if (firstPacket)
+    {
+        // compute anchor point offset from start of receive window
+        anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
+        aoInd = (aoInd + 1) & 0xF;
+        firstPacket = false;
+    }
+
+    // data channel PDUs should at least have a 2 byte header
+    // we only care about LL Control PDUs that all have an opcode byte too
+    if (frame->length < 3)
+        return;
+
+    // decode the header
+    LLID = frame->pData[0] & 0x3;
+    //NESN = frame->pData[0] & 0x4 ? 1 : 0;
+    //SN = frame->pData[0] & 0x8 ? 1 : 0;
+    //MD = frame->pData[0] & 0x10 ? 1 : 0;
+    datLen = frame->pData[1];
+    opcode = frame->pData[2];
+
+    // We only care about LL Control PDUs
+    if (LLID != 0x3)
+        return;
+
+    // make sure length is coherent
+    if (frame->length - 2 < datLen)
+        return;
+
+    switch (opcode)
+    {
+    case 0x00: // LL_CONNECTION_UPDATE_IND
+        next_rconf.chanMap = rconf.chanMap;
+        next_rconf.offset = *(uint16_t *)(frame->pData + 4);
+        next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
+        next_rconf.phy = rconf.phy;
+        next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
+        nextInstant = *(uint16_t *)(frame->pData + 12);
+        break;
+    case 0x01: // LL_CHANNEL_MAP_IND
+        next_rconf.chanMap = 0;
+        memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
+        next_rconf.offset = 0;
+        next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
+        next_rconf.phy = rconf.phy;
+        next_rconf.slaveLatency = rconf.slaveLatency;
+        nextInstant = *(uint16_t *)(frame->pData + 8);
+        break;
+    case 0x02: // LL_TERMINATE_IND
+        handleConnFinished();
+        break;
+    case 0x18: // LL_PHY_UPDATE_IND
+        next_rconf.chanMap = rconf.chanMap;
+        next_rconf.offset = 0;
+        next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
+        // we don't handle different M->S and S->M PHYs, assume both match
+        switch (frame->pData[3] & 0x7)
         {
-            // compute anchor point offset from start of receive window
-            anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
-            aoInd = (aoInd + 1) & 0xF;
-            firstPacket = false;
-        }
-
-        // data channel PDUs should at least have a 2 byte header
-        // we only care about LL Control PDUs that all have an opcode byte too
-        if (frame->length < 3)
-            return;
-
-        // decode the header
-        LLID = frame->pData[0] & 0x3;
-        //NESN = frame->pData[0] & 0x4 ? 1 : 0;
-        //SN = frame->pData[0] & 0x8 ? 1 : 0;
-        //MD = frame->pData[0] & 0x10 ? 1 : 0;
-        datLen = frame->pData[1];
-        opcode = frame->pData[2];
-
-        // We only care about LL Control PDUs
-        if (LLID != 0x3)
-            return;
-
-        // make sure length is coherent
-        if (frame->length - 2 < datLen)
-            return;
-
-        switch (opcode)
-        {
-        case 0x00: // LL_CONNECTION_UPDATE_IND
-            next_rconf.chanMap = rconf.chanMap;
-            next_rconf.offset = *(uint16_t *)(frame->pData + 4);
-            next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
-            next_rconf.phy = rconf.phy;
-            next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
-            nextInstant = *(uint16_t *)(frame->pData + 12);
+        case 0x1:
+            next_rconf.phy = PHY_1M;
             break;
-        case 0x01: // LL_CHANNEL_MAP_IND
-            next_rconf.chanMap = 0;
-            memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
-            next_rconf.offset = 0;
-            next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
-            next_rconf.phy = rconf.phy;
-            next_rconf.slaveLatency = rconf.slaveLatency;
-            nextInstant = *(uint16_t *)(frame->pData + 8);
+        case 0x2:
+            next_rconf.phy = PHY_2M;
             break;
-        case 0x02: // LL_TERMINATE_IND
-            handleConnFinished();
-            break;
-        case 0x18: // LL_PHY_UPDATE_IND
-            next_rconf.chanMap = rconf.chanMap;
-            next_rconf.offset = 0;
-            next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
-            // we don't handle different M->S and S->M PHYs, assume both match
-            switch (frame->pData[3] & 0x7)
-            {
-            case 0x1:
-                next_rconf.phy = PHY_1M;
-                break;
-            case 0x2:
-                next_rconf.phy = PHY_2M;
-                break;
-            case 0x4:
-                next_rconf.phy = PHY_CODED;
-                break;
-            default:
-                next_rconf.phy = rconf.phy;
-                break;
-            }
-            next_rconf.slaveLatency = rconf.slaveLatency;
-            nextInstant = *(uint16_t *)(frame->pData + 5);
+        case 0x4:
+            next_rconf.phy = PHY_CODED;
             break;
         default:
+            next_rconf.phy = rconf.phy;
             break;
         }
+        next_rconf.slaveLatency = rconf.slaveLatency;
+        nextInstant = *(uint16_t *)(frame->pData + 5);
+        break;
+    default:
+        break;
+    }
+}
+
+static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
+{
+    // First, we parse the Common Extended Advertising Payload
+    uint8_t *pAdvA = NULL;
+    uint8_t *pTargetA __attribute__((unused)) = NULL;
+    uint8_t *pCTEInfo __attribute__((unused)) = NULL;
+    uint8_t *pAdvDataInfo __attribute__((unused)) = NULL;
+    uint8_t *pAuxPtr = NULL;
+    uint8_t *pSyncInfo __attribute__((unused)) = NULL;
+    uint8_t *pTxPower __attribute__((unused)) = NULL;
+    uint8_t *pACAD __attribute__((unused)) = NULL;
+    uint8_t ACADLen __attribute__((unused)) = 0;
+    uint8_t *pAdvData __attribute__((unused)) = NULL;
+    uint8_t AdvDataLen __attribute__((unused)) = 0;
+
+    uint8_t hdrBodyLen = 0;
+    uint8_t advMode;
+
+    // invalid if missing extended header length and AdvMode
+    if (advLen < 1)
+        return;
+
+    advMode = frame->pData[2] >> 6;
+    hdrBodyLen = frame->pData[2] & 0x3F;
+    if (advLen < hdrBodyLen + 1)
+        return; // inconsistent headers
+
+    // extended header only present if extended header len is non-zero
+    // hdrBodyLen must be > 1 if any non ext header header bytes present
+    if (hdrBodyLen > 1)
+    {
+        uint8_t hdrFlags = frame->pData[3];
+
+        // first header field will be at frame->pData + 4
+        uint8_t hdrPos = 4;
+
+        // now parse the various header fields
+        if (hdrFlags & 0x01)
+        {
+            pAdvA = frame->pData + hdrPos;
+            hdrPos += 6;
+        }
+        if (hdrFlags & 0x02)
+        {
+            pTargetA = frame->pData + hdrPos;
+            hdrPos += 6;
+        }
+        if (hdrFlags & 0x04)
+        {
+            pCTEInfo = frame->pData + hdrPos;
+            hdrPos += 1;
+        }
+        if (hdrFlags & 0x08)
+        {
+            pAdvDataInfo = frame->pData + hdrPos;
+            hdrPos += 2;
+        }
+        if (hdrFlags & 0x10)
+        {
+            pAuxPtr = frame->pData + hdrPos;
+            hdrPos += 3;
+        }
+        if (hdrFlags & 0x20)
+        {
+            pSyncInfo = frame->pData + hdrPos;
+            hdrPos += 18;
+        }
+        if (hdrFlags & 0x40)
+        {
+            pTxPower = frame->pData + hdrPos;
+            hdrPos += 1;
+        }
+        if (hdrPos - 3 < hdrBodyLen)
+        {
+            pACAD = frame->pData + hdrPos;
+            ACADLen = hdrBodyLen - (hdrPos - 3);
+            hdrPos += ACADLen;
+        }
+
+        if (hdrPos - 2 > advLen)
+            return; // inconsistent headers, parsing error
+
+        pAdvData = frame->pData + hdrPos;
+        AdvDataLen = advLen - (hdrPos - 2);
+    }
+
+    // If we have a connectable AUX_ADV_IND, store AdvA in the cache
+    if (pAdvA && advMode == 1)
+        adv_cache_store(pAdvA, frame->pData[0]);
+
+    /* TODO: handle periodic advertising
+     * It's more complicated than I initially realized
+     * It's sort of half way between data and advertising
+     * It uses a custom access address and channel map
+     * I suspect it uses CSA#2 for hopping, but the spec is not obvious on this
+     * There's also a procedure for sync transfer from a link layer (data) connection
+     * In short: I don't have time to implement it today.
+     * The scheduler will need to be reworked to deal with this all.
+     */
+
+    // Add AUX_ADV_INDs to the schedule
+    if (pAuxPtr)
+    {
+        uint8_t chan = pAuxPtr[0] & 0x3F;
+        PHY_Mode phy = pAuxPtr[2] >> 5 < 3 ? pAuxPtr[2] >> 5 : PHY_2M;
+        uint16_t offsetUsecMultiplier = (pAuxPtr[0] & 0x80) ? 300 : 30;
+        uint16_t auxOffset = pAuxPtr[1] + ((pAuxPtr[2] & 0x1F) << 8);
+        uint32_t auxOffsetUs = auxOffset * offsetUsecMultiplier;
+
+        // account for being ready in advance
+        if (auxOffsetUs < AUX_OFF_TARG_USEC)
+            auxOffsetUs = 0;
+        else
+            auxOffsetUs -= AUX_OFF_TARG_USEC;
+
+        // multiply by 4 to convert from usec to radio ticks
+        uint32_t radioTimeStart = (frame->timestamp + auxOffsetUs) * 4;
+
+        // wait for 4 ms on aux channel
+        AuxAdvScheduler_insert(chan, phy, radioTimeStart, 4000 * 4);
+
+        // schedule a scheduler invocation in 2 ms or sooner if needed
+        if (auxOffsetUs < 2000)
+            DelayStopTrigger_trig(auxOffsetUs);
+        else
+            DelayStopTrigger_trig(2000);
     }
 }
 
@@ -583,4 +774,11 @@ void pauseAfterSniffDone(bool do_pause)
         sniffDoneState = PAUSED;
     else
         sniffDoneState = STATIC;
+}
+
+void setAuxAdvEnabled(bool enable)
+{
+    auxAdvEnabled = enable;
+    if (!enable)
+        AuxAdvScheduler_reset();
 }

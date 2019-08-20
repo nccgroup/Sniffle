@@ -20,8 +20,10 @@ pcwriter = None
 _delay_top_mac = False
 _rssi_min = 0
 
+BLE_ADV_AA = 0x8E89BED6
+
 # current access address
-cur_aa = 0x8E89BED6
+cur_aa = BLE_ADV_AA
 
 # packet receive time tracking
 time_offset = 1
@@ -44,6 +46,8 @@ def main():
     aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
     aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
             help="Sniff only advertisements, don't follow connections")
+    aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
+            help="Capture BT5 extended (auxiliary) advertising")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -84,6 +88,9 @@ def main():
             return
         hw.cmd_mac(macBytes)
 
+    # configure BT5 extended (aux/secondary) advertising
+    hw.cmd_auxadv(args.extadv)
+
     global pcwriter
     if not (args.output is None):
         pcwriter = PcapBleWriter(args.output)
@@ -116,8 +123,8 @@ def print_packet(data):
         return
 
     global cur_aa
-    if chan >= 37 and cur_aa != 0x8E89BED6:
-        cur_aa = 0x8E89BED6
+    if chan >= 37 and cur_aa != BLE_ADV_AA:
+        cur_aa = BLE_ADV_AA
 
     global time_offset, first_epoch_time
     if time_offset > 0:
@@ -137,7 +144,7 @@ def print_packet(data):
 
     print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
         real_ts, l, rssi, chan))
-    if chan >= 37:
+    if chan >= 37 or cur_aa == BLE_ADV_AA:
         decode_advert(body)
     else:
         decode_data(body)
@@ -178,6 +185,8 @@ def decode_advert(body):
         decode_scan_req(body)
     elif pdu_type == 5:
         decode_connect_ind(body)
+    elif pdu_type == 7:
+        decode_adv_ext_ind(body)
 
     print_hexdump(body)
 
@@ -274,6 +283,83 @@ def decode_connect_ind(body):
     # PCAP write is already done here
     global cur_aa
     cur_aa = aa
+
+def decode_adv_ext_ind(body):
+    AdvA = None
+    TargetA = None
+    CTEInfo = None
+    AdvDataInfo = None
+    AuxPtr = None
+    SyncInfo = None
+    TxPower = None
+    ACAD = None
+
+    try:
+        if len(body) < 3:
+            raise ValueError("Extended advertisement too short!")
+        advMode = body[2] >> 6
+        hdrBodyLen = body[2] & 0x3F
+
+        if len(body) < hdrBodyLen + 1:
+            raise ValueError("Inconistent header length!")
+
+        hdrFlags = body[3]
+        hdrPos = 4
+        dispMsgs = []
+
+        if hdrFlags & 0x01:
+            AdvA = body[hdrPos:hdrPos+6]
+            hdrPos += 6
+            dispMsgs.append("AdvA: %s" % _str_mac(AdvA))
+        if hdrFlags & 0x02:
+            TargetA = body[hdrPos:hdrPos+6]
+            hdrPos += 6
+            dispMsgs.append("TargetA: %s" % _str_mac(TargetA))
+        if hdrFlags & 0x04:
+            CTEInfo = body[hdrPos]
+            hdrPos += 1
+            dispMsgs.append("CTEInfo: 0x%02X" % CTEInfo)
+        if hdrFlags & 0x08:
+            AdvDataInfo = body[hdrPos:hdrPos+2]
+            hdrPos += 2
+            dispMsgs.append("AdvDataInfo: %02X %02X" % (
+                AdvDataInfo[0], AdvDataInfo[1]))
+        if hdrFlags & 0x10:
+            AuxPtr = body[hdrPos:hdrPos+3]
+            hdrPos += 3
+            decode_aux_ptr(AuxPtr)
+        if hdrFlags & 0x20:
+            SyncInfo = body[hdrPos:hdrPos+18]
+            hdrPos += 18
+            # TODO decode this nicely
+            dispMsgs.append("SyncInfo: %s" % repr(SyncInfo))
+        if hdrFlags & 0x40:
+            TxPower = struct.unpack("b", body[hdrPos:hdrPos+1])[0]
+            hdrPos += 1
+            dispMsgs.append("TxPower: %d" % TxPower)
+        if hdrPos - 3 < hdrBodyLen:
+            ACADLen = hdrBodyLen - (hdrPos - 3)
+            ACAD = body[hdrPos:hdrPos+ACADLen]
+            hdrPos += ACADLen
+            # TODO: pretty print, hex?
+            dispMsgs.append("ACAD: %s" % repr(ACAD))
+        print(" ".join(dispMsgs))
+    except Exception as e:
+        print("Parse error!", repr(e))
+
+    if AdvA is not None:
+        _dtm(AdvA)
+
+def decode_aux_ptr(AuxPtr):
+    phy_names = ["1M", "2M", "Coded", "Invalid3", "Invalid4",
+            "Invalid5", "Invalid6", "Invalid7"]
+    chan = AuxPtr[0] & 0x3F
+    phy = AuxPtr[2] >> 5
+    offsetMult = 300 if AuxPtr[0] & 0x80 else 30
+    auxOffset = AuxPtr[1] + ((AuxPtr[2] & 0x1F) << 8)
+    offsetUsec = auxOffset * offsetMult
+    print("AuxPtr Chan: %d PHY: %s Delay: %d us" % (
+        chan, phy_names[phy], offsetUsec))
 
 if __name__ == "__main__":
     main()

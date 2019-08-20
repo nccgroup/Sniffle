@@ -95,6 +95,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != 6) continue;
             setEndTrim(*(uint32_t *)(msgBuf + 2));
             break;
+        case COMMAND_AUXADV:
+            if (ret != 3) continue;
+            setAuxAdvEnabled(msgBuf[2] ? true : false);
+            break;
         default:
             break;
         }
