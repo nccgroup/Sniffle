@@ -18,6 +18,7 @@
 #include "PacketTask.h"
 #include "CommandTask.h"
 #include "DelayHopTrigger.h"
+#include "DelayStopTrigger.h"
 
 int main(void)
 {
@@ -30,6 +31,7 @@ int main(void)
     CommandTask_init();
 
     DelayHopTrigger_init();
+    DelayStopTrigger_init();
 
     /* Start BIOS */
     BIOS_start();
