@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018, NCC Group plc
+ * Copyright (c) 2018-2019, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -19,8 +19,8 @@ static Timer_Params tparm;
 static Error_Block tim_eb;
 static Timer_Handle tim = NULL;
 
-volatile bool trig_pending = false;
-uint32_t target_time = 0;
+static volatile bool trig_pending = false;
+static uint32_t target_ticks = 0;
 
 static void delay_tick(UArg arg0);
 
@@ -42,7 +42,7 @@ void DelayHopTrigger_trig(uint32_t delay_us)
     } else {
         Timer_setPeriodMicroSecs(tim, delay_us);
         trig_pending = true;
-        target_time = (RF_getCurrentTime() >> 2) + delay_us;
+        target_ticks = RF_getCurrentTime() + delay_us*4;
         Timer_start(tim);
     }
 }
@@ -51,8 +51,9 @@ void DelayHopTrigger_postpone(uint32_t delay_us)
 {
     if (!trig_pending)
         return;
+    uint32_t new_delay_ticks = target_ticks - RF_getCurrentTime() + delay_us*4;
     Timer_stop(tim);
-    Timer_setPeriodMicroSecs(tim, target_time + delay_us - (RF_getCurrentTime() >> 2));
+    Timer_setPeriodMicroSecs(tim, new_delay_ticks >> 2);
     Timer_start(tim);
 }
 
