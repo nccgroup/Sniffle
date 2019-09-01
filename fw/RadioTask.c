@@ -206,9 +206,27 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                         indicatePacket);
             }
         } else if (snifferState == ADVERT_SEEK) {
+            /* if we get no legacy advertisements for 3 seconds, and we're also interested in
+             * extended advertising, then just jump to ADVERT_HOP with an assumed legacy ad
+             * hop interval. If legacy advertising starts later, we can correct the hopping then.
+             */
+            gotLegacy = false;
+            if (auxAdvEnabled)
+                DelayStopTrigger_trig(3 * 1000000);
+
             firstPacket = true;
             RadioWrapper_recvAdv3(200, 22*4000, indicatePacket);
             firstPacket = false;
+
+            // Timeout case
+            if (!gotLegacy && auxAdvEnabled) {
+                // assume 700 us hop interval
+                rconf.hopIntervalTicks = 700 * 4;
+                connEventCount = 0;
+                dprintf("No legacy ads, jumping to ADVERT_HOP");
+                snifferState = ADVERT_HOP;
+                continue;
+            }
 
             if (aiInd == ARR_SZ(advInterval))
             {
