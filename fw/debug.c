@@ -1,24 +1,29 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018, NCC Group plc
+ * Copyright (c) 2018-2019, NCC Group plc
  * Released as open source under GPLv3
  */
 
 #include <stdio.h>
 
 #include "debug.h"
-#include "messenger.h"
+#include "PacketTask.h"
 
 void dprintf(const char *fmt, ...)
 {
+    BLE_Frame frame;
     char buf[128];
-    int cnt;
     va_list args;
 
+    frame.timestamp = 0;
+    frame.rssi = 0;
+    frame.channel = 40; // indicates debug message
+    frame.pData = (uint8_t *)buf;
+
     va_start (args, fmt);
-    buf[0] = MESSAGE_DEBUG;
-    cnt = vsnprintf(buf + 1, sizeof(buf) - 1, fmt, args);
-    if (cnt > 0)
-        messenger_send((unsigned char *)buf, (unsigned)cnt + 1);
+    frame.length = vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
+
+    // Does thread safe copying into queue
+    indicatePacket(&frame);
 }

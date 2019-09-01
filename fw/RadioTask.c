@@ -225,9 +225,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 }
 
                 // DEBUG
-                Task_sleep(100);
                 dprintf("hop us %lu", rconf.hopIntervalTicks >> 2);
-                Task_sleep(100);
 
                 connEventCount = 0;
                 snifferState = ADVERT_HOP;
@@ -262,13 +260,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     empty_hops = 0;
 
                     // DEBUG
-                    Task_sleep(100);
-                    dprintf("confirm %lu us", rconf.hopIntervalTicks >> 2);
-                    Task_sleep(100);
-                } else empty_hops++;
+                    dprintf("hop confirmed");
+                } else {
+                    empty_hops++;
+                }
 
                 firstPacket = false;
                 if (empty_hops >= 3) {
+                    dprintf("adv hop interval changed, retrying");
                     advHopSeekMode();
                     continue;
                 }

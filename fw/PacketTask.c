@@ -107,25 +107,36 @@ static void sendPacket(BLE_Frame *frame)
     static uint8_t msg_buf[MESSAGE_MAX];
     uint8_t *msg_ptr = msg_buf;
 
-    // byte 0 is message type
-    *msg_ptr++ = MESSAGE_BLEFRAME;
+    // special case: debug prints
+    if (frame->channel == 40)
+    {
+        // Byte 0 is message type
+        *msg_ptr++ = MESSAGE_DEBUG;
 
-    // bytes 1-4 are timestamp (little endian)
-    memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
-    msg_ptr += sizeof(frame->timestamp);
+        // Bytes 1 and up are debug print string
+        memcpy(msg_ptr, frame->pData, frame->length);
+        msg_ptr += frame->length;
+    } else {
+        // byte 0 is message type
+        *msg_ptr++ = MESSAGE_BLEFRAME;
 
-    // byte 5 is length
-    *msg_ptr++ = frame->length;
+        // bytes 1-4 are timestamp (little endian)
+        memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
+        msg_ptr += sizeof(frame->timestamp);
 
-    // byte 6 is rssi
-    *msg_ptr++ = (uint8_t)frame->rssi;
+        // byte 5 is length
+        *msg_ptr++ = frame->length;
 
-    // byte 7 is channel
-    *msg_ptr++ = frame->channel;
+        // byte 6 is rssi
+        *msg_ptr++ = (uint8_t)frame->rssi;
 
-    // bytes 8+ are message body
-    memcpy(msg_ptr, frame->pData, frame->length);
-    msg_ptr += frame->length;
+        // byte 7 is channel
+        *msg_ptr++ = frame->channel;
+
+        // bytes 8+ are message body
+        memcpy(msg_ptr, frame->pData, frame->length);
+        msg_ptr += frame->length;
+    }
 
     messenger_send(msg_buf, msg_ptr - msg_buf);
 }
@@ -155,20 +166,24 @@ void indicatePacket(BLE_Frame *frame)
 {
     int queue_check, queue_head_;
 
-    // It only makes sense to filter advertisements
-    if (frame->channel >= 37)
+    // Frames with channel 40 and up are out of band messages (eg. debug prints)
+    if (frame->channel < 40)
     {
-        // RSSI filtering
-        if (frame->rssi < minRssi)
-            return;
+        // It only makes sense to filter advertisements
+        if (frame->channel >= 37)
+        {
+            // RSSI filtering
+            if (frame->rssi < minRssi)
+                return;
 
-        // MAC filtering
-        if (filterMacs && !macFilterCheck(frame))
-            return;
+            // MAC filtering
+            if (filterMacs && !macFilterCheck(frame))
+                return;
+        }
+
+        // always process PDU regardless of queue state
+        reactToPDU(frame);
     }
-
-    // always process PDU regardless of queue state
-    reactToPDU(frame);
 
     // discard the packet if we're full
     queue_check = (atomic_load(&queue_head) - atomic_load(&queue_tail)) & JANKY_QUEUE_MASK;
