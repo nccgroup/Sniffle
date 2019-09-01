@@ -1,6 +1,6 @@
 # Sniffle
 
-**Sniffle is a sniffer for Bluetooth 5 and 4.x (LE) using TI CC26x2 hardware.**
+**Sniffle is a sniffer for Bluetooth 5 and 4.x (LE) using TI CC1352/CC26x2 hardware.**
 
 Sniffle has a number of useful features, including:
 
@@ -21,13 +21,14 @@ Sniffle has a number of useful features, including:
 ## Prerequisites
 
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
+* or TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
-* TI CC26x2 SDK 3.20.00.68: <http://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
+* TI CC26x2 SDK 3.20.00.68: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
-Note: it should be possible to compile Sniffle to run on CC1352R and CC1352P
-Launchpad boards with minimal modifications, but I have not yet tried this.
+Note: it should be possible to compile Sniffle to run on CC1352P Launchpad
+boards with minimal modifications, but I have not yet tried this.
 
 ### Installing GCC
 
@@ -90,11 +91,16 @@ You should place the DSLite executable directory within your `$PATH`.
 Once the GCC, DSLite, and the SDK is installed and operational, building
 Sniffle should be straight forward. Just navigate to the `fw` directory and
 run `make`. If you didn't install the SDK to the default directory, you may
-need to edit `SIMPLELINK_CC26X2_SDK_INSTALL_DIR` in the makefile.
+need to edit `SIMPLELINK_SDK_INSTALL_DIR` in the makefile.
 
 To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 `make load` within the `fw` directory. You can also flash the compiled
 `sniffle.out` binary using the UniFlash GUI.
+
+If building for or installing on a CC1352R Launchpad instead of a CC26x2R,
+you must specify `PLATFORM=CC1352R1F3`, either as an argument to make, or
+by defining it as an environment variable prior to invoking make. Be sure
+to perform a `make clean` before switching between CC13x2 and CC26x2.
 
 ## Usage
 
@@ -120,6 +126,13 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```
+
+The XDS110 debugger on the Launchpad boards creates two serial ports. On
+Linux, they are typically named `ttyACM0` and `ttyACM1`. The first of the
+two created serial ports is used to communicate with Sniffle. By default,
+the Python CLI communicates using `/dev/ttyACM0`, but you may need to
+override this with the `-s` command line option if you are not running on
+Linux or have additional USB CDC-ACM devices connected.
 
 For the `-r` (RSSI filter) option, a value of -40 tends to work well if the
 sniffer is very close to or nearly touching the transmitting device. The RSSI
