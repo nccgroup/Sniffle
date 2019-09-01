@@ -85,6 +85,7 @@ static bool use_csa2;
 static struct RadioConfig next_rconf;
 static uint32_t nextInstant;
 
+static volatile bool gotLegacy;
 static volatile bool firstPacket;
 static uint32_t anchorOffset[16];
 static uint32_t aoInd = 0;
@@ -148,6 +149,23 @@ static uint32_t percentile25(uint32_t *arr, size_t sz)
     return arr[sz >> 2];
 }
 
+static bool enoughTimeForAdvHopCheck()
+{
+    uint8_t chan;
+    PHY_Mode phy;
+    uint32_t cur_t = RF_getCurrentTime();
+    uint32_t etime = AuxAdvScheduler_next(cur_t, &chan, &phy);
+
+    if (chan != 0xFF)
+        return false; // aux PDU time!
+
+    // upcoming aux pkt, no time for check
+    if (etime - LISTEN_TICKS_MIN - cur_t - (rconf.hopIntervalTicks * 8) >= 0x80000000)
+        return false;
+
+    return true;
+}
+
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
     uint32_t empty_hops = 0;
@@ -189,7 +207,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             }
         } else if (snifferState == ADVERT_SEEK) {
             firstPacket = true;
-            RadioWrapper_recvAdv3(750, 22*4000, indicatePacket);
+            RadioWrapper_recvAdv3(200, 22*4000, indicatePacket);
             firstPacket = false;
 
             if (aiInd == ARR_SZ(advInterval))
@@ -211,12 +229,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 dprintf("hop us %lu", rconf.hopIntervalTicks >> 2);
                 Task_sleep(100);
 
+                connEventCount = 0;
                 snifferState = ADVERT_HOP;
             }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
+            gotLegacy = false; // used to avoid spurious increments of connEventCount
             postponed = false;
-            if ((connEventCount & 0x1F) == 0x1F)
+            if ((connEventCount & 0x1F) == 0x1F && enoughTimeForAdvHopCheck())
             {
                 bool interval_changed = false;
 
@@ -224,7 +244,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 // do this by sniffing for an ad on 39 after 37
                 firstPacket = true;
                 aiInd = 0;
-                RadioWrapper_recvAdv3(750, rconf.hopIntervalTicks * 3, indicatePacket);
+                RadioWrapper_recvAdv3(200, rconf.hopIntervalTicks * 4, indicatePacket);
+
+                if (!gotLegacy)
+                    continue; // wrong advertising set, try again
 
                 // make sure hop interval didn't change too much (more than 5 us change)
                 if (!firstPacket)
@@ -235,8 +258,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 }
 
                 // return to ADVERT_SEEK if we got lost
-                if (!firstPacket && !interval_changed) empty_hops = 0;
-                else empty_hops++;
+                if (!firstPacket && !interval_changed) {
+                    empty_hops = 0;
+
+                    // DEBUG
+                    Task_sleep(100);
+                    dprintf("confirm %lu us", rconf.hopIntervalTicks >> 2);
+                    Task_sleep(100);
+                } else empty_hops++;
 
                 firstPacket = false;
                 if (empty_hops >= 3) {
@@ -272,7 +301,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             // state might have changed to DATA, in which case we must not mess with
             // connEventCount
-            if (snifferState == ADVERT_HOP)
+            if (snifferState == ADVERT_HOP && gotLegacy)
                 connEventCount++;
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
@@ -375,12 +404,21 @@ void reactToPDU(const BLE_Frame *frame)
         if (frame->length - 2 < advLen)
             return;
 
-        // for advertisements, jump along and track intervals if needed
+        /* for advertisements, jump along and track intervals if needed
+         *
+         * ADV_EXT_IND is excluded from triggering a hop for two reasons:
+         * 1. It's pointless, as the actual advertising data and connection
+         *    establishment occur on the aux channel, and 37/38/39 aux pointers
+         *    are just redundant.
+         * 2. For devices that do both legacy and extended advertising, the hop
+         *    period between 37/38/39 is different for the legacy and extended
+         *    advertising sets. They are advertised independently, not interleaved
+         *    in practice. We only want to get the hop interval for the legacy ads.
+         */
         if (pduType == ADV_IND ||
             pduType == ADV_DIRECT_IND ||
             pduType == ADV_NONCONN_IND ||
-            pduType == ADV_SCAN_IND ||
-            pduType == ADV_EXT_IND)
+            pduType == ADV_SCAN_IND)
         {
             // advertisement interval tracking
             if (firstPacket)
@@ -415,6 +453,9 @@ void reactToPDU(const BLE_Frame *frame)
                 else
                     timeRemaining = 0;
 
+                // Let them no we got a legacy adv on 37 (to increment connEventCount)
+                gotLegacy = true;
+
                 DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
             }
         }
@@ -446,7 +487,8 @@ void reactToPDU(const BLE_Frame *frame)
             return;
         }
 
-        if (pduType == ADV_EXT_IND && auxAdvEnabled)
+        // react to extended advert PDUs, but don't distract in the ADVERT_SEEK state
+        if (pduType == ADV_EXT_IND && auxAdvEnabled && snifferState != ADVERT_SEEK)
         {
             reactToAdvExtPDU(frame, advLen);
             return;
@@ -720,11 +762,11 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         // wait for 4 ms on aux channel
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, 4000 * 4);
 
-        // schedule a scheduler invocation in 2 ms or sooner if needed
-        if (auxOffsetUs < 2000)
+        // schedule a scheduler invocation in 5 ms or sooner if needed
+        if (auxOffsetUs < 5000)
             DelayStopTrigger_trig(auxOffsetUs);
         else
-            DelayStopTrigger_trig(2000);
+            DelayStopTrigger_trig(5000);
     }
 }
 
