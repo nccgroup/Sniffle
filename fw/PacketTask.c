@@ -197,6 +197,16 @@ void setMacFilt(bool filt, uint8_t *mac)
     filterMacs = filt;
 }
 
+// used for extended advertising to prevent sniffing wrong device's connection
+bool macOk(uint8_t *mac)
+{
+    if (!filterMacs)
+        return true;
+    if (memcmp(mac, targMac, 6) == 0)
+        return true;
+    return false;
+}
+
 static bool macFilterCheck(BLE_Frame *frame)
 {
     uint8_t advType;
@@ -227,8 +237,9 @@ static bool macFilterCheck(BLE_Frame *frame)
             return true;
         return false;
     case ADV_EXT_IND:
-        // TODO: handle this
-        return false;
+        // generally only an AuxPtr provided on primary channel, no AdvA
+        // thus, we have to let it by (AdvA is in aux packet)
+        return true;
     default:
         return false;
     }

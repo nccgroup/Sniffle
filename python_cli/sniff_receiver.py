@@ -19,6 +19,7 @@ pcwriter = None
 # should be paired with an RSSI filter
 _delay_top_mac = False
 _rssi_min = 0
+_allow_hop3 = True
 
 BLE_ADV_AA = 0x8E89BED6
 
@@ -48,6 +49,8 @@ def main():
             help="Sniff only advertisements, don't follow connections")
     aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
             help="Capture BT5 extended (auxiliary) advertising")
+    aparse.add_argument("-H", "--hop", action="store_const", default=False, const=True,
+            help="Hop primary advertising channels in extended mode")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -71,6 +74,11 @@ def main():
     _rssi_min = args.rssi
     hw.cmd_rssi(args.rssi)
 
+    # disable 37/38/39 hop in extended mode unless overridden
+    global _allow_hop3
+    if args.extadv and not args.hop:
+        _allow_hop3 = False
+
     # configure MAC filter
     global _delay_top_mac
     if args.mac is None:
@@ -86,7 +94,7 @@ def main():
         except:
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
-        hw.cmd_mac(macBytes)
+        hw.cmd_mac(macBytes, _allow_hop3)
 
     # configure BT5 extended (aux/secondary) advertising
     hw.cmd_auxadv(args.extadv)
@@ -248,8 +256,13 @@ def _str_mac(mac):
 def _dtm(adva):
     global _delay_top_mac
     if _delay_top_mac:
-        hw.cmd_mac(adva)
-        hw.cmd_rssi()
+        hw.cmd_mac(adva, _allow_hop3)
+        if _allow_hop3:
+            # RSSI filter is still useful for extended advertisements,
+            # as my MAC filtering logic is less effective
+            # Thus, only disable it when we're doing 37/38/39 hops
+            #   (ie. when we [also] want legacy advertisements)
+            hw.cmd_rssi()
         _delay_top_mac = False
 
 def decode_adva(body):

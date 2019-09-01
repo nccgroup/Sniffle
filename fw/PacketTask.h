@@ -23,4 +23,7 @@ void setMinRssi(int8_t rssi);
 /* specify whether or not we want MAC filtering, and specify target MAC */
 void setMacFilt(bool filt, uint8_t *mac);
 
+/* check if specified MAC address is allowed by filter */
+bool macOk(uint8_t *mac);
+
 #endif /* PACKETTASK_H */

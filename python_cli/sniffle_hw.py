@@ -35,14 +35,17 @@ class SniffleHW:
     def cmd_rssi(self, rssi=-80):
         self._send_cmd([0x12, rssi & 0xFF])
 
-    def cmd_mac(self, mac_byte_list=None):
+    def cmd_mac(self, mac_byte_list=None, hop3=True):
         if mac_byte_list is None:
             self._send_cmd([0x13])
         else:
             if len(mac_byte_list) != 6:
                 raise ValueError("MAC must be 6 bytes!")
             self._send_cmd([0x13, *mac_byte_list])
-            self._send_cmd([0x14]) # hop with advertisements
+            if hop3:
+                # hop with advertisements between 37/38/39
+                # unnecessary/detrimental with extended advertising
+                self._send_cmd([0x14])
 
     def cmd_endtrim(self, end_trim=0x10):
         self._send_cmd([0x15, *list(pack("<L", end_trim))])

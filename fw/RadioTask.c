@@ -682,6 +682,9 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         AdvDataLen = advLen - (hdrPos - 2);
     }
 
+    if (pAdvA && !macOk(pAdvA))
+        return; // rejected by MAC filter
+
     // If we have a connectable AUX_ADV_IND, store AdvA in the cache
     if (pAdvA && advMode == 1)
         adv_cache_store(pAdvA, frame->pData[0]);
