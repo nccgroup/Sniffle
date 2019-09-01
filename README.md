@@ -10,6 +10,7 @@ Sniffle has a number of useful features, including:
 * Support for sniffing only advertisements and ignoring connections
 * Support for channel map, connection parameter, and PHY change operations
 * Support for advertisement filtering by MAC address and RSSI
+* Support for BT5 extended advertising (non-periodic)
 * Support for capturing advertisements from a target MAC on all three primary
   advertising channels using a single sniffer. **This makes connection detection
   nearly 3x more reliable than most other sniffers that only sniff one advertising
@@ -100,7 +101,7 @@ To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
 usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI]
-                         [-m MAC] [-a] [-o OUTPUT]
+                         [-m MAC] [-a] [-e] [-H] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -114,6 +115,8 @@ optional arguments:
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -m MAC, --mac MAC     Filter packets by advertiser MAC
   -a, --advonly         Sniff only advertisements, don't follow connections
+  -e, --extadv          Capture BT5 extended (auxiliary) advertising
+  -H, --hop             Hop primary advertising channels in extended mode
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```
@@ -142,7 +145,18 @@ sniffer will lock onto the first advertiser MAC address it sees that passes
 the RSSI filter. The `-m top` mode should thus always be used with an RSSI
 filter to avoid locking onto a spurious MAC address. Once the sniffer locks
 onto a MAC address, the RSSI filter will be disabled automatically by the
-sniff receiver script.
+sniff receiver script (except when the `-e` option is used).
+
+To enable following auxiliary pointers in Bluetooth 5 extended advertising,
+enable the `-e` option. To improve performance and reliability in extended
+advertising capture, this option disables hopping on the primary advertising
+channels, even when a MAC filter is set up. If you are unsure whether a
+connection will be established via legacy or extended advertising, you can
+enable the `-H` flag in conjunction with `-e` to perform primary channel
+hopping with legacy advertisements, and scheduled listening to extended
+advertisement auxiliary packets. When combining `-e` and `-H`, the
+reliability of connection detection may be reduced compared to hopping on
+primary (legacy) or secondary (extended) advertising channels alone.
 
 If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On
@@ -170,4 +184,17 @@ has been locked onto. Save captured data to `data2.pcap`.
 
 ```
 ./sniff_receiver.py -m top -r -40 -o data2.pcap
+```
+
+Sniff BT5 extended advertisements and connections from nearby (RSSI >= -55) devices.
+
+```
+./sniff_receiver.py -r -55 -e
+```
+
+Sniff legacy and extended advertisements and connections from the device with the
+specified MAC address. Save captured data to `data3.pcap`.
+
+```
+./sniff_receiver.py -eH -m 12:34:56:78:9A:BC -o data3.pcap
 ```
