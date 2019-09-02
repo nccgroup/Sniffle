@@ -778,8 +778,10 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         // multiply by 4 to convert from usec to radio ticks
         uint32_t radioTimeStart = (frame->timestamp + auxOffsetUs) * 4;
 
-        // wait for 4 ms on aux channel
-        AuxAdvScheduler_insert(chan, phy, radioTimeStart, 4000 * 4);
+        // wait for 4 ms (or 8 ms coded) on aux channel
+        uint32_t auxPeriod = 4000 * 4;
+        if (phy == PHY_CODED) auxPeriod = 8000 * 4;
+        AuxAdvScheduler_insert(chan, phy, radioTimeStart, auxPeriod);
 
         // schedule a scheduler invocation in 5 ms or sooner if needed
         uint32_t ticksToStart = radioTimeStart - RF_getCurrentTime();
