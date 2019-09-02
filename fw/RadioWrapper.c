@@ -22,14 +22,11 @@
  * CONSTANTS
  */
 
-/* TX Configuration: TODO: update and or correct this */
+/* TX Configuration: */
 #define DATA_ENTRY_HEADER_SIZE 8    /* Constant header size of a Generic Data Entry */
-#define MAX_LENGTH             255  /* Max length byte the radio will accept */
+#define MAX_LENGTH             257  /* Max 8-bit length + two byte BLE header */
 #define NUM_DATA_ENTRIES       2    /* NOTE: Only two data entries supported at the moment */
-#define NUM_APPENDED_BYTES     2    /* The Data Entries data field will contain:
-                                     * 1 Header byte (RF_cmdPropRx.rxConf.bIncludeHdr = 0x1)
-                                     * Max 255 payload bytes
-                                     * 1 status byte (RF_cmdPropRx.rxConf.bAppendStatus = 0x1) */
+#define NUM_APPENDED_BYTES     1    /* Prepended length byte */
 
 /*********************************************************************
  * LOCAL VARIABLES
@@ -290,8 +287,6 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
     BLE_Frame frame;
     rfc_dataEntryGeneral_t *currentDataEntry;
     uint8_t *packetPointer;
-    uint8_t packetLength;
-    uint8_t *packetDataPointer;
 
     if (e & RF_EventRxEntryDone)
     {
@@ -301,24 +296,17 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 
 
         /* In the current radio configuration:
-         * Byte 0: Radio packet length
-         * Byte 1: Start of actual packet
-         *
-         * For advertising packets
-         * Bytes 1,2:   advertisement header
-         * Bytes 3-8:   MAC address of sender (may be randomized)
-         * Bytes 9-end: advertisement body
+         * Byte 0:      Overall length (byte_2 + 2, redundant)
+         * Byte 1:      Advertisement/data PDU header
+         * Byte 2:      PDU body length (advert or data)
+         * Bytes 3-8:   AdvA for legacy advertisements
          */
-        packetLength      = packetPointer[0];
-        packetDataPointer = packetPointer + 1;
-
-        /* Point the frame variable to the payload */
-        frame.pData = packetDataPointer;
+        frame.length = packetPointer[2] + 2;
+        frame.pData = packetPointer + 1;
 
         /* 4 MHz clock, so divide by 4 to get microseconds */
         frame.timestamp = recvStats.timeStamp >> 2;
         frame.rssi = recvStats.lastRssi;
-		frame.length = packetLength;
 
         if (last_channel < 40)
             frame.channel = last_channel;

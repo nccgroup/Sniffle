@@ -42,6 +42,9 @@ uint32_t pOverridesCommon[] =
     // override_ble5_setup_override_common.xml
     // Bluetooth 5: Default to no CTE.
     HW_REG_OVERRIDE(0x5328,0x0000),
+    // Increases max RX packet length from 37 to 255
+    // Sets one byte firmware parameter at offset 0xA5 to 0xFF
+    (uint32_t)0x00FF8A53,
     (uint32_t)0xFFFFFFFF
 };
 

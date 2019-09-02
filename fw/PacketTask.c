@@ -65,7 +65,9 @@ static PIN_Config ledPinTable[] = {
 #define JANKY_QUEUE_SIZE 8u
 #define JANKY_QUEUE_MASK (JANKY_QUEUE_SIZE - 1)
 
-static uint8_t packet_buf[256*JANKY_QUEUE_SIZE];
+#define PACKET_SIZE 257
+
+static uint8_t packet_buf[PACKET_SIZE*JANKY_QUEUE_SIZE];
 static BLE_Frame s_frames[JANKY_QUEUE_SIZE];
 
 static volatile atomic_uint queue_head; // insert here
@@ -77,7 +79,7 @@ void PacketTask_init(void) {
 
     /* initialize s_frames */
     for (i = 0; i < JANKY_QUEUE_SIZE; i++) {
-        s_frames[i].pData = packet_buf + 256*i;
+        s_frames[i].pData = packet_buf + PACKET_SIZE*i;
     }
 
     /* Open LED pins */

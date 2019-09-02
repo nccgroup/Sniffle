@@ -18,7 +18,7 @@ extern "C"
 typedef struct
 {
     uint32_t timestamp; // microseconds
-    uint8_t length;
+    uint16_t length;
     int8_t rssi;
     uint8_t channel;
     uint8_t *pData;
