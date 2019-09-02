@@ -780,8 +780,10 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, 4000 * 4);
 
         // schedule a scheduler invocation in 5 ms or sooner if needed
-        if (auxOffsetUs < 5000)
-            DelayStopTrigger_trig(auxOffsetUs);
+        uint32_t ticksToStart = radioTimeStart - RF_getCurrentTime();
+        if (ticksToStart > 0x80000000) ticksToStart = 0; // underflow
+        if (ticksToStart < 5000 * 4)
+            DelayStopTrigger_trig(ticksToStart >> 2);
         else
             DelayStopTrigger_trig(5000);
     }
