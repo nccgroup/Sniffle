@@ -51,14 +51,28 @@ def main():
             help="Capture BT5 extended (auxiliary) advertising")
     aparse.add_argument("-H", "--hop", action="store_const", default=False, const=True,
             help="Hop primary advertising channels in extended mode")
+    aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
+            help="Use long range (coded) PHY for primary advertising")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
+
+    # Sanity check argument combinations
+    if args.hop and args.mac is None:
+        print("Primary adv. channel hop requires a MAC address specified!", file=sys.stderr)
+        return
+    if args.longrange and not args.extadv:
+        print("Long-range PHY only supported in extended advertising!", file=sys.stderr)
+        return
+    if args.longrange and args.hop:
+        # this would be pointless anyway, since long range always uses extended ads
+        print("Primary ad channel hopping unsupported on long range PHY!", file=sys.stderr)
+        return
 
     global hw
     hw = SniffleHW(args.serport)
 
     # set the advertising channel (and return to ad-sniffing mode)
-    hw.cmd_chan_aa_phy(args.advchan)
+    hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
 
     # set whether or not to pause after sniffing
     hw.cmd_pause_done(args.pause)

@@ -107,7 +107,7 @@ to perform a `make clean` before switching between CC13x2 and CC26x2.
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
 usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI]
-                         [-m MAC] [-a] [-e] [-H] [-o OUTPUT]
+                         [-m MAC] [-a] [-e] [-H] [-l] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -123,6 +123,7 @@ optional arguments:
   -a, --advonly         Sniff only advertisements, don't follow connections
   -e, --extadv          Capture BT5 extended (auxiliary) advertising
   -H, --hop             Hop primary advertising channels in extended mode
+  -l, --longrange       Use long range (coded) PHY for primary advertising
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```
@@ -171,6 +172,13 @@ advertisement auxiliary packets. When combining `-e` and `-H`, the
 reliability of connection detection may be reduced compared to hopping on
 primary (legacy) or secondary (extended) advertising channels alone.
 
+To sniff the long range PHY on primary advertising channels, specify the `-l`
+option. Note that no hopping between primary advertising channels is supported
+in long range mode, since all long range advertising uses the BT5 extended
+mechanism. Under the extended mechanism, auxiliary pointers on all three
+primary channels point to the same auxiliary packet, so hopping between
+primary channels is unnecessary.
+
 If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On
 Launchpad boards, the reset button is located beside the micro USB port.
@@ -210,4 +218,11 @@ specified MAC address. Save captured data to `data3.pcap`.
 
 ```
 ./sniff_receiver.py -eH -m 12:34:56:78:9A:BC -o data3.pcap
+```
+
+Sniff extended advertisements and connections using the long range primary PHY on
+channel 38.
+
+```
+./sniff_receiver.py -le -c 38
 ```
