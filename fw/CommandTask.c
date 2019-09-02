@@ -68,10 +68,11 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         switch (msgBuf[1])
         {
         case COMMAND_SETCHANAAPHY:
-            if (ret != 8) continue;
+            if (ret != 12) continue;
             if (msgBuf[2] > 39) continue;
             if (msgBuf[7] > 2) continue;
-            setChanAAPHY(msgBuf[2], *(uint32_t *)(msgBuf + 3), (PHY_Mode)msgBuf[7]);
+            setChanAAPHYCRCI(msgBuf[2], *(uint32_t *)(msgBuf + 3),
+                    (PHY_Mode)msgBuf[7], *(uint32_t *)(msgBuf + 8));
             break;
         case COMMAND_PAUSEDONE:
             if (ret != 3) continue;

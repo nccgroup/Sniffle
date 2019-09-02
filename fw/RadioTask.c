@@ -73,6 +73,8 @@ struct RadioConfig {
 
 static uint8_t statChan = 37;
 static PHY_Mode statPHY = PHY_1M;
+static uint32_t statCRCI = 0x555555;
+
 static struct RadioConfig rconf;
 static uint32_t accessAddress = BLE_ADV_AA;
 static uint8_t curUnmapped;
@@ -199,10 +201,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     phy = statPHY;
                     aa = accessAddress;
                 }
-                RadioWrapper_recvFrames(phy, chan, aa, 0x555555, etime, indicatePacket);
+                RadioWrapper_recvFrames(phy, chan, aa, statCRCI, etime, indicatePacket);
             } else {
                 /* receive forever (until stopped) */
-                RadioWrapper_recvFrames(statPHY, statChan, accessAddress, 0x555555, 0xFFFFFFFF,
+                RadioWrapper_recvFrames(statPHY, statChan, accessAddress, statCRCI, 0xFFFFFFFF,
                         indicatePacket);
             }
         } else if (snifferState == ADVERT_SEEK) {
@@ -797,12 +799,13 @@ static void handleConnFinished()
         advHopSeekMode();
 }
 
-void setChanAAPHY(uint8_t chan, uint32_t aa, PHY_Mode phy)
+void setChanAAPHYCRCI(uint8_t chan, uint32_t aa, PHY_Mode phy, uint32_t crcInit)
 {
     if (chan > 39)
         return;
     statPHY = phy;
     statChan = chan;
+    statCRCI = crcInit & 0xFFFFFF;
     snifferState = STATIC;
     accessAddress = aa;
     advHopEnabled = false;

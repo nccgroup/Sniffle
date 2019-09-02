@@ -18,8 +18,8 @@ void RadioTask_init(void);
 /* Update radio state/configuration based on received PDU */
 void reactToPDU(const BLE_Frame *frame);
 
-/* Stay on specified channel, PHY, and access address */
-void setChanAAPHY(uint8_t chan, uint32_t aa, PHY_Mode phy);
+/* Stay on specified channel, PHY, access address, and initial CRC */
+void setChanAAPHYCRCI(uint8_t chan, uint32_t aa, PHY_Mode phy, uint32_t crcInit);
 
 /* Set whether or not sniffer should pause after disconnect */
 void pauseAfterSniffDone(bool do_pause);

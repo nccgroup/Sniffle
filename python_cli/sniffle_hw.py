@@ -19,12 +19,12 @@ class SniffleHW:
         msg = b64encode(cmd) + b'\r\n'
         self.ser.write(msg)
 
-    def cmd_chan_aa_phy(self, chan=37, aa=0x8E89BED6, phy=0):
+    def cmd_chan_aa_phy(self, chan=37, aa=0x8E89BED6, phy=0, crci=0x555555):
         if not (0 <= chan <= 39):
             raise ValueError("Channel must be between 0 and 39")
         if not (0 <= phy <= 2):
             raise ValueError("PHY must be 0 (1M), 1 (2M), or 2 (coded)")
-        self._send_cmd([0x10, *list(pack("<BLB", chan, aa, phy))])
+        self._send_cmd([0x10, *list(pack("<BLBL", chan, aa, phy, crci))])
 
     def cmd_pause_done(self, pause_when_done=False):
         if pause_when_done:
