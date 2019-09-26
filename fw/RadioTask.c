@@ -532,13 +532,18 @@ void reactToPDU(const BLE_Frame *frame)
             memcpy(&rconf.chanMap, frame->pData + 30, 5);
             computeMap1(rconf.chanMap);
 
-            /* see pg 2640 of BT5.0 core spec: transmitWaitDelay = 1.25 ms for CONNECT_IND
+            /* see pg 2640 of BT5.0 core spec:
+             *  transmitWaitDelay = 1.25 ms for CONNECT_IND
+             *                      2.5 ms for AUX_CONNECT_REQ (1M and 2M)
+             *                      3.75 ms for AUX_CONNECT_REQ (coded)
+             * Radio clock is 4 MHz, so multiply by 4000 ticks/ms
+             * This function doesn't know the PHY, so it always uses 2.5 ms for aux
              * I subracted 250 uS (1000 ticks) as a fudge factor for latency
-             * Radio clock is 4 MHz
              */
+            uint32_t transmitWaitDelay = frame->channel < 37 ? 9000 : 4000;
             WinOffset = *(uint16_t *)(frame->pData + 22);
             Interval = *(uint16_t *)(frame->pData + 24);
-            nextHopTime = (frame->timestamp << 2) + 4000 + (WinOffset * 5000);
+            nextHopTime = (frame->timestamp << 2) + transmitWaitDelay + (WinOffset * 5000);
             rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
             nextHopTime += rconf.hopIntervalTicks;
             rconf.phy = PHY_1M;
