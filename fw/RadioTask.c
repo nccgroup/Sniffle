@@ -98,7 +98,7 @@ static bool auxAdvEnabled = false;
 #define AO_TARG 4000
 
 // be ready some microseconds before aux advertisement is received
-#define AUX_OFF_TARG_USEC 600
+#define AUX_OFF_TARG_USEC 700
 
 // don't bother listening for fewer than this many ticks
 // radio will get stuck if end time is in past
