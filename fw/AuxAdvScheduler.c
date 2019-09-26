@@ -5,6 +5,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 
 // My includes
 #include <AuxAdvScheduler.h>
@@ -22,6 +23,18 @@ struct AuxSchedInfo
 // non-periodic
 static struct AuxSchedInfo aux_events[MAX_AUX_EVENTS];
 static uint32_t num_aux_events = 0;
+
+static int sched_event_cmp_fn(const void *a, const void *b)
+{
+    const struct AuxSchedInfo *a_ = (const struct AuxSchedInfo *)a;
+    const struct AuxSchedInfo *b_ = (const struct AuxSchedInfo *)b;
+    return a_->radio_time - b_->radio_time;
+}
+
+static void resort_sched(void)
+{
+    qsort(aux_events, num_aux_events, sizeof(struct AuxSchedInfo), sched_event_cmp_fn);
+}
 
 // we're not handling periodic advertising (AUX_SYNC_IND) for now
 
@@ -68,7 +81,7 @@ static bool insert_event_sorted(const struct AuxSchedInfo *event,
                     // stretch start_a back to start_b
                     elist[i].duration += start_a - start_b;
                     elist[i].radio_time = event->radio_time;
-                    // TODO: re-sort
+                    resort_sched();
                     return true;
                 }
                 // Case C: starts earlier, ends later
@@ -76,7 +89,7 @@ static bool insert_event_sorted(const struct AuxSchedInfo *event,
                 {
                     // replace with the new event
                     elist[i] = *event;
-                    // TODO: re-sort
+                    resort_sched();
                     return true;
                 }
             }
@@ -93,7 +106,6 @@ static bool insert_event_sorted(const struct AuxSchedInfo *event,
                 {
                     // stretch out the end of the event in elist
                     elist[i].duration += end_b - end_a;
-                    // TODO: re-sort
                     return true;
                 }
             }
