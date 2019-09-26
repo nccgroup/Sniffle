@@ -24,6 +24,7 @@
 #include "csa2.h"
 #include "adv_header_cache.h"
 #include "debug.h"
+#include "conf_queue.h"
 
 #include <RadioTask.h>
 #include <RadioWrapper.h>
@@ -63,14 +64,6 @@ static uint8_t mapping_table[37];
 static volatile SnifferState snifferState = STATIC;
 static SnifferState sniffDoneState = STATIC;
 
-struct RadioConfig {
-    uint64_t chanMap;
-    uint32_t hopIntervalTicks;
-    uint16_t offset;
-    uint16_t slaveLatency;
-    PHY_Mode phy;
-};
-
 static uint8_t statChan = 37;
 static PHY_Mode statPHY = PHY_1M;
 static uint32_t statCRCI = 0x555555;
@@ -84,8 +77,6 @@ static uint32_t nextHopTime;
 static uint32_t connEventCount;
 static bool use_csa2;
 
-static struct RadioConfig next_rconf;
-static uint32_t nextInstant;
 
 static volatile bool gotLegacy;
 static volatile bool firstPacket;
@@ -346,16 +337,13 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             curUnmapped = (curUnmapped + hopIncrement) % 37;
             connEventCount++;
-            if (nextInstant != 0xFFFFFFFF &&
-                    ((nextInstant - connEventCount) & 0xFFFF) == 0)
+            if (rconf_dequeue(connEventCount & 0xFFFF, &rconf))
             {
-                rconf = next_rconf;
                 nextHopTime += rconf.offset * 5000;
                 if (use_csa2)
                     csa2_computeMapping(accessAddress, rconf.chanMap);
                 else
                     computeMap1(rconf.chanMap);
-                nextInstant = 0xFFFFFFFF;
             }
             nextHopTime += rconf.hopIntervalTicks;
 
@@ -556,7 +544,7 @@ void reactToPDU(const BLE_Frame *frame)
             rconf.phy = PHY_1M;
             rconf.slaveLatency = *(uint16_t *)(frame->pData + 26);
             connEventCount = 0;
-            nextInstant = 0xFFFFFFFF;
+            rconf_reset();
 
             snifferState = DATA;
             RadioWrapper_stop();
@@ -573,6 +561,9 @@ static void reactToDataPDU(const BLE_Frame *frame)
     //uint8_t MD;
     uint8_t datLen;
     uint8_t opcode;
+    uint16_t nextInstant;
+    const struct RadioConfig *last_rconf;
+    struct RadioConfig next_rconf;
 
     /* clock synchronization
      * first packet on each channel is anchor point
@@ -607,32 +598,38 @@ static void reactToDataPDU(const BLE_Frame *frame)
     if (frame->length - 2 < datLen)
         return;
 
+    last_rconf = rconf_latest();
+    if (!last_rconf)
+        last_rconf = &rconf;
+
     switch (opcode)
     {
     case 0x00: // LL_CONNECTION_UPDATE_IND
-        next_rconf.chanMap = rconf.chanMap;
+        next_rconf.chanMap = last_rconf->chanMap;
         next_rconf.offset = *(uint16_t *)(frame->pData + 4);
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
-        next_rconf.phy = rconf.phy;
+        next_rconf.phy = last_rconf->phy;
         next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
         nextInstant = *(uint16_t *)(frame->pData + 12);
+        rconf_enqueue(nextInstant, &next_rconf);
         break;
     case 0x01: // LL_CHANNEL_MAP_IND
         next_rconf.chanMap = 0;
         memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
         next_rconf.offset = 0;
-        next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
-        next_rconf.phy = rconf.phy;
-        next_rconf.slaveLatency = rconf.slaveLatency;
+        next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+        next_rconf.phy = last_rconf->phy;
+        next_rconf.slaveLatency = last_rconf->slaveLatency;
         nextInstant = *(uint16_t *)(frame->pData + 8);
+        rconf_enqueue(nextInstant, &next_rconf);
         break;
     case 0x02: // LL_TERMINATE_IND
         handleConnFinished();
         break;
     case 0x18: // LL_PHY_UPDATE_IND
-        next_rconf.chanMap = rconf.chanMap;
+        next_rconf.chanMap = last_rconf->chanMap;
         next_rconf.offset = 0;
-        next_rconf.hopIntervalTicks = rconf.hopIntervalTicks;
+        next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
         // we don't handle different M->S and S->M PHYs, assume both match
         switch (frame->pData[3] & 0x7)
         {
@@ -646,11 +643,12 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.phy = PHY_CODED;
             break;
         default:
-            next_rconf.phy = rconf.phy;
+            next_rconf.phy = last_rconf->phy;
             break;
         }
-        next_rconf.slaveLatency = rconf.slaveLatency;
+        next_rconf.slaveLatency = last_rconf->slaveLatency;
         nextInstant = *(uint16_t *)(frame->pData + 5);
+        rconf_enqueue(nextInstant, &next_rconf);
         break;
     default:
         break;

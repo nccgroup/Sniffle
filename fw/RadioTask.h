@@ -4,7 +4,7 @@
  * Released as open source under GPLv3
  */
 
-#ifndef RADIOTASK_H_
+#ifndef RADIOTASK_H
 #define RADIOTASK_H
 
 #include <stdint.h>
@@ -59,5 +59,13 @@ typedef enum {
     ADV_SCAN_IND,
     ADV_EXT_IND
 } AdvPDUType;
+
+struct RadioConfig {
+    uint64_t chanMap;
+    uint32_t hopIntervalTicks;
+    uint16_t offset;
+    uint16_t slaveLatency;
+    PHY_Mode phy;
+};
 
 #endif
