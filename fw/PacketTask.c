@@ -132,8 +132,8 @@ static void sendPacket(BLE_Frame *frame)
         // byte 6 is rssi
         *msg_ptr++ = (uint8_t)frame->rssi;
 
-        // byte 7 is channel
-        *msg_ptr++ = frame->channel;
+        // byte 7 is channel and PHY
+        *msg_ptr++ = frame->channel | (frame->phy << 6);
 
         // bytes 8+ are message body
         memcpy(msg_ptr, frame->pData, frame->length);

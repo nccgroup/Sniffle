@@ -144,6 +144,10 @@ def print_packet(data):
     if _delay_top_mac and rssi < _rssi_min:
         return
 
+    # PHY and channel are encoded in a bit field
+    phy = chan >> 6
+    chan &= 0x3F
+
     global cur_aa
     if chan >= 37 and cur_aa != BLE_ADV_AA:
         cur_aa = BLE_ADV_AA
@@ -164,8 +168,9 @@ def print_packet(data):
     if pcwriter:
         pcwriter.write_packet(int(real_ts_epoch * 1000000), cur_aa, chan, rssi, body)
 
-    print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i" % (
-        real_ts, l, rssi, chan))
+    phy_names = ["1M", "2M", "Coded", "Reserved"]
+    print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
+        real_ts, l, rssi, chan, phy_names[phy]))
     if chan >= 37 or cur_aa == BLE_ADV_AA:
         decode_advert(body)
     else:
