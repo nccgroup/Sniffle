@@ -506,14 +506,16 @@ void reactToPDU(const BLE_Frame *frame)
         if ((pduType == CONNECT_IND) && (endTrim < ENDTRIM_MAX_CONN_FOLLOW))
         {
             uint16_t WinOffset, Interval;
+            bool isAuxReq = frame->channel < 37;
 
             // make sure body length is correct
             if (advLen != 34)
                 return;
 
             // Use CSA#2 if both initiator and advertiser support it
-            use_csa2 = false;
-            if (ChSel)
+            // AUX_CONNECT_REQ always uses CSA#2, ChSel is RFU
+            use_csa2 = isAuxReq ? true : false;
+            if (!isAuxReq && ChSel)
             {
                 // check if advertiser supports it
                 uint8_t adv_hdr = adv_cache_fetch(frame->pData + 8);
@@ -530,7 +532,10 @@ void reactToPDU(const BLE_Frame *frame)
 
             rconf.chanMap = 0;
             memcpy(&rconf.chanMap, frame->pData + 30, 5);
-            computeMap1(rconf.chanMap);
+            if (use_csa2)
+                csa2_computeMapping(accessAddress, rconf.chanMap);
+            else
+                computeMap1(rconf.chanMap);
 
             /* see pg 2640 of BT5.0 core spec:
              *  transmitWaitDelay = 1.25 ms for CONNECT_IND
@@ -540,7 +545,7 @@ void reactToPDU(const BLE_Frame *frame)
              * This function doesn't know the PHY, so it always uses 2.5 ms for aux
              * I subracted 250 uS (1000 ticks) as a fudge factor for latency
              */
-            uint32_t transmitWaitDelay = frame->channel < 37 ? 9000 : 4000;
+            uint32_t transmitWaitDelay = isAuxReq ? 9000 : 4000;
             WinOffset = *(uint16_t *)(frame->pData + 22);
             Interval = *(uint16_t *)(frame->pData + 24);
             nextHopTime = (frame->timestamp << 2) + transmitWaitDelay + (WinOffset * 5000);
