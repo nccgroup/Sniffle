@@ -45,8 +45,9 @@ static uint8_t rxDataEntryBuffer [RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRI
 
 static bool configured = false;
 static uint8_t last_channel = 0xFF;
+static PHY_Mode last_phy = PHY_1M;
 
-rfc_bleGenericRxOutput_t recvStats;
+static rfc_bleGenericRxOutput_t recvStats;
 
 static RadioWrapper_Callback userCallback = NULL;
 
@@ -148,6 +149,7 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     }
 
     last_channel = chan;
+    last_phy = phy;
 
 	/* Enter RX mode and stay in RX till timeout */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5GenericRx, RF_PriorityNormal,
@@ -256,6 +258,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
 
     // special case to figure out which channel we're on
     last_channel = 40;
+    last_phy = PHY_1M;
 
     // run the command chain
     RF_runCmd(bleRfHandle, (RF_Op*)&sniff37, RF_PriorityNormal,
@@ -316,6 +319,8 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
             frame.channel = 38;
         else
             frame.channel = 39;
+
+        frame.phy = last_phy;
 
         if (userCallback) userCallback(&frame);
 

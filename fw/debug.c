@@ -18,6 +18,7 @@ void dprintf(const char *fmt, ...)
     frame.timestamp = 0;
     frame.rssi = 0;
     frame.channel = 40; // indicates debug message
+    frame.phy = PHY_1M;
     frame.pData = (uint8_t *)buf;
 
     va_start (args, fmt);

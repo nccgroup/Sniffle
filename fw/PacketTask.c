@@ -199,6 +199,7 @@ void indicatePacket(BLE_Frame *frame)
     s_frames[queue_head_].rssi = frame->rssi;
     s_frames[queue_head_].timestamp = frame->timestamp;
     s_frames[queue_head_].channel = frame->channel;
+    s_frames[queue_head_].phy = frame->phy;
     Semaphore_post(packetAvailSem);
 }
 

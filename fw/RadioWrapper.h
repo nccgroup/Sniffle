@@ -15,21 +15,22 @@ extern "C"
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct
-{
-    uint32_t timestamp; // microseconds
-    uint16_t length;
-    int8_t rssi;
-    uint8_t channel;
-    uint8_t *pData;
-} BLE_Frame;
-
 typedef enum
 {
     PHY_1M = 0,
     PHY_2M,
     PHY_CODED
 } PHY_Mode;
+
+typedef struct
+{
+    uint32_t timestamp; // microseconds
+    uint16_t length;
+    int8_t rssi;
+    uint8_t channel:6;
+    PHY_Mode phy:2;
+    uint8_t *pData;
+} BLE_Frame;
 
 // callback type for frame receipt
 typedef void (*RadioWrapper_Callback)(BLE_Frame *);

@@ -551,7 +551,7 @@ void reactToPDU(const BLE_Frame *frame)
             nextHopTime = (frame->timestamp << 2) + transmitWaitDelay + (WinOffset * 5000);
             rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
             nextHopTime += rconf.hopIntervalTicks;
-            rconf.phy = PHY_1M;
+            rconf.phy = isAuxReq ? frame->phy : PHY_1M;
             rconf.slaveLatency = *(uint16_t *)(frame->pData + 26);
             connEventCount = 0;
             rconf_reset();
