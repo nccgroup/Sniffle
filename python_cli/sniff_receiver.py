@@ -6,7 +6,7 @@
 
 import argparse, sys, struct, time
 from pcap import PcapBleWriter
-from sniffle_hw import SniffleHW
+from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
 
 # global variable to access hardware
 hw = None
@@ -20,20 +20,6 @@ pcwriter = None
 _delay_top_mac = False
 _rssi_min = 0
 _allow_hop3 = True
-
-BLE_ADV_AA = 0x8E89BED6
-
-# current access address
-cur_aa = BLE_ADV_AA
-
-# packet receive time tracking
-time_offset = 1
-first_epoch_time = 0
-ts_wraps = 0
-last_ts = -1
-
-# radio time wraparound period in seconds
-TS_WRAP_PERIOD = 0x100000000 / 4E6
 
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
@@ -118,63 +104,29 @@ def main():
         pcwriter = PcapBleWriter(args.output)
 
     while True:
-        msg_type, msg_body = hw.recv_msg()
-        print_message(msg_type, msg_body)
+        msg = hw.recv_and_decode()
+        print_message(msg)
 
-def print_message(mtype, body):
-    if mtype == 0x10:
-        print_packet(body)
-    elif mtype == 0x11: # debug print
-        print("DEBUG:", str(body, encoding='utf-8'))
-        return
-    else:
-        print("Unknown message type!", file=sys.stderr)
-
+def print_message(msg):
+    if isinstance(msg, PacketMessage):
+        print_packet(msg)
+    elif isinstance(msg, DebugMessage):
+        print(msg)
     print()
 
-def print_packet(data):
-    ts, l, rssi, chan = struct.unpack("<LBbB", data[:7])
-    body = data[7:]
-
-    if len(body) != l:
-        print("Incorrect length field!", file=sys.stderr)
-        return
-
+def print_packet(pkt):
     # ignore low RSSI junk at start in RSSI filter mode for top MAC mode
-    if _delay_top_mac and rssi < _rssi_min:
+    if _delay_top_mac and pkt.rssi < _rssi_min:
         return
-
-    # PHY and channel are encoded in a bit field
-    phy = chan >> 6
-    chan &= 0x3F
-
-    global cur_aa
-    if chan >= 37 and cur_aa != BLE_ADV_AA:
-        cur_aa = BLE_ADV_AA
-
-    global time_offset, first_epoch_time
-    if time_offset > 0:
-        first_epoch_time = time.time()
-        time_offset = ts / -1000000.
-
-    global last_ts, ts_wraps
-    if ts < last_ts:
-        ts_wraps += 1
-    last_ts = ts
-
-    real_ts = time_offset + (ts / 1000000.) + (ts_wraps * TS_WRAP_PERIOD)
-    real_ts_epoch = first_epoch_time + real_ts
 
     if pcwriter:
-        pcwriter.write_packet(int(real_ts_epoch * 1000000), cur_aa, chan, rssi, body)
+        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi, pkt.body)
 
-    phy_names = ["1M", "2M", "Coded", "Reserved"]
-    print("Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
-        real_ts, l, rssi, chan, phy_names[phy]))
-    if chan >= 37 or cur_aa == BLE_ADV_AA:
-        decode_advert(body)
+    print(pkt)
+    if pkt.aa == BLE_ADV_AA:
+        decode_advert(pkt.body)
     else:
-        decode_data(body)
+        decode_data(pkt.body)
 
 def _safe_asciify(c):
     if 32 <= c <= 126:
@@ -312,9 +264,8 @@ def decode_connect_ind(body):
     print("InitA: %s AdvA: %s AA: 0x%08X" % (_str_mac(inita), _str_mac(adva), aa))
     # No _dtm(adva) here because it wouldn't make sense. See comment above.
 
-    # PCAP write is already done here
-    global cur_aa
-    cur_aa = aa
+    # PCAP write is already done here, safe to update cur_aa
+    hw.decoder_state.cur_aa = aa
 
 def decode_adv_ext_ind(body):
     AdvA = None
