@@ -140,10 +140,13 @@ class PacketMessage:
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, body=%s)" % (
                 type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy, repr(self.body))
 
-    def __str__(self):
+    def str_header(self):
         phy_names = ["1M", "2M", "Coded", "Reserved"]
         return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
             self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy])
+
+    def __str__(self):
+        return self.str_header()
 
 class DebugMessage:
     def __init__(self, raw_msg):

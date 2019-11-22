@@ -7,6 +7,7 @@
 import argparse, sys, struct, time
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
+from packet_decoder import DPacketMessage, _AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
 
 # global variable to access hardware
 hw = None
@@ -122,105 +123,18 @@ def print_packet(pkt):
     if pcwriter:
         pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi, pkt.body)
 
-    print(pkt)
-    if pkt.aa == BLE_ADV_AA:
-        decode_advert(pkt.body)
-    else:
-        decode_data(pkt.body)
+    # Further decode and print the packet
+    dpkt = DPacketMessage.decode(pkt)
+    print(dpkt)
 
-def _safe_asciify(c):
-    if 32 <= c <= 126:
-        return chr(c)
-    return " "
+    # React to the packet
+    if isinstance(dpkt, _AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
+            isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
+        _dtm(dpkt.AdvA)
 
-def print_hexdump(data):
-    ascstr = "  ".join([_safe_asciify(b) for b in data])
-    hexstr = " ".join(["%02X" % b for b in data])
-    print(hexstr)
-    print(ascstr)
-
-def decode_advert(body):
-    pdu_type = body[0] & 0xF
-    ChSel = (body[0] >> 5) & 1
-    TxAdd = (body[0] >> 6) & 1
-    RxAdd = (body[0] >> 7) & 1
-    length = body[1]
-
-    adv_pdu_types = ["ADV_IND", "ADV_DIRECT_IND", "ADV_NONCONN_IND", "SCAN_REQ",
-            "SCAN_RSP", "CONNECT_IND", "ADV_SCAN_IND", "ADV_EXT_IND"]
-    if pdu_type < len(adv_pdu_types):
-        print("Ad Type: %s" % adv_pdu_types[pdu_type])
-    else:
-        print("Ad Type: RFU")
-    print("ChSel: %i" % ChSel, "TxAdd: %i" % TxAdd, "RxAdd: %i" % RxAdd,
-            "Ad Length: %i" % length)
-
-    # finer grained ad decoding
-    if pdu_type in [0, 2, 4, 6]:
-        decode_adva(body)
-    elif pdu_type == 1:
-        decode_adv_direct_ind(body)
-    elif pdu_type == 3:
-        decode_scan_req(body)
-    elif pdu_type == 5:
-        decode_connect_ind(body)
-    elif pdu_type == 7:
-        decode_adv_ext_ind(body)
-
-    print_hexdump(body)
-
-def decode_data(body):
-    LLID = body[0] & 0x3
-    NESN = (body[0] >> 2) & 1
-    SN = (body[0] >> 3) & 1
-    MD = (body[0] >> 4) & 1
-    length = body[1]
-
-    data_pdu_types = ["RFU", "LL DATA", "LL DATA CONT", "LL CONTROL"]
-    print("LLID: %s" % data_pdu_types[LLID])
-    print("NESN: %i" % NESN, "SN: %i" % SN, "MD: %i" % MD,
-            "Data Length: %i" % length)
-    if LLID == 3:
-        decode_ll_control_opcode(body[2])
-
-    print_hexdump(body)
-
-def decode_ll_control_opcode(opcode):
-    control_opcodes = [
-            "LL_CONNECTION_UPDATE_IND",
-            "LL_CHANNEL_MAP_IND",
-            "LL_TERMINATE_IND",
-            "LL_ENC_REQ",
-            "LL_ENC_RSP",
-            "LL_START_ENC_REQ",
-            "LL_START_ENC_RSP",
-            "LL_UNKNOWN_RSP",
-            "LL_FEATURE_REQ",
-            "LL_FEATURE_RSP",
-            "LL_PAUSE_ENC_REQ",
-            "LL_PAUSE_ENC_RSP",
-            "LL_VERSION_IND",
-            "LL_REJECT_IND",
-            "LL_SLAVE_FEATURE_REQ",
-            "LL_CONNECTION_PARAM_REQ",
-            "LL_CONNECTION_PARAM_RSP",
-            "LL_REJECT_EXT_IND",
-            "LL_PING_REQ",
-            "LL_PING_RSP",
-            "LL_LENGTH_REQ",
-            "LL_LENGTH_RSP",
-            "LL_PHY_REQ",
-            "LL_PHY_RSP",
-            "LL_PHY_UPDATE_IND",
-            "LL_MIN_USED_CHANNELS_IND"
-            ]
-    if opcode < len(control_opcodes):
-        print("Opcode: %s" % control_opcodes[opcode])
-    else:
-        print("Opcode: RFU (0x%02X)" % opcode)
-
-def _str_mac(mac):
-    return ":".join(["%02X" % b for b in reversed(mac)])
+    if isinstance(dpkt, ConnectIndMessage):
+        # PCAP write is already done here, safe to update cur_aa
+        hw.decoder_state.cur_aa = dpkt.aa
 
 # If we are in _delay_top_mac mode and received a high RSSI advertisement,
 # lock onto it
@@ -235,114 +149,6 @@ def _dtm(adva):
             #   (ie. when we [also] want legacy advertisements)
             hw.cmd_rssi()
         _delay_top_mac = False
-
-def decode_adva(body):
-    adva = body[2:8]
-    print("AdvA: %s" % _str_mac(adva))
-    _dtm(adva)
-
-def decode_adv_direct_ind(body):
-    adva = body[2:8]
-    targeta = body[8:14]
-    print("AdvA: %s TargetA: %s" % (_str_mac(adva), _str_mac(targeta)))
-    _dtm(adva)
-
-def decode_scan_req(body):
-    scana = body[2:8]
-    adva = body[8:14]
-    print("ScanA: %s AdvA: %s" % (_str_mac(scana), _str_mac(adva)))
-    # No _dtm(adva) here because it wouldn't make sense.
-    # Receiving a high RSSI SCAN_REQ only means the scanner is nearby.
-    # We want to lock onto nearby advertisers (peripherals), not nearby
-    # scanners (centrals).
-
-def decode_connect_ind(body):
-    inita = body[2:8]
-    adva = body[8:14]
-    aa = struct.unpack('<L', body[14:18])[0]
-    # TODO: decode the rest
-    print("InitA: %s AdvA: %s AA: 0x%08X" % (_str_mac(inita), _str_mac(adva), aa))
-    # No _dtm(adva) here because it wouldn't make sense. See comment above.
-
-    # PCAP write is already done here, safe to update cur_aa
-    hw.decoder_state.cur_aa = aa
-
-def decode_adv_ext_ind(body):
-    AdvA = None
-    TargetA = None
-    CTEInfo = None
-    AdvDataInfo = None
-    AuxPtr = None
-    SyncInfo = None
-    TxPower = None
-    ACAD = None
-
-    try:
-        if len(body) < 3:
-            raise ValueError("Extended advertisement too short!")
-        advMode = body[2] >> 6
-        hdrBodyLen = body[2] & 0x3F
-
-        if len(body) < hdrBodyLen + 1:
-            raise ValueError("Inconistent header length!")
-
-        hdrFlags = body[3]
-        hdrPos = 4
-        dispMsgs = []
-
-        if hdrFlags & 0x01:
-            AdvA = body[hdrPos:hdrPos+6]
-            hdrPos += 6
-            dispMsgs.append("AdvA: %s" % _str_mac(AdvA))
-        if hdrFlags & 0x02:
-            TargetA = body[hdrPos:hdrPos+6]
-            hdrPos += 6
-            dispMsgs.append("TargetA: %s" % _str_mac(TargetA))
-        if hdrFlags & 0x04:
-            CTEInfo = body[hdrPos]
-            hdrPos += 1
-            dispMsgs.append("CTEInfo: 0x%02X" % CTEInfo)
-        if hdrFlags & 0x08:
-            AdvDataInfo = body[hdrPos:hdrPos+2]
-            hdrPos += 2
-            dispMsgs.append("AdvDataInfo: %02X %02X" % (
-                AdvDataInfo[0], AdvDataInfo[1]))
-        if hdrFlags & 0x10:
-            AuxPtr = body[hdrPos:hdrPos+3]
-            hdrPos += 3
-            decode_aux_ptr(AuxPtr)
-        if hdrFlags & 0x20:
-            SyncInfo = body[hdrPos:hdrPos+18]
-            hdrPos += 18
-            # TODO decode this nicely
-            dispMsgs.append("SyncInfo: %s" % repr(SyncInfo))
-        if hdrFlags & 0x40:
-            TxPower = struct.unpack("b", body[hdrPos:hdrPos+1])[0]
-            hdrPos += 1
-            dispMsgs.append("TxPower: %d" % TxPower)
-        if hdrPos - 3 < hdrBodyLen:
-            ACADLen = hdrBodyLen - (hdrPos - 3)
-            ACAD = body[hdrPos:hdrPos+ACADLen]
-            hdrPos += ACADLen
-            # TODO: pretty print, hex?
-            dispMsgs.append("ACAD: %s" % repr(ACAD))
-        print(" ".join(dispMsgs))
-    except Exception as e:
-        print("Parse error!", repr(e))
-
-    if AdvA is not None:
-        _dtm(AdvA)
-
-def decode_aux_ptr(AuxPtr):
-    phy_names = ["1M", "2M", "Coded", "Invalid3", "Invalid4",
-            "Invalid5", "Invalid6", "Invalid7"]
-    chan = AuxPtr[0] & 0x3F
-    phy = AuxPtr[2] >> 5
-    offsetMult = 300 if AuxPtr[0] & 0x80 else 30
-    auxOffset = AuxPtr[1] + ((AuxPtr[2] & 0x1F) << 8)
-    offsetUsec = auxOffset * offsetMult
-    print("AuxPtr Chan: %d PHY: %s Delay: %d us" % (
-        chan, phy_names[phy], offsetUsec))
 
 if __name__ == "__main__":
     main()
