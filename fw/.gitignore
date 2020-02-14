@@ -2,3 +2,11 @@
 *.map
 *.out
 rtos_build/
+
+# sysconfg generated
+ti_devices_config.c
+ti_drivers_config.c
+ti_drivers_config.h
+ti_radio_config.c
+ti_radio_config.h
+syscfg_c.rov.xs

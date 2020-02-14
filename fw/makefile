@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_3_20_00_68
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_3_40_00_02
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -31,6 +31,7 @@ ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
+    SYSCFG_BOARD = /ti/boards/CC26X2R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
     SOURCES = $(wildcard CC1352/*.c)
@@ -41,6 +42,7 @@ ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
+    SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
 endif
 
 
@@ -80,7 +82,27 @@ LFLAGS += \
     -lnosys \
     --specs=nano.specs
 
-SOURCES += $(wildcard *.c)
+# SysConfig generated
+SOURCES += ti_drivers_config.c ti_devices_config.c ti_radio_config.c
+
+# Sniffle Code
+SOURCES += \
+    adv_header_cache.c \
+    AuxAdvScheduler.c \
+    base64.c \
+    CommandTask.c \
+    conf_queue.c \
+    csa2.c \
+    debug.c \
+    DelayHopTrigger.c \
+    DelayStopTrigger.c \
+    main.c \
+    messenger.c \
+    PacketTask.c \
+    RadioTask.c \
+    RadioWrapper.c \
+    RFQueue.c
+
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
 .PRECIOUS: $(CONFIGPKG)/compiler.opt $(CONFIGPKG)/linker.cmd
@@ -93,6 +115,13 @@ $(CONFIGPKG)/linker.cmd: sniffle.cfg
 	@ echo Running Configuro...
 	@ $(XDC_INSTALL_DIR)/xs --xdcpath="$(XDCPATH)" xdc.tools.configuro -c "$(GCC_ARMCOMPILER)" \
         -t $(XDCTARGET) -p $(TI_PLTFRM) --compileOptions "$(CFLAGS)" -o "$(CONFIGPKG)" $<
+
+.INTERMEDIATE: syscfg
+ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h: syscfg
+
+syscfg: sniffle.syscfg
+	@ echo Generating configuration files...
+	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
 
 %.obj: %.c $(CONFIGPKG)/compiler.opt
 	@ echo Building $@
@@ -110,6 +139,7 @@ clean:
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
 	@ $(RM) -r $(CONFIGPKG) > $(DEVNULL) 2>&1
+	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs > $(DEVNULL) 2>&1
 
 load: $(NAME).out
 	@ echo Flashing...

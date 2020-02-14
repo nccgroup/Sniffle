@@ -23,7 +23,8 @@ Sniffle has a number of useful features, including:
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
 * or TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
-* TI CC26x2 SDK 3.20.00.68: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
+* TI CC26x2 SDK 3.40.00.02: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
+* TI SysConfig 1.3.1030: <http://www.ti.com/tool/download/SYSCONFIG>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
@@ -42,31 +43,34 @@ You can just download and extract the prebuilt executables.
 The TI SDK is provided as an executable binary that extracts a bunch of source
 code once you accept the license agreement. On Linux and Mac, the default
 installation directory is inside`~/ti/`. This works fine and my makefiles
-expect this path, so I suggest just going with the default here.
+expect this path, so I suggest just going with the default here. The same
+applies for the TI SysConfig tool.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within `~/ti/simplelink_cc13x2_26x2_sdk_3_20_00_68`
+your build environment. Within `~/ti/simplelink_cc13x2_26x2_sdk_3_40_00_02`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
-The only paths that need to be set here to build Sniffle are for GCC and XDC.
-See the diff below as an example, and adapt for wherever you installed things.
+The only paths that need to be set here to build Sniffle are for GCC, XDC, and
+SysConfig. We don't need the CCS compiler. See the diff below as an example,
+and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index 270196a5..1918effd 100644
+index 94970e36..f530be4b 100644
 --- a/imports.mak
 +++ b/imports.mak
-@@ -18,13 +18,13 @@
+@@ -18,12 +18,12 @@
  # will build using each non-empty *_ARMCOMPILER cgtool.
  #
  
--XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_51_03_28_core
-+XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_51_03_28_core
- SYSCONFIG_TOOL         ?= /home/username/ti/ccs910/ccs/utils/sysconfig/sysconfig_cli.sh
+-XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_60_02_34_core
+-SYSCONFIG_TOOL         ?= /home/username/ti/ccs930/ccs/utils/sysconfig/sysconfig_cli.sh
++XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_60_02_34_core
++SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.3.1030/sysconfig_cli.sh
  
  
- CCS_ARMCOMPILER        ?= /home/username/ti/ccs910/ccs/tools/compiler/ti-cgt-arm_18.12.2.LTS
- CLANG_ARMCOMPILER      ?= /path/to/clang/compiler
--GCC_ARMCOMPILER        ?= /home/username/ti/ccs910/ccs/tools/compiler/gcc-arm-none-eabi-7-2017-q4-major
+-CCS_ARMCOMPILER        ?= /home/username/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS
+-GCC_ARMCOMPILER        ?= /home/username/ti/ccs930/ccs/tools/compiler/gcc-arm-none-eabi-7-2017-q4-major
++CCS_ARMCOMPILER        ?= $(HOME)/ti/ccs930/ccs/tools/compiler/ti-cgt-arm_18.12.4.LTS
 +GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/gcc-arm-none-eabi-8-2018-q4-major
  
  # The IAR compiler is not supported on Linux
@@ -78,7 +82,7 @@ index 270196a5..1918effd 100644
 DSLite is TI's command line programming and debug server tool for XDS110
 debuggers. The CC26xx and CC13xx Launchpad boards both include XDS110 debuggers.
 Unfortunately, TI does not provide a standalone command line DSLite download.
-The easiest way to obtain DSLite is to install [UniFlash](http://processors.wiki.ti.com/index.php/Category:CCS_UniFlash)
+The easiest way to obtain DSLite is to install [UniFlash](http://www.ti.com/tool/download/UNIFLASH)
 from TI. It's available for Linux, Mac, and Windows. The DSLite executable will
 be located at `deskdb/content/TICloudAgent/linux/ccs_base/DebugServer/bin/DSLite`
 relative to the UniFlash installation directory. On Linux, the default UniFlash

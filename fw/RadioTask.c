@@ -18,9 +18,6 @@
 #include <ti/drivers/rf/RF.h>
 #include <ti/drivers/PIN.h>
 
-/* Board Header files */
-#include "Board.h"
-
 #include "csa2.h"
 #include "adv_header_cache.h"
 #include "debug.h"

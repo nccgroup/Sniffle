@@ -12,7 +12,7 @@
 #include <ti/sysbios/BIOS.h>
 
 /* Board Header files */
-#include "Board.h"
+#include "ti_drivers_config.h"
 
 #include "RadioTask.h"
 #include "PacketTask.h"
@@ -23,7 +23,7 @@
 int main(void)
 {
     /* Call board init functions. */
-    Board_initGeneral();
+    Board_init();
 
     /* Initialize the tasks */
     RadioTask_init();

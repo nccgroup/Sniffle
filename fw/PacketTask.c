@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2019, NCC Group plc
+ * Copyright (c) 2016-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -14,6 +14,7 @@
 
 #include <RadioTask.h>
 #include <RadioWrapper.h>
+#include <messenger.h>
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
@@ -24,14 +25,13 @@
 #include <ti/drivers/PIN.h>
 
 /* Board Header files */
-#include "Board.h"
-#include "messenger.h"
+#include "ti_drivers_config.h"
 
 /***** Defines *****/
 #define PACKET_TASK_STACK_SIZE 1024
 #define PACKET_TASK_PRIORITY   3
 
-#define RX_ACTIVITY_LED Board_PIN_RLED
+#define RX_ACTIVITY_LED CONFIG_PIN_RLED
 
 /***** Type declarations *****/
 

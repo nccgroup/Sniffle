@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2019, NCC Group plc
+ * Copyright (c) 2018-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -13,15 +13,12 @@
 #include <CommandTask.h>
 #include <RadioTask.h>
 #include <PacketTask.h>
+#include <messenger.h>
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/knl/Event.h>
-
-/* Board Header files */
-#include "Board.h"
-#include "messenger.h"
 
 /***** Defines *****/
 #define COMMAND_TASK_STACK_SIZE 1024

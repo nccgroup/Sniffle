@@ -42,7 +42,6 @@
 
 #include <ti/devices/cc13x2_cc26x2/driverlib/ioc.h>
 #include <ti/devices/cc13x2_cc26x2/driverlib/cpu.h>
-#include <ti/drivers/rf/RF.h>
 #include <ti/drivers/pin/PINCC26XX.h>
 
 #include <ti/drivers/Board.h>

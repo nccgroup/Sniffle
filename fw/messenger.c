@@ -6,7 +6,7 @@
 
 #include <stdbool.h>
 #include <ti/drivers/UART.h>
-#include "Board.h"
+#include "ti_drivers_config.h"
 #include "messenger.h"
 #include "base64.h"
 
@@ -24,7 +24,7 @@ int messenger_init()
     uartParams.readDataMode = UART_DATA_BINARY;
     uartParams.readReturnMode = UART_RETURN_FULL;
     uartParams.readEcho = UART_ECHO_OFF;
-    uart = UART_open(Board_UART0, &uartParams);
+    uart = UART_open(CONFIG_UART_0, &uartParams);
     if (!uart)
         return -1;
 

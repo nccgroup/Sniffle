@@ -15,7 +15,7 @@
 
 #include "RFQueue.h"
 #include "RadioWrapper.h"
-#include "smartrf_settings.h"
+#include "ti_radio_config.h"
 #include "RadioTask.h"
 
 /*********************************************************************

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, Texas Instruments Incorporated
+ * Copyright (c) 2017-2019, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -185,6 +185,7 @@ SECTIONS {
     .rodata : {
         *(.rodata)
         *(.rodata.*)
+        *(.rodata_*)
     } > REGION_TEXT AT> REGION_TEXT
 
     .data : ALIGN(4) {
