@@ -12,7 +12,8 @@ NAME = sniffle
 
 CC26X2_PLATFORMS = CC2642R1F CC2652R1F
 CC1352_PLATFORMS = CC1352R1F3
-SUPPORTED_PLATFORMS = $(CC26X2_PLATFORMS) $(CC1352_PLATFORMS)
+CC2652RB_PLATFORMS = CC2652RB1F
+SUPPORTED_PLATFORMS = $(CC26X2_PLATFORMS) $(CC1352_PLATFORMS) $(CC2652RB_PLATFORMS)
 
 ifeq ($(PLATFORM),)
     PLATFORM = CC2642R1F
@@ -43,6 +44,17 @@ ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
     LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
+endif
+ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
+    SOURCES = $(wildcard CC2652RB/*.c)
+    CCXML = CC2652RB/CC2652RB1F.ccxml
+    CFLAGS += -DDeviceFamily_CC26X2
+    CFLAGS += -ICC26X2
+    LFLAGS += -Wl,-T,CC2652RB/CC2652RB_LAUNCHXL_TIRTOS.lds
+    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
+    LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
+    LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
+    SYSCFG_BOARD = /ti/boards/CC2652RB_LAUNCHXL
 endif
 
 

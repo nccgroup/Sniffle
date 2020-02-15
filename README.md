@@ -21,10 +21,11 @@ Sniffle has a number of useful features, including:
 ## Prerequisites
 
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
+* or TI CC2652RB Launchpad Board: <https://www.ti.com/tool/LP-CC2652RB>
 * or TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
 * TI CC26x2 SDK 3.40.00.02: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
-* TI SysConfig 1.3.1030: <http://www.ti.com/tool/download/SYSCONFIG>
+* TI SysConfig 1.3.1030: <https://www.ti.com/tool/download/SYSCONFIG>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
