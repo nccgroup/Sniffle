@@ -107,7 +107,7 @@ you must specify `PLATFORM=CC1352R1F3`, either as an argument to make, or
 by defining it as an environment variable prior to invoking make. Be sure
 to perform a `make clean` before switching between CC13x2 and CC26x2.
 
-## Usage
+## Sniffer Usage
 
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
@@ -188,6 +188,35 @@ If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On
 Launchpad boards, the reset button is located beside the micro USB port.
 
+## Scanner Usage
+
+```
+sultan@sultan-neon-vm:~/sniffle/python_cli$ ./scanner.py --help
+usage: scanner.py [-h] [-s SERPORT] [-c {37,38,39}] [-r RSSI] [-e] [-l]
+
+Scanner utility for Sniffle BLE5 sniffer
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -s SERPORT, --serport SERPORT
+                        Sniffer serial port name
+  -c {37,38,39}, --advchan {37,38,39}
+                        Advertising channel to listen on
+  -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
+  -e, --extadv          Capture BT5 extended (auxiliary) advertising
+  -l, --longrange       Use long range (coded) PHY for primary advertising
+```
+
+The scanner command line arguments work the same as the sniffer. The purpose of
+the scanner utility is to passively gather a list of nearby devices advertising,
+without having the deluge of fast scrolling data you get with the sniffer
+utility. The hardware/firmware works exactly the same, but the scanner utility
+will record and report observed MAC adddresses only once without spamming the
+display. Once you're done capturing advertisements, press Ctrl-C to stop
+scanning and report the results. The scanner will show the last advertisement
+and scan response from each target. Scan results will be sorted by RSSI in
+descending order.
+
 ## Usage Examples
 
 Sniff all advertisements on channel 38, ignore RSSI < -50, stay on advertising
@@ -230,4 +259,11 @@ channel 38.
 
 ```
 ./sniff_receiver.py -le -c 38
+```
+
+Passively scan on channel 39 for advertisements with RSSI greater than -50, and
+enable capture of extended advertising.
+
+```
+./scanner.py -c 39 -e -r -50
 ```

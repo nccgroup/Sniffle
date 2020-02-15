@@ -14,6 +14,7 @@ class SniffleHW:
         self.decoder_state = SniffleDecoderState()
         self.ser = Serial(serport, 921600)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
+        self.recv_cancelled = False
 
     def _send_cmd(self, cmd_byte_list):
         b0 = (len(cmd_byte_list) + 3) // 3
@@ -69,6 +70,10 @@ class SniffleHW:
                 continue
             got_msg = True
 
+        if self.recv_cancelled:
+            self.recv_cancelled = False
+            return -1, None
+
         # msg type, msg body
         return data[0], data[1:]
 
@@ -78,8 +83,14 @@ class SniffleHW:
             return PacketMessage(mbody, self.decoder_state)
         elif mtype == 0x11:
             return DebugMessage(mbody)
+        elif mtype == -1:
+            return None # receive cancelled
         else:
             raise SniffleHWPacketError("Unknown message type 0x%02X!" % mtype)
+
+    def cancel_recv(self):
+        self.recv_cancelled = True
+        self.ser.cancel_read()
 
 # raised when sniffle HW gives invalid data (shouldn't happen)
 # this is not for malformed Bluetooth traffic

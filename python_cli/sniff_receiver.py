@@ -4,7 +4,7 @@
 # Copyright (c) 2018-2019, NCC Group plc
 # Released as open source under GPLv3
 
-import argparse, sys, struct, time
+import argparse, sys
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
 from packet_decoder import DPacketMessage, _AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
