@@ -59,6 +59,9 @@ class SniffleHW:
         else:
             self._send_cmd([0x16, 0x00])
 
+    def cmd_reset(self):
+        self._send_cmd([0x17])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

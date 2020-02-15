@@ -10,6 +10,9 @@
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
+#include <ti/devices/DeviceFamily.h>
+#include DeviceFamily_constructPath(driverlib/sys_ctrl.h)
+
 #include <CommandTask.h>
 #include <RadioTask.h>
 #include <PacketTask.h>
@@ -96,6 +99,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_AUXADV:
             if (ret != 3) continue;
             setAuxAdvEnabled(msgBuf[2] ? true : false);
+            break;
+        case COMMAND_RESET:
+            if (ret != 2) continue;
+            SysCtrlSystemReset();
             break;
         default:
             break;
