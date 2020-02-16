@@ -6,7 +6,7 @@
 
 import argparse, sys, signal
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
-from packet_decoder import DPacketMessage, AdvertMessage, ScanRspMessage, _AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, _str_mac
+from packet_decoder import DPacketMessage, AdvertMessage, ScanRspMessage, _AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, str_mac2
 
 # global variables
 hw = None
@@ -107,7 +107,7 @@ def handle_packet(pkt):
 
     if isinstance(dpkt, _AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
             isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-        adva = _str_mac(dpkt.AdvA)
+        adva = str_mac2(dpkt.AdvA)
 
         if not adva in advertisers:
             advertisers[adva] = Advertiser()

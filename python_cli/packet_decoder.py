@@ -12,8 +12,20 @@ def _safe_asciify(c):
         return chr(c)
     return " "
 
-def _str_mac(mac):
+def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
+
+def _str_atype(addr):
+    # Non-resolvable private address
+    # Resolvable private address
+    # Reserved for future use
+    # Static device address
+    atypes = ["NRPA", "RPA", "RFU", "Static"]
+    atype = addr[5] >> 6
+    return atypes[atype]
+
+def str_mac2(mac):
+    return "%s (%s)" % (str_mac(mac), _str_atype(mac))
 
 class DPacketMessage(PacketMessage):
     pdutype = "RFU"
@@ -169,7 +181,7 @@ class _AdvaMessage(AdvertMessage):
         self.AdvA = self.body[2:8]
 
     def str_adva(self):
-        return "AdvA: %s" % _str_mac(self.AdvA)
+        return "AdvA: %s" % str_mac2(self.AdvA)
 
     def __str__(self):
         return "\n".join([
@@ -199,7 +211,7 @@ class AdvDirectIndMessage(AdvertMessage):
         self.TargetA = self.body[8:14]
 
     def str_ata(self):
-        return "AdvA: %s TargetA: %s" % (_str_mac(self.AdvA), _str_mac(self.TargetA))
+        return "AdvA: %s TargetA: %s" % (str_mac2(self.AdvA), str_mac2(self.TargetA))
 
     def __str__(self):
         return "\n".join([
@@ -217,7 +229,7 @@ class ScanReqMessage(AdvertMessage):
         self.AdvA = self.body[8:14]
 
     def str_asa(self):
-        return "ScanA: %s AdvA: %s" % (_str_mac(self.ScanA), _str_mac(self.AdvA))
+        return "ScanA: %s AdvA: %s" % (str_mac2(self.ScanA), str_mac2(self.AdvA))
 
     def __str__(self):
         return "\n".join([
@@ -238,7 +250,7 @@ class ConnectIndMessage(AdvertMessage):
 
     def str_aia(self):
         return "InitA: %s AdvA: %s AA: 0x%08X" % (
-                _str_mac(self.InitA), _str_mac(self.AdvA), self.aa)
+                str_mac2(self.InitA), str_mac2(self.AdvA), self.aa)
 
     def __str__(self):
         return "\n".join([
@@ -321,9 +333,9 @@ class AdvExtIndMessage(AdvertMessage):
     def str_aext(self):
         dispMsgs = []
         if self.AdvA:
-            dispMsgs.append("AdvA: %s" % _str_mac(self.AdvA))
+            dispMsgs.append("AdvA: %s" % str_mac2(self.AdvA))
         if self.TargetA:
-            dispMsgs.append("TargetA: %s" % _str_mac(self.TargetA))
+            dispMsgs.append("TargetA: %s" % str_mac2(self.TargetA))
         if self.CTEInfo:
             dispMsgs.append("CTEInfo: 0x%02X" % self.CTEInfo)
         if self.AdvDataInfo:
