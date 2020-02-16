@@ -102,9 +102,16 @@ class SniffleHW:
 
     def mark_and_flush(self):
         # use marker to zero time, flush every packet before marker
+        # also tolerate errors from incomplete lines in UART buffer
         self.cmd_marker()
-        while not isinstance(self.recv_and_decode(), MarkerMessage):
-            pass
+        while True:
+            try:
+                msg = self.recv_and_decode()
+            except SniffleHWPacketError:
+                print("WARNING: invalid message during flush, ignoring...")
+                continue
+            if isinstance(msg, MarkerMessage):
+                break
 
 # raised when sniffle HW gives invalid data (shouldn't happen)
 # this is not for malformed Bluetooth traffic
