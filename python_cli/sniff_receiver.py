@@ -7,7 +7,7 @@
 import argparse, sys
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
-from packet_decoder import DPacketMessage, _AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
+from packet_decoder import DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
 
 # global variable to access hardware
 hw = None
@@ -127,7 +127,7 @@ def print_packet(pkt):
     print(dpkt)
 
     # React to the packet
-    if isinstance(dpkt, _AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
+    if isinstance(dpkt, AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
             isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
         _dtm(dpkt.AdvA)
 

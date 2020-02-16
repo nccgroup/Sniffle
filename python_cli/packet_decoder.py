@@ -175,7 +175,7 @@ class LlControlMessage(DataMessage):
             self.str_opcode(),
             self.hexdump()])
 
-class _AdvaMessage(AdvertMessage):
+class AdvaMessage(AdvertMessage):
     def __init__(self, pkt: PacketMessage):
         super().__init__(pkt)
         self.AdvA = self.body[2:8]
@@ -190,16 +190,16 @@ class _AdvaMessage(AdvertMessage):
             self.str_adva(),
             self.hexdump()])
 
-class AdvIndMessage(_AdvaMessage):
+class AdvIndMessage(AdvaMessage):
     pdutype = "ADV_IND"
 
-class AdvNonconnIndMessage(_AdvaMessage):
+class AdvNonconnIndMessage(AdvaMessage):
     pdutype = "ADV_NONCONN_IND"
 
-class ScanRspMessage(_AdvaMessage):
+class ScanRspMessage(AdvaMessage):
     pdutype = "SCAN_RSP"
 
-class AdvScanIndMessage(_AdvaMessage):
+class AdvScanIndMessage(AdvaMessage):
     pdutype = "ADV_SCAN_IND"
 
 class AdvDirectIndMessage(AdvertMessage):
