@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2019, NCC Group plc
+ * Copyright (c) 2016-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -855,4 +855,21 @@ void setAuxAdvEnabled(bool enable)
     auxAdvEnabled = enable;
     if (!enable)
         AuxAdvScheduler_reset();
+}
+
+// this command is useful to get the radio time after a series of config
+// commands were handled by the firmware (as a "zero" time)
+void sendMarker()
+{
+    BLE_Frame frame;
+
+    frame.timestamp = RF_getCurrentTime() >> 2;
+    frame.rssi = 0;
+    frame.channel = 41; // indicates marker message
+    frame.phy = PHY_1M;
+    frame.pData = NULL;
+    frame.length = 0;
+
+    // Does thread safe copying into queue
+    indicatePacket(&frame);
 }

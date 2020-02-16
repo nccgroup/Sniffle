@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2019, NCC Group plc
+ * Copyright (c) 2018-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -18,5 +18,6 @@ void CommandTask_init(void);
 #define COMMAND_ENDTRIM         0x15
 #define COMMAND_AUXADV          0x16
 #define COMMAND_RESET           0x17
+#define COMMAND_MARKER          0x18
 
 #endif /* COMMANDTASK_H */

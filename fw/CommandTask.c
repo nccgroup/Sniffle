@@ -104,6 +104,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != 2) continue;
             SysCtrlSystemReset();
             break;
+        case COMMAND_MARKER:
+            if (ret != 2) continue;
+            sendMarker();
+            break;
         default:
             break;
         }

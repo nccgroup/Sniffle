@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2019, NCC Group plc
+ * Copyright (c) 2016-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -48,6 +48,9 @@ void setEndTrim(uint32_t trim_us);
 
 /* Enable hopping to auxiliary advertisements */
 void setAuxAdvEnabled(bool enable);
+
+/* Send marker message indicating current radio time */
+void sendMarker(void);
 
 typedef enum {
     ADV_IND,

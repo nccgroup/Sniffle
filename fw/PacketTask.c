@@ -118,6 +118,13 @@ static void sendPacket(BLE_Frame *frame)
         // Bytes 1 and up are debug print string
         memcpy(msg_ptr, frame->pData, frame->length);
         msg_ptr += frame->length;
+    } else if (frame->channel == 41) {
+        // Byte 0 is message type
+        *msg_ptr++ = MESSAGE_MARKER;
+
+        // bytes 1-4 are timestamp (little endian)
+        memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
+        msg_ptr += sizeof(frame->timestamp);
     } else {
         // byte 0 is message type
         *msg_ptr++ = MESSAGE_BLEFRAME;

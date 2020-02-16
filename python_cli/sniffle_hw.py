@@ -62,6 +62,9 @@ class SniffleHW:
     def cmd_reset(self):
         self._send_cmd([0x17])
 
+    def cmd_marker(self):
+        self._send_cmd([0x18])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:
@@ -86,6 +89,8 @@ class SniffleHW:
             return PacketMessage(mbody, self.decoder_state)
         elif mtype == 0x11:
             return DebugMessage(mbody)
+        elif mtype == 0x12:
+            return MarkerMessage(mbody, self.decoder_state)
         elif mtype == -1:
             return None # receive cancelled
         else:
@@ -94,6 +99,12 @@ class SniffleHW:
     def cancel_recv(self):
         self.recv_cancelled = True
         self.ser.cancel_read()
+
+    def mark_and_flush(self):
+        # use marker to zero time, flush every packet before marker
+        self.cmd_marker()
+        while not isinstance(self.recv_and_decode(), MarkerMessage):
+            pass
 
 # raised when sniffle HW gives invalid data (shouldn't happen)
 # this is not for malformed Bluetooth traffic
@@ -171,3 +182,11 @@ class DebugMessage:
 
     def __str__(self):
         return "DEBUG: " + self.msg
+
+class MarkerMessage:
+    def __init__(self, raw_msg, dstate):
+        ts, = unpack("<L", raw_msg)
+
+        # these messages are intended to mark the zero time
+        dstate.first_epoch_time = time()
+        dstate.time_offset = ts / -1000000.

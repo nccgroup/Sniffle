@@ -61,6 +61,9 @@ def main():
     # configure BT5 extended (aux/secondary) advertising
     hw.cmd_auxadv(args.extadv)
 
+    # zero timestamps and flush old packets
+    hw.mark_and_flush()
+
     # trap Ctrl-C
     signal.signal(signal.SIGINT, sigint_handler)
 

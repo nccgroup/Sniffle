@@ -100,6 +100,9 @@ def main():
     # configure BT5 extended (aux/secondary) advertising
     hw.cmd_auxadv(args.extadv)
 
+    # zero timestamps and flush old packets
+    hw.mark_and_flush()
+
     global pcwriter
     if not (args.output is None):
         pcwriter = PcapBleWriter(args.output)
@@ -116,10 +119,6 @@ def print_message(msg):
     print()
 
 def print_packet(pkt):
-    # ignore low RSSI junk at start in RSSI filter mode for top MAC mode
-    if _delay_top_mac and pkt.rssi < _rssi_min:
-        return
-
     if pcwriter:
         pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi, pkt.body)
 
