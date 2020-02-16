@@ -2,6 +2,7 @@
 *.map
 *.out
 rtos_build/
+builds/
 
 # sysconfg generated
 ti_devices_config.c
