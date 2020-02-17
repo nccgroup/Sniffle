@@ -331,6 +331,10 @@ class AdvExtIndMessage(AdvertMessage):
             print("Parse error!", repr(e))
 
     def str_aext(self):
+        amodes = ["Non-connectable, non-scannable",
+                "Connectable", "Scannable", "RFU"]
+        modemsg = "AdvMode: %s\n" % amodes[self.AdvMode]
+
         dispMsgs = []
         if self.AdvA:
             dispMsgs.append("AdvA: %s" % str_mac2(self.AdvA))
@@ -350,7 +354,7 @@ class AdvExtIndMessage(AdvertMessage):
             # TODO: pretty print, hex?
             dispMsgs.append("ACAD: %s" % repr(self.ACAD))
 
-        dmsg = " ".join(dispMsgs)
+        dmsg = modemsg + " ".join(dispMsgs)
         if self.AuxPtr:
             return "\n".join([str(self.AuxPtr), dmsg])
         else:
