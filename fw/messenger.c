@@ -107,7 +107,7 @@ int messenger_recv(uint8_t *dst_buf)
 
 void messenger_send(const uint8_t *src_buf, unsigned src_len)
 {
-    uint32_t enc_len;
+    uint32_t enc_len, bytes_remaining, bytes_sent;
 
     // 2 bytes for CRLF
     static uint8_t b64_buf[((MESSAGE_MAX * 4) / 3) + 2];
@@ -116,5 +116,15 @@ void messenger_send(const uint8_t *src_buf, unsigned src_len)
     b64_buf[enc_len] = '\r';
     b64_buf[enc_len + 1] = '\n';
 
-    UART_write(uart, b64_buf, enc_len + 2);
+    bytes_remaining = enc_len + 2; // two byte CRLF
+    bytes_sent = 0;
+    while (bytes_remaining)
+    {
+        // sometimes, even in blocking mode, UART_write returns before the
+        // complete buffer was sent, due to some queues being full
+        int sent = UART_write(uart, b64_buf + bytes_sent, bytes_remaining);
+        if (sent < 0) return; // error, shouldn't happen
+        bytes_remaining -= sent;
+        bytes_sent += sent;
+    }
 }
