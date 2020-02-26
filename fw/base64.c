@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018, NCC Group plc
+ * Copyright (c) 2018-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -31,9 +31,9 @@ static void dec_table_build()
     table_built = true;
 }
 
-long base64_encode(uint8_t *dst, const uint8_t *src, unsigned long src_len)
+uint32_t base64_encode(uint8_t *dst, const uint8_t *src, uint32_t src_len)
 {
-    unsigned long i, j;
+    uint32_t i, j;
 
     for (i = 0, j = 0; i < src_len;)
     {
@@ -63,19 +63,22 @@ long base64_encode(uint8_t *dst, const uint8_t *src, unsigned long src_len)
         break;
     }
 
-    return (long)j;
+    return j;
 }
 
-long base64_decode(uint8_t *dst, const uint8_t *src, unsigned long src_len)
+uint32_t base64_decode(uint8_t *dst, const uint8_t *src, uint32_t src_len, int *err)
 {
-    unsigned long dst_len, i, j;
+    uint32_t dst_len, i, j;
 
     if (!table_built)
         dec_table_build();
 
     // valid base64 is a multiple of 4 in length
     if (src_len & 0x3)
-        return -1;
+    {
+        if (err) *err = -1;
+        return 0;
+    }
 
     dst_len = (src_len >> 2) * 3;
     if (src_len && src[src_len - 1] == '=')
@@ -94,7 +97,10 @@ long base64_decode(uint8_t *dst, const uint8_t *src, unsigned long src_len)
 
         // invalid character present
         if ((byte0 | byte1 | byte2 | byte3) & 0xC0)
-            return -2;
+        {
+            if (err) *err = -2;
+            return 0;
+        }
 
         uint32_t triplet = (byte0 << 18) | (byte1 << 12) | (byte2 << 6) | byte3;
 
@@ -103,5 +109,6 @@ long base64_decode(uint8_t *dst, const uint8_t *src, unsigned long src_len)
         if (j < dst_len) dst[j++] = (triplet >> 0) & 0xFF;
     }
 
-    return (long)dst_len;
+    if (err) *err = 0;
+    return dst_len;
 }

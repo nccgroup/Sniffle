@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018, NCC Group plc
+ * Copyright (c) 2018-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -53,8 +53,8 @@ static void _recv_crlf()
 // this function is NOT reentrant!
 int messenger_recv(uint8_t *dst_buf)
 {
-    long dec_stat;
-    int word_cnt, last_byte;
+    uint32_t dec_len;
+    int word_cnt, last_byte, dec_stat;
 
     // 2 bytes for CRLF
     static uint8_t b64_buf[((MESSAGE_MAX * 4) / 3) + 2];
@@ -63,7 +63,7 @@ int messenger_recv(uint8_t *dst_buf)
     // read 2 extra bytes for CRLF
     UART_read(uart, b64_buf, 6);
 
-    dec_stat = base64_decode(dst_buf, b64_buf, 4);
+    dec_len = base64_decode(dst_buf, b64_buf, 4, &dec_stat);
     if (dec_stat < 0)
     {
         _recv_crlf();
@@ -93,7 +93,7 @@ int messenger_recv(uint8_t *dst_buf)
     }
 
     // convert to binary
-    dec_stat = base64_decode(dst_buf, b64_buf, last_byte);
+    dec_len = base64_decode(dst_buf, b64_buf, last_byte, &dec_stat);
     if (dec_stat < 0)
     {
         // malfored data/sync error
@@ -102,12 +102,12 @@ int messenger_recv(uint8_t *dst_buf)
     }
 
     // return length of received message
-    return dec_stat;
+    return dec_len;
 }
 
 void messenger_send(const uint8_t *src_buf, unsigned src_len)
 {
-    long enc_len;
+    uint32_t enc_len;
 
     // 2 bytes for CRLF
     static uint8_t b64_buf[((MESSAGE_MAX * 4) / 3) + 2];
