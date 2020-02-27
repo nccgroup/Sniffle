@@ -130,7 +130,7 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 
     RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushIgnored = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushCrcErr = 1;
-    RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushEmpty = 1;
+    RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushEmpty = 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeCrc = 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendRssi = 0;
@@ -194,7 +194,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para37.__dummy0 = 0x0000;
     para37.rxConfig.bAutoFlushIgnored = 1;
     para37.rxConfig.bAutoFlushCrcErr = 1;
-    para37.rxConfig.bAutoFlushEmpty = 1;
+    para37.rxConfig.bAutoFlushEmpty = 0;
     para37.rxConfig.bIncludeLenByte = 1;
     para37.rxConfig.bIncludeCrc = 0;
     para37.rxConfig.bAppendRssi = 0;
