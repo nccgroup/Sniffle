@@ -314,7 +314,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Master.pParams->maxRxPktLen = 0xFF;
 
     // for the initiator -> master transition, we should reset seqStat there
-    // we won't mess with seqStat, just use the previous state
+    // we won't mess with seqStat here, just use the previous state
 
     RF_cmdBle5Master.pParams->rxConfig.bAutoFlushIgnored = 1;
     RF_cmdBle5Master.pParams->rxConfig.bAutoFlushCrcErr = 1;
@@ -349,8 +349,89 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     last_channel = chan;
     last_phy = phy;
 
-    /* Enter RX mode and stay in RX till timeout */
+    /* Enter master mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    return 0;
+}
+
+/* Receive/transmit in BLE5 Slave Mode
+ *
+ * Arguments:
+ *  phy         PHY mode to use
+ *  chan        Channel to listen on
+ *  accessAddr  BLE access address of packet to listen for
+ *  crcInit     Initial CRC value of packets being listened for
+ *  timeout     When to stop (in radio ticks)
+ *  callback    Function to call when a packet is received
+ *  txQueue     RF queue of packets to transmit
+ *  startTime   When to start (in radio ticks), 0 for immediate
+ *
+ * Returns:
+ *  Status code (errno.h), 0 on success
+ */
+int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+    uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
+    dataQueue_t *txQueue, uint32_t startTime)
+{
+    if((!configured) || (chan >= 37))
+    {
+        return -EINVAL;
+    }
+
+    userCallback = callback;
+
+    /* set up the send/receive request */
+    RF_cmdBle5Slave.channel = chan;
+    RF_cmdBle5Slave.whitening.init = 0x40 + chan;
+    RF_cmdBle5Slave.phyMode.mainMode = phy;
+    RF_cmdBle5Slave.pParams->pRxQ = &dataQueue;
+    RF_cmdBle5Slave.pParams->pTxQ = txQueue;
+    RF_cmdBle5Slave.pParams->accessAddress = accessAddr;
+    RF_cmdBle5Slave.pParams->crcInit0 = crcInit & 0xFF;
+    RF_cmdBle5Slave.pParams->crcInit1 = (crcInit >> 8) & 0xFF;
+    RF_cmdBle5Slave.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
+    RF_cmdBle5Slave.pParams->maxRxPktLen = 0xFF;
+
+    // for the advertiser -> slave transition, we should reset seqStat there
+    // we won't mess with seqStat here, just use the previous state
+
+    RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBle5Slave.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBle5Slave.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBle5Slave.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBle5Slave.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5Slave.pParams->rxConfig.bAppendTimestamp = 1;
+
+    // start immediately if startTime = 0
+    if (startTime == 0)
+    {
+        RF_cmdBle5Slave.startTrigger.triggerType = TRIG_NOW;
+    } else {
+        RF_cmdBle5Slave.startTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Slave.startTrigger.pastTrig = 1;
+        RF_cmdBle5Slave.startTime = startTime;
+    }
+
+    /* receive forever if timeout == 0xFFFFFFFF */
+    if (timeout != 0xFFFFFFFF)
+    {
+        // 4 MHz radio clock, so multiply microsecond timeout by 4
+        RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Slave.pParams->endTime = timeout;
+    } else {
+        RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_NEVER;
+        RF_cmdBle5Slave.pParams->endTime = 0;
+    }
+
+    last_channel = chan;
+    last_phy = phy;
+
+    /* Enter slave mode, and stay till we're done */
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
     return 0;
