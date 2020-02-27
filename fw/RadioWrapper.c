@@ -76,15 +76,15 @@ int RadioWrapper_init()
             return -ENODEV;
         }
 
-		if( RFQueue_defineQueue(&dataQueue,
-								rxDataEntryBuffer,
-								sizeof(rxDataEntryBuffer),
-								NUM_DATA_ENTRIES,
-								MAX_LENGTH + NUM_APPENDED_BYTES))
-		{
-			/* Failed to allocate space for all data entries */
+        if( RFQueue_defineQueue(&dataQueue,
+                                rxDataEntryBuffer,
+                                sizeof(rxDataEntryBuffer),
+                                NUM_DATA_ENTRIES,
+                                MAX_LENGTH + NUM_APPENDED_BYTES))
+        {
+            /* Failed to allocate space for all data entries */
             return -ENOMEM;
-		}
+        }
 
         configured = true;
     }
@@ -148,7 +148,7 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     last_channel = chan;
     last_phy = phy;
 
-	/* Enter RX mode and stay in RX till timeout */
+    /* Enter RX mode and stay in RX till timeout */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5GenericRx, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
