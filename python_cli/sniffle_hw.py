@@ -65,6 +65,14 @@ class SniffleHW:
     def cmd_marker(self):
         self._send_cmd([0x18])
 
+    # for master or slave modes
+    def cmd_transmit(llid, pdu):
+        if not (0 <= llid <= 3):
+            raise ValueError("Out of bounds LLID")
+        if len(pdu) > 255:
+            raise ValueError("Too long PDU")
+        self._send_cmd([0x19, llid, len(pdu), *pdu])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

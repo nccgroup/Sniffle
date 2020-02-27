@@ -17,6 +17,7 @@
 #include <RadioTask.h>
 #include <PacketTask.h>
 #include <messenger.h>
+#include <TXQueue.h>
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
@@ -107,6 +108,12 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_MARKER:
             if (ret != 2) continue;
             sendMarker();
+            break;
+        case COMMAND_TRANSMIT:
+            if (ret < 4) continue;
+            // msgBuf[2] is LLID, msgBuf[3] is length of data
+            if (ret != msgBuf[3] + 4) continue;
+            TXQueue_insert(msgBuf[3], msgBuf[2], msgBuf + 4);
             break;
         default:
             break;
