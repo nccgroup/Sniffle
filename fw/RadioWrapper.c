@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2019, NCC Group plc
+ * Copyright (c) 2016-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -26,7 +26,7 @@
 #define DATA_ENTRY_HEADER_SIZE 8    /* Constant header size of a Generic Data Entry */
 #define MAX_LENGTH             257  /* Max 8-bit length + two byte BLE header */
 #define NUM_DATA_ENTRIES       2    /* NOTE: Only two data entries supported at the moment */
-#define NUM_APPENDED_BYTES     1    /* Prepended length byte */
+#define NUM_APPENDED_BYTES     6    /* Prepended length byte, appended RSSI, appended 4 byte timestamp*/
 
 /*********************************************************************
  * LOCAL VARIABLES
@@ -46,8 +46,6 @@ static uint8_t rxDataEntryBuffer [RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRI
 static bool configured = false;
 static uint8_t last_channel = 0xFF;
 static PHY_Mode last_phy = PHY_1M;
-
-static rfc_bleGenericRxOutput_t recvStats;
 
 static RadioWrapper_Callback userCallback = NULL;
 
@@ -117,7 +115,6 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     userCallback = callback;
 
     /* set up the receive request */
-	RF_cmdBle5GenericRx.pOutput = &recvStats;
     RF_cmdBle5GenericRx.channel = chan;
     RF_cmdBle5GenericRx.whitening.init = 0x40 + chan;
     RF_cmdBle5GenericRx.phyMode.mainMode = phy;
@@ -133,9 +130,9 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushEmpty = 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeCrc = 0;
-    RF_cmdBle5GenericRx.pParams->rxConfig.bAppendRssi = 0;
+    RF_cmdBle5GenericRx.pParams->rxConfig.bAppendRssi = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendStatus = 0;
-    RF_cmdBle5GenericRx.pParams->rxConfig.bAppendTimestamp = 0;
+    RF_cmdBle5GenericRx.pParams->rxConfig.bAppendTimestamp = 1;
 
     /* receive forever if timeout == 0xFFFFFFFF */
     if (timeout != 0xFFFFFFFF)
@@ -197,9 +194,9 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para37.rxConfig.bAutoFlushEmpty = 0;
     para37.rxConfig.bIncludeLenByte = 1;
     para37.rxConfig.bIncludeCrc = 0;
-    para37.rxConfig.bAppendRssi = 0;
+    para37.rxConfig.bAppendRssi = 1;
     para37.rxConfig.bAppendStatus = 0;
-    para37.rxConfig.bAppendTimestamp = 0;
+    para37.rxConfig.bAppendTimestamp = 1;
     para37.endTrigger.triggerType = TRIG_NEVER;
     para37.endTrigger.bEnaCmd = 0;
     para37.endTrigger.triggerNo = 0x0;
@@ -225,7 +222,6 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     sniff37.rangeDelay = 0x00;
     sniff37.txPower = 0x0000;
     sniff37.pParams = NULL;
-    sniff37.pOutput = &recvStats;
     sniff37.tx20Power = 0x00000000;
 
     // duplicate the default settings
@@ -279,6 +275,87 @@ void RadioWrapper_trigAdv3()
     }
 }
 
+/* Transmit/receive in BLE5 Master Mode
+ *
+ * Arguments:
+ *  phy         PHY mode to use
+ *  chan        Channel to listen on
+ *  accessAddr  BLE access address of packet to listen for
+ *  crcInit     Initial CRC value of packets being listened for
+ *  timeout     When to stop (in radio ticks)
+ *  callback    Function to call when a packet is received
+ *  txQueue     RF queue of packets to transmit
+ *  startTime   When to start (in radio ticks), 0 for immediate
+ *
+ * Returns:
+ *  Status code (errno.h), 0 on success
+ */
+int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+    uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
+    dataQueue_t *txQueue, uint32_t startTime)
+{
+    if((!configured) || (chan >= 37))
+    {
+        return -EINVAL;
+    }
+
+    userCallback = callback;
+
+    /* set up the send/receive request */
+    RF_cmdBle5Master.channel = chan;
+    RF_cmdBle5Master.whitening.init = 0x40 + chan;
+    RF_cmdBle5Master.phyMode.mainMode = phy;
+    RF_cmdBle5Master.pParams->pRxQ = &dataQueue;
+    RF_cmdBle5Master.pParams->pTxQ = txQueue;
+    RF_cmdBle5Master.pParams->accessAddress = accessAddr;
+    RF_cmdBle5Master.pParams->crcInit0 = crcInit & 0xFF;
+    RF_cmdBle5Master.pParams->crcInit1 = (crcInit >> 8) & 0xFF;
+    RF_cmdBle5Master.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
+    RF_cmdBle5Master.pParams->maxRxPktLen = 0xFF;
+
+    // for the initiator -> master transition, we should reset seqStat there
+    // we won't mess with seqStat, just use the previous state
+
+    RF_cmdBle5Master.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBle5Master.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5Master.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBle5Master.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBle5Master.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBle5Master.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBle5Master.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5Master.pParams->rxConfig.bAppendTimestamp = 1;
+
+    // start immediately if startTime = 0
+    if (startTime == 0)
+    {
+        RF_cmdBle5Master.startTrigger.triggerType = TRIG_NOW;
+    } else {
+        RF_cmdBle5Master.startTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Master.startTrigger.pastTrig = 1;
+        RF_cmdBle5Master.startTime = startTime;
+    }
+
+    /* receive forever if timeout == 0xFFFFFFFF */
+    if (timeout != 0xFFFFFFFF)
+    {
+        // 4 MHz radio clock, so multiply microsecond timeout by 4
+        RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Master.pParams->endTime = timeout;
+    } else {
+        RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_NEVER;
+        RF_cmdBle5Master.pParams->endTime = 0;
+    }
+
+    last_channel = chan;
+    last_phy = phy;
+
+    /* Enter RX mode and stay in RX till timeout */
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    return 0;
+}
+
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations
@@ -307,9 +384,11 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         frame.length = packetPointer[2] + 2;
         frame.pData = packetPointer + 1;
 
+        frame.rssi = (int8_t)packetPointer[3 + packetPointer[2]];
+
         /* 4 MHz clock, so divide by 4 to get microseconds */
-        frame.timestamp = recvStats.timeStamp >> 2;
-        frame.rssi = recvStats.lastRssi;
+        memcpy(&frame.timestamp, packetPointer + 4 + packetPointer[2], 4);
+        frame.timestamp >>= 2;
 
         if (last_channel < 40)
             frame.channel = last_channel;

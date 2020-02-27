@@ -44,6 +44,15 @@ ble5.ble = ["bt5le1m"];
 ble5.radioConfigbt5le1m.codeExportConfig.symGenMethod = "Legacy";
 ble5.radioConfigbt5le1m.codeExportConfig.appOverride = "sniffle_overrides.h";
 ble5.radioConfigbt5le1m.codeExportConfig.appOverrideMacro = "BLE_APP_OVERRIDES";
+ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
+    "cmdBle5GenericRx",
+    "cmdBle5Master",
+    "cmdBle5RadioSetup",
+    "cmdBle5Slave",
+    "cmdBleAdv",
+    "cmdBleInitiator",
+    "cmdBleScanner",
+    "cmdFs"];
 
 /* ======== LED Red ======== */
 var GPIO = scripting.addModule("/ti/drivers/GPIO");  // Add a GPIO module for use by LEDs

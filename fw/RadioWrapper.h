@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2018, NCC Group plc
+ * Copyright (c) 2016-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -60,6 +60,11 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
 
 // Send trigger for recvAdv3 function to go from 37 to 38
 void RadioWrapper_trigAdv3();
+
+// Transmit and receive in master mode
+int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+    uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
+    dataQueue_t *txQueue, uint32_t startTime);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();
