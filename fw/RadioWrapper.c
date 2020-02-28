@@ -437,6 +437,85 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     return 0;
 }
 
+/* Initiate a connection to the specified peer address
+ *
+ * Arguments:
+ *  phy         PHY mode to use (primary adv.)
+ *  chan        Channel to listen on (primary adv.)
+ *  timeout     When to stop (in radio ticks)
+ *  callback    Function to call when a packet is received
+ *  initAddr    Our (initiator) MAC address
+ *  peerAddr    Peer (advertiser) MAC address
+ *  connReqData LLData of CONNECT_IND
+ *
+ * Returns:
+ *  Status code (errno.h), 0 on success
+ */
+int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+    RadioWrapper_Callback callback, uint16_t *initAddr, uint16_t *peerAddr,
+    void *connReqData)
+{
+    // set up initiator parameters
+    RF_cmdBle5Initiator.channel = chan;
+    RF_cmdBle5Initiator.whitening.init = 0x40 + chan;
+    RF_cmdBle5Initiator.phyMode.mainMode = phy;
+    RF_cmdBle5Initiator.pParams->pRxQ = &dataQueue;
+
+    RF_cmdBle5Initiator.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBle5Initiator.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5Initiator.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBle5Initiator.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBle5Initiator.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBle5Initiator.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBle5Initiator.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5Initiator.pParams->rxConfig.bAppendTimestamp = 1;
+
+    RF_cmdBle5Initiator.pParams->initConfig.bUseWhiteList = 0; // specific peer
+    RF_cmdBle5Initiator.pParams->initConfig.bDynamicWinOffset = 1;
+    RF_cmdBle5Initiator.pParams->initConfig.deviceAddrType = 1;
+    RF_cmdBle5Initiator.pParams->initConfig.peerAddrType = 1;
+    RF_cmdBle5Initiator.pParams->initConfig.bStrictLenFilter = 1;
+    RF_cmdBle5Initiator.pParams->initConfig.chSel = 1; // we can use CSA2
+
+    RF_cmdBle5Initiator.pParams->randomState = 0;
+    // TODO: should I touch backoff parameters here?
+
+    RF_cmdBle5Initiator.pParams->connectReqLen = 22; // as per BLE spec
+    RF_cmdBle5Initiator.pParams->pConnectReqData = connReqData;
+
+    // Note: these pointers must be 16 bit aligned
+    // According to docs, pWhiteList can be overridden as peer address
+    RF_cmdBle5Initiator.pParams->pDeviceAddress = initAddr;
+    RF_cmdBle5Initiator.pParams->pWhiteList = (rfc_bleWhiteListEntry_t *)peerAddr;
+
+    RF_cmdBle5Initiator.pParams->maxWaitTimeForAuxCh = 0xFFFF; // units?
+
+    /* receive forever if timeout == 0xFFFFFFFF */
+    if (timeout != 0xFFFFFFFF)
+    {
+        // 4 MHz radio clock, so multiply microsecond timeout by 4
+        RF_cmdBle5Initiator.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Initiator.pParams->endTime = timeout;
+    } else {
+        RF_cmdBle5Initiator.pParams->endTrigger.triggerType = TRIG_NEVER;
+        RF_cmdBle5Initiator.pParams->endTime = 0;
+    }
+
+    /* Known Issue:
+     * Aux channel packets will have their PHY and channel reported incorrectly
+     * here since the radio core switch channels on its own. For now, I'm not
+     * going to bother dealing with this.
+     */
+    last_channel = chan;
+    last_phy = phy;
+
+    /* Enter initiator mode, and stay till we're done */
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Initiator, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    return 0;
+}
+
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations

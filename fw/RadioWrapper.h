@@ -13,7 +13,8 @@ extern "C"
 #endif
 
 #include <stdint.h>
-#include <stdbool.h>
+#include <ti/devices/DeviceFamily.h>
+#include DeviceFamily_constructPath(driverlib/rf_data_entry.h)
 
 typedef enum
 {
@@ -70,6 +71,11 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime);
+
+// Initiate connection with peer
+int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+    RadioWrapper_Callback callback, uint16_t *initAddr, uint16_t *peerAddr,
+    void *connReqData);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();
