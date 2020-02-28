@@ -50,8 +50,8 @@ ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
     "cmdBle5RadioSetup",
     "cmdBle5Slave",
     "cmdBleAdv",
-    "cmdBleInitiator",
-    "cmdBleScanner",
+    "cmdBle5Initiator",
+    "cmdBle5Scanner",
     "cmdFs"];
 
 /* ======== LED Red ======== */
