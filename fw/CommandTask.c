@@ -115,6 +115,15 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != msgBuf[3] + 4) continue;
             TXQueue_insert(msgBuf[3], msgBuf[2], msgBuf + 4);
             break;
+        case COMMAND_CONNECT:
+            // 1 byte len, 1 byte opcode, 6 byte peer addr, 22 byte LLData
+            if (ret != 30) continue;
+            initiateConn(msgBuf + 2, msgBuf + 8);
+            break;
+        case COMMAND_SETADDR:
+            if (ret != 8) continue;
+            setAddr(msgBuf + 2);
+            break;
         default:
             break;
         }

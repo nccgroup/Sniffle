@@ -6,7 +6,7 @@
 
 import argparse, sys
 from pcap import PcapBleWriter
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
+from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage
 from packet_decoder import DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
 
 # global variable to access hardware
@@ -115,6 +115,8 @@ def print_message(msg):
     if isinstance(msg, PacketMessage):
         print_packet(msg)
     elif isinstance(msg, DebugMessage):
+        print(msg)
+    elif isinstance(msg, StateMessage):
         print(msg)
     print()
 

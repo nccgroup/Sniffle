@@ -18,6 +18,8 @@
 #include "ti_radio_config.h"
 #include "RadioTask.h"
 
+#include DeviceFamily_constructPath(driverlib/rf_ble_mailbox.h)
+
 /*********************************************************************
  * CONSTANTS
  */
@@ -449,7 +451,11 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
  *  connReqData LLData of CONNECT_IND
  *
  * Returns:
- *  Status code (errno.h), 0 on success
+ *  -3 on misc error
+ *  -2 on connection failure (no AUX_CONNECT_RSP)
+ *  -1 on timeout (didn't get connectable peer advert)
+ *  0 on connection success with ChSel0
+ *  1 on connection success with ChSel1
  */
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RadioWrapper_Callback callback, uint16_t *initAddr, uint16_t *peerAddr,
@@ -513,7 +519,21 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Initiator, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
-    return 0;
+    switch (RF_cmdBle5Initiator.status)
+    {
+    case BLE_DONE_CONNECT:
+        return 1;
+    case BLE_DONE_CONNECT_CHSEL0:
+        return 0;
+    case BLE_DONE_RXTIMEOUT:
+    case BLE_DONE_ENDED:
+    case BLE_DONE_STOPPED:
+        return -1;
+    case BLE_DONE_NOSYNC:
+        return -2;
+    default:
+        return -3;
+    }
 }
 
 void RadioWrapper_stop()

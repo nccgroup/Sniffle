@@ -52,6 +52,12 @@ void setAuxAdvEnabled(bool enable);
 /* Send marker message indicating current radio time */
 void sendMarker(void);
 
+/* Set Sniffle's MAC address for advertising/scanning/initiating */
+void setAddr(void *addr);
+
+/* Enter initiating state */
+void initiateConn(void *peerAddr, void *llData);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,

@@ -49,7 +49,12 @@ typedef enum
     ADVERT_SEEK,
     ADVERT_HOP,
     DATA,
-    PAUSED
+    PAUSED,
+    INITIATING,
+    MASTER,
+    SLAVE,
+    ADVERTISING,
+    SCANNING
 } SnifferState;
 
 /***** Variable declarations *****/
@@ -89,6 +94,12 @@ static bool postponed = false;
 
 static bool advHopEnabled = false;
 static bool auxAdvEnabled = false;
+
+// need to be 16 bit aligned for radio core, hence type
+static uint16_t ourAddr[3];
+static uint16_t peerAddr[3];
+
+static uint8_t connReqLLData[22];
 
 // target offset before anchor point to start listing on next data channel
 // 1 ms @ 4 Mhz
@@ -333,7 +344,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 connEventCount++;
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
-        } else { // DATA
+        } else if (snifferState == DATA) {
             uint8_t chan;
 
             if (use_csa2)
@@ -370,6 +381,21 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
                 nextHopTime += medAnchorOffset - AO_TARG;
             }
+        } else if (snifferState == INITIATING) {
+            int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
+                    indicatePacket, ourAddr, peerAddr, connReqLLData);
+            if (status < 0) {
+                handleConnFinished();
+                continue;
+            }
+            // TODO: parse connReqLLData, set up hopping params
+            stateTransition(MASTER);
+        } else if (snifferState == MASTER) {
+            // TODO
+            Task_sleep(100);
+        } else if (snifferState == SLAVE) {
+            // TODO
+            Task_sleep(100);
         }
     }
 }
@@ -893,4 +919,20 @@ void sendMarker()
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
+}
+
+/* Set Sniffle's MAC address for advertising/scanning/initiating */
+void setAddr(void *addr)
+{
+    memcpy(ourAddr, addr, 6);
+}
+
+/* Enter initiating state */
+void initiateConn(void *_peerAddr, void *llData)
+{
+    memcpy(peerAddr, _peerAddr, 6);
+    memcpy(connReqLLData, llData, 22);
+
+    stateTransition(INITIATING);
+    RadioWrapper_stop();
 }

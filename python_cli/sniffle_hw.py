@@ -8,6 +8,7 @@ from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from sys import stderr
 from time import time
+from enum import Enum
 
 class SniffleHW:
     def __init__(self, serport):
@@ -72,6 +73,18 @@ class SniffleHW:
         if len(pdu) > 255:
             raise ValueError("Too long PDU")
         self._send_cmd([0x19, llid, len(pdu), *pdu])
+
+    def cmd_connect(peerAddr, llData):
+        if len(peerAddr) != 6:
+            raise ValueError("Invalid peer address")
+        if len(llData) != 22:
+            raise ValueError("Invalid LLData")
+        self._send_cmd([0x1A, *peerAddr, *llData])
+
+    def cmd_setaddr(addr):
+        if len(addr) != 6:
+            raise ValueError("Invalid MAC address")
+        self._send_cmd([0x1B, *addr])
 
     def recv_msg(self):
         got_msg = False
@@ -142,7 +155,7 @@ class SniffleDecoderState:
         self.cur_aa = BLE_ADV_AA
 
         # state tracking
-        self.last_state = 0
+        self.last_state = SnifferState.STATIC
 
 # radio time wraparound period in seconds
 TS_WRAP_PERIOD = 0x100000000 / 4E6
@@ -212,8 +225,29 @@ class MarkerMessage:
         dstate.time_offset = ts / -1000000.
 
 # TODO: have a state enum in Python
+
+class SnifferState(Enum):
+    STATIC = 0
+    ADVERT_SEEK = 1
+    ADVERT_HOP = 2
+    DATA = 2
+    PAUSED = 3
+    INITIATING = 4
+    MASTER = 5
+    SLAVE = 6
+    ADVERTISING = 7
+    SCANNING = 8
+
 class StateMessage:
     def __init__(self, raw_msg, dstate):
         self.last_state = dstate.last_state
-        self.new_state = raw_msg[0]
-        dstate.last_state = raw_msg[0]
+        self.new_state = SnifferState(raw_msg[0])
+        dstate.last_state = self.new_state
+
+    def __repr__(self):
+        return "%s(new=%s, old=%s)" % (type(self).__name__,
+                str(self.new_state), str(self.last_state))
+
+    def __str__(self):
+        return "TRANSITION: %s from %s" % (str(self.new_state),
+                str(self.last_state))

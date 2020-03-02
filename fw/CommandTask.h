@@ -20,5 +20,7 @@ void CommandTask_init(void);
 #define COMMAND_RESET           0x17
 #define COMMAND_MARKER          0x18
 #define COMMAND_TRANSMIT        0x19
+#define COMMAND_CONNECT         0x1A
+#define COMMAND_SETADDR         0x1B
 
 #endif /* COMMANDTASK_H */
