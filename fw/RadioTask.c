@@ -156,6 +156,27 @@ static bool enoughTimeForAdvHopCheck()
     return true;
 }
 
+static void stateTransition(SnifferState newState)
+{
+    BLE_Frame frame;
+    uint8_t buf;
+
+    // first update state
+    snifferState = newState;
+
+    // now send a message to host indicating it
+    buf = (uint8_t)newState;
+    frame.timestamp = 0;
+    frame.rssi = 0;
+    frame.channel = 42; // indicates state message
+    frame.phy = PHY_1M;
+    frame.pData = &buf;
+    frame.length = 1;
+
+    // Does thread safe copying into queue
+    indicatePacket(&frame);
+}
+
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
     uint32_t empty_hops = 0;
@@ -214,7 +235,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 rconf.hopIntervalTicks = 700 * 4;
                 connEventCount = 0;
                 dprintf("No legacy ads, jumping to ADVERT_HOP");
-                snifferState = ADVERT_HOP;
+                stateTransition(ADVERT_HOP);
                 continue;
             }
 
@@ -236,7 +257,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 dprintf("hop us %lu", rconf.hopIntervalTicks >> 2);
 
                 connEventCount = 0;
-                snifferState = ADVERT_HOP;
+                stateTransition(ADVERT_HOP);
             }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
@@ -553,7 +574,7 @@ void reactToPDU(const BLE_Frame *frame)
             connEventCount = 0;
             rconf_reset();
 
-            snifferState = DATA;
+            stateTransition(DATA);
             RadioWrapper_stop();
         }
     } else {
@@ -800,7 +821,7 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
 
 static void handleConnFinished()
 {
-    snifferState = sniffDoneState;
+    stateTransition(sniffDoneState);
     accessAddress = BLE_ADV_AA;
     if (snifferState != PAUSED && advHopEnabled)
         advHopSeekMode();
@@ -813,7 +834,7 @@ void setChanAAPHYCRCI(uint8_t chan, uint32_t aa, PHY_Mode phy, uint32_t crcInit)
     statPHY = phy;
     statChan = chan;
     statCRCI = crcInit & 0xFFFFFF;
-    snifferState = STATIC;
+    stateTransition(STATIC);
     accessAddress = aa;
     advHopEnabled = false;
     RadioWrapper_stop();
@@ -837,7 +858,7 @@ void advHopSeekMode()
     lastAdvTicks = 0;
     aiInd = 0;
     connEventCount = 0;
-    snifferState = ADVERT_SEEK;
+    stateTransition(ADVERT_SEEK);
     advHopEnabled = true;
     RadioWrapper_stop();
 }

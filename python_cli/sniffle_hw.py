@@ -99,6 +99,8 @@ class SniffleHW:
             return DebugMessage(mbody)
         elif mtype == 0x12:
             return MarkerMessage(mbody, self.decoder_state)
+        elif mtype == 0x13:
+            return StateMessage(mbody, self.decoder_state)
         elif mtype == -1:
             return None # receive cancelled
         else:
@@ -138,6 +140,9 @@ class SniffleDecoderState:
 
         # access address tracking
         self.cur_aa = BLE_ADV_AA
+
+        # state tracking
+        self.last_state = 0
 
 # radio time wraparound period in seconds
 TS_WRAP_PERIOD = 0x100000000 / 4E6
@@ -205,3 +210,10 @@ class MarkerMessage:
         # these messages are intended to mark the zero time
         dstate.first_epoch_time = time()
         dstate.time_offset = ts / -1000000.
+
+# TODO: have a state enum in Python
+class StateMessage:
+    def __init__(self, raw_msg, dstate):
+        self.last_state = dstate.last_state
+        self.new_state = raw_msg[0]
+        dstate.last_state = raw_msg[0]
