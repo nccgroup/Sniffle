@@ -288,14 +288,17 @@ void RadioWrapper_trigAdv3()
  *  callback    Function to call when a packet is received
  *  txQueue     RF queue of packets to transmit
  *  startTime   When to start (in radio ticks), 0 for immediate
+ *  numSent     Number of packets sent from txQueue written here
  *
  * Returns:
  *  Status code (errno.h), 0 on success
  */
 int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
-    dataQueue_t *txQueue, uint32_t startTime)
+    dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
+    rfc_bleMasterSlaveOutput_t output;
+
     if((!configured) || (chan >= 37))
     {
         return -EINVAL;
@@ -307,6 +310,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Master.channel = chan;
     RF_cmdBle5Master.whitening.init = 0x40 + chan;
     RF_cmdBle5Master.phyMode.mainMode = phy;
+    RF_cmdBle5Master.pOutput = &output;
     RF_cmdBle5Master.pParams->pRxQ = &dataQueue;
     RF_cmdBle5Master.pParams->pTxQ = txQueue;
     RF_cmdBle5Master.pParams->accessAddress = accessAddr;
@@ -355,6 +359,8 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
+    *numSent = output.nTxEntryDone;
+
     switch (RF_cmdBle5Master.status)
     {
     case BLE_DONE_OK:
@@ -377,14 +383,17 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
  *  callback    Function to call when a packet is received
  *  txQueue     RF queue of packets to transmit
  *  startTime   When to start (in radio ticks), 0 for immediate
+ *  numSent     Number of packets sent from txQueue written here
  *
  * Returns:
  *  Status code (errno.h), 0 on success
  */
 int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
-    dataQueue_t *txQueue, uint32_t startTime)
+    dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
+    rfc_bleMasterSlaveOutput_t output;
+
     if((!configured) || (chan >= 37))
     {
         return -EINVAL;
@@ -396,6 +405,7 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Slave.channel = chan;
     RF_cmdBle5Slave.whitening.init = 0x40 + chan;
     RF_cmdBle5Slave.phyMode.mainMode = phy;
+    RF_cmdBle5Slave.pOutput = &output;
     RF_cmdBle5Slave.pParams->pRxQ = &dataQueue;
     RF_cmdBle5Slave.pParams->pTxQ = txQueue;
     RF_cmdBle5Slave.pParams->accessAddress = accessAddr;
@@ -443,6 +453,8 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     /* Enter slave mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    *numSent = output.nTxEntryDone;
 
     switch (RF_cmdBle5Slave.status)
     {

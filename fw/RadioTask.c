@@ -410,16 +410,16 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             stateTransition(MASTER);
         } else if (snifferState == MASTER) {
             dataQueue_t txq;
+            uint32_t numSent;
             uint8_t chan = getCurrChan();
             TXQueue_take(&txq);
             firstPacket = false; // no need for anchor offset calcs, since we're master
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
 
-            // TODO: what if we didn't have time to send everything in txq? handle this
             int status = RadioWrapper_master(rconf.phy, chan, accessAddress,
-                    crcInit, nextHopTime, indicatePacket, &txq, curHopTime);
-            TXQueue_flush();
+                    crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
+            TXQueue_flush(numSent);
 
             if (status != 0) empty_hops++;
             else empty_hops = 0;
@@ -433,14 +433,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             afterConnEvent(false);
         } else if (snifferState == SLAVE) {
             dataQueue_t txq;
+            uint32_t numSent;
             uint8_t chan = getCurrChan();
             TXQueue_take(&txq);
             firstPacket = true; // for anchor offset calculations
 
-            // TODO: what if we didn't have time to send everything in txq? handle this
             int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
-                    crcInit, nextHopTime, indicatePacket, &txq, 0);
-            TXQueue_flush();
+                    crcInit, nextHopTime, indicatePacket, &txq, 0, &numSent);
+            TXQueue_flush(numSent);
 
             if (status != 0) empty_hops++;
             else empty_hops = 0;

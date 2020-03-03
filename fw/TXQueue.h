@@ -15,7 +15,7 @@
 #include DeviceFamily_constructPath(driverlib/rf_mailbox.h)
 
 bool TXQueue_insert(uint8_t len, uint8_t llid, void *data);
-void TXQueue_take(dataQueue_t *pRFQueue);
-void TXQueue_flush();
+uint32_t TXQueue_take(dataQueue_t *pRFQueue);
+void TXQueue_flush(uint32_t numEntries);
 
 #endif

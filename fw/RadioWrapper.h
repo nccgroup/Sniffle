@@ -65,12 +65,12 @@ void RadioWrapper_trigAdv3();
 // Transmit and receive in master mode
 int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
-    dataQueue_t *txQueue, uint32_t startTime);
+    dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent);
 
 // Receive and transmit in slave mode
 int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
-    dataQueue_t *txQueue, uint32_t startTime);
+    dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent);
 
 // Initiate connection with peer
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,

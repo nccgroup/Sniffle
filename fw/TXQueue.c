@@ -6,7 +6,6 @@
 
 #include "TXQueue.h"
 #include <stdlib.h>
-#include <stdatomic.h>
 
 // size must be a power of 2
 #define TX_QUEUE_SIZE 8u
@@ -18,21 +17,19 @@ static uint8_t packet_buf[PACKET_SIZE*TX_QUEUE_SIZE];
 static uint8_t packet_lens[TX_QUEUE_SIZE];
 static rfc_dataEntryPointer_t queue_entries[TX_QUEUE_SIZE];
 
-static volatile atomic_uint queue_head; // insert here
-static volatile atomic_uint queue_tail; // take out item from here
-
-// doesn't need volatile or atomic because it's accessed only by one thread
-static unsigned queue_mid;
+// atomic not needed because each variable only modifed by single thread
+static volatile uint32_t queue_head; // insert here
+static volatile uint32_t queue_tail; // take out item from here
 
 // only call this from a single thread (ie. CommandTask)
 // return true for success
 bool TXQueue_insert(uint8_t len, uint8_t llid, void *data)
 {
     // bail if we're full
-    if ( ((atomic_load(&queue_head) - atomic_load(&queue_tail)) & TX_QUEUE_MASK) == TX_QUEUE_MASK )
+    if ( ((queue_head - queue_tail) & TX_QUEUE_MASK) == TX_QUEUE_MASK )
         return false;
 
-    unsigned queue_head_ = atomic_load(&queue_head) & TX_QUEUE_MASK;
+    uint32_t queue_head_ = queue_head & TX_QUEUE_MASK;
 
     packet_lens[queue_head_] = len;
     uint8_t *pData = packet_buf + (queue_head_ * PACKET_SIZE);
@@ -41,32 +38,25 @@ bool TXQueue_insert(uint8_t len, uint8_t llid, void *data)
 
     // only increment once entry is complete and ready
     // wraparound is safe due to our masking
-    atomic_fetch_add(&queue_head, 1);
+    queue_head++;
 
     return true;
 }
 
 // puts everything in the TX queue into an RF queue
 // only call this from a single thread (ie. RadioTask)
-void TXQueue_take(dataQueue_t *pRFQueue)
+uint32_t TXQueue_take(dataQueue_t *pRFQueue)
 {
-    // stuff from tail to mid has already been sent
-    unsigned queue_tail_ = queue_mid;
-    atomic_store(&queue_tail, queue_mid);
-
-    // everything new tail to current head will be put in transmit RF queue
-    queue_mid = atomic_load(&queue_head);
-
     // build the entries, from oldest to newest (FIFO) order
-    unsigned qsize = (queue_mid - atomic_load(&queue_tail)) & TX_QUEUE_MASK;
-    for (unsigned i = 0; i < qsize; i++)
+    uint32_t qsize = (queue_head - queue_tail) & TX_QUEUE_MASK;
+    for (uint32_t i = 0; i < qsize; i++)
     {
         queue_entries[i].pNextEntry = (uint8_t *)(queue_entries + i + 1);
         queue_entries[i].status = DATA_ENTRY_PENDING;       // Pending - starting state
         queue_entries[i].config.type = DATA_ENTRY_TYPE_PTR; // Pointer Data Entry
         queue_entries[i].config.lenSz = 0;                  // No length indicator byte in data
 
-        unsigned n = (queue_tail_ + i) & TX_QUEUE_MASK;
+        uint32_t n = (queue_tail + i) & TX_QUEUE_MASK;
         queue_entries[i].length = packet_lens[n];
         queue_entries[i].pData = packet_buf + (n * PACKET_SIZE);
     }
@@ -80,11 +70,16 @@ void TXQueue_take(dataQueue_t *pRFQueue)
         pRFQueue->pCurrEntry = NULL;
         pRFQueue->pLastEntry = NULL;
     }
+
+    return qsize;
 }
 
 // release entries taken from the queue
-void TXQueue_flush()
+// onlg call from same thread as TXQueue_take
+void TXQueue_flush(uint32_t numEntries)
 {
-    // stuff from tail to mid has already been sent
-    atomic_store(&queue_tail, queue_mid);
+    uint32_t qsize = (queue_head - queue_tail) & TX_QUEUE_MASK;
+    if (numEntries > qsize) // should never happen
+        numEntries = qsize;
+    queue_tail += numEntries;
 }
