@@ -531,7 +531,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_cmdBle5Initiator.pParams->pDeviceAddress = (uint16_t *)initAddr;
     RF_cmdBle5Initiator.pParams->pWhiteList = (rfc_bleWhiteListEntry_t *)peerAddr;
 
-    RF_cmdBle5Initiator.pParams->connectTime = RF_getCurrentTime() + 24000;
+    RF_cmdBle5Initiator.pParams->connectTime = RF_getCurrentTime() + 4000;
     RF_cmdBle5Initiator.pParams->maxWaitTimeForAuxCh = 0xFFFF; // units?
 
     /* receive forever if timeout == 0xFFFFFFFF */
