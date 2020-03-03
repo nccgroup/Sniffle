@@ -22,6 +22,7 @@
 #include "adv_header_cache.h"
 #include "debug.h"
 #include "conf_queue.h"
+#include "TXQueue.h"
 
 #include <RadioTask.h>
 #include <RadioWrapper.h>
@@ -78,7 +79,7 @@ static uint32_t crcInit;
 static uint32_t nextHopTime;
 static uint32_t connEventCount;
 static bool use_csa2;
-
+static uint32_t empty_hops = 0;
 
 static volatile bool gotLegacy;
 static volatile bool firstPacket;
@@ -188,9 +189,45 @@ static void stateTransition(SnifferState newState)
     indicatePacket(&frame);
 }
 
+// no side effects
+static inline uint8_t getCurrChan()
+{
+    if (use_csa2)
+        return csa2_computeChannel(connEventCount);
+    else
+        return mapping_table[curUnmapped];
+}
+
+// performs channel hopping "housekeeping"
+static void afterConnEvent(bool slave)
+{
+    // we're done if we got lost
+    // the +3 on slaveLatency is to tolerate occasional missed packets
+    if (empty_hops > rconf.slaveLatency + 3)
+        handleConnFinished();
+
+    curUnmapped = (curUnmapped + hopIncrement) % 37;
+    connEventCount++;
+    if (rconf_dequeue(connEventCount & 0xFFFF, &rconf))
+    {
+        nextHopTime += rconf.offset * 5000;
+        if (use_csa2)
+            csa2_computeMapping(accessAddress, rconf.chanMap);
+        else
+            computeMap1(rconf.chanMap);
+    }
+    nextHopTime += rconf.hopIntervalTicks;
+
+    // slaves need to adjust for master clock drift
+    if (slave && (connEventCount & 0xF) == 0xF)
+    {
+        uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
+        nextHopTime += medAnchorOffset - AO_TARG;
+    }
+}
+
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
-    uint32_t empty_hops = 0;
     SnifferState lastState = snifferState;
 
     RadioWrapper_init();
@@ -345,42 +382,15 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
         } else if (snifferState == DATA) {
-            uint8_t chan;
-
-            if (use_csa2)
-                chan = csa2_computeChannel(connEventCount);
-            else
-                chan = mapping_table[curUnmapped];
-
+            uint8_t chan = getCurrChan();
             firstPacket = true;
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
                     nextHopTime, indicatePacket);
 
-            // we're done if we got lost
-            // the +3 on slaveLatency is to tolerate occasional missed packets
             if (!firstPacket) empty_hops = 0;
             else empty_hops++;
-            if (empty_hops > rconf.slaveLatency + 3) {
-                handleConnFinished();
-            }
 
-            curUnmapped = (curUnmapped + hopIncrement) % 37;
-            connEventCount++;
-            if (rconf_dequeue(connEventCount & 0xFFFF, &rconf))
-            {
-                nextHopTime += rconf.offset * 5000;
-                if (use_csa2)
-                    csa2_computeMapping(accessAddress, rconf.chanMap);
-                else
-                    computeMap1(rconf.chanMap);
-            }
-            nextHopTime += rconf.hopIntervalTicks;
-
-            if ((connEventCount & 0xF) == 0xF)
-            {
-                uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
-                nextHopTime += medAnchorOffset - AO_TARG;
-            }
+            afterConnEvent(true);
         } else if (snifferState == INITIATING) {
             int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
                     indicatePacket, ourAddr, peerAddr, connReqLLData);
@@ -388,14 +398,52 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 handleConnFinished();
                 continue;
             }
-            // TODO: parse connReqLLData, set up hopping params
+            // TODO: parse connReqLLData, set up rconf/hopping params
             stateTransition(MASTER);
         } else if (snifferState == MASTER) {
-            // TODO
-            Task_sleep(100);
+            dataQueue_t txq;
+            uint8_t chan = getCurrChan();
+            TXQueue_take(&txq);
+            firstPacket = false; // no need for anchor offset calcs, since we're master
+
+            uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
+
+            // TODO: what if we didn't have time to send everything in txq? handle this
+            int status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                    crcInit, nextHopTime, indicatePacket, &txq, curHopTime);
+            TXQueue_flush();
+
+            if (status != 0) empty_hops++;
+            else empty_hops = 0;
+
+            // Sleep till next event (till anchor offset before next anchor point)
+            // 10us per tick for sleep, 0.25 us per radio tick
+            uint32_t rticksRemaining = nextHopTime - RF_getCurrentTime();
+            if (rticksRemaining < 0x7FFFFFFF && rticksRemaining > 2000)
+                Task_sleep(rticksRemaining / 40);
+
+            afterConnEvent(false);
         } else if (snifferState == SLAVE) {
-            // TODO
-            Task_sleep(100);
+            dataQueue_t txq;
+            uint8_t chan = getCurrChan();
+            TXQueue_take(&txq);
+            firstPacket = true; // for anchor offset calculations
+
+            // TODO: what if we didn't have time to send everything in txq? handle this
+            int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
+                    crcInit, nextHopTime, indicatePacket, &txq, 0);
+            TXQueue_flush();
+
+            if (status != 0) empty_hops++;
+            else empty_hops = 0;
+
+            // Sleep till next event (till anchor offset before next anchor point)
+            // 10us per tick for sleep, 0.25 us per radio tick
+            uint32_t rticksRemaining = nextHopTime - RF_getCurrentTime();
+            if (rticksRemaining < 0x7FFFFFFF && rticksRemaining > 2000)
+                Task_sleep(rticksRemaining / 40);
+
+            afterConnEvent(true);
         }
     }
 }
@@ -428,10 +476,23 @@ static void computeMap1(uint64_t map)
     }
 }
 
+static inline bool isDataState(SnifferState state)
+{
+    switch (state)
+    {
+    case DATA:
+    case MASTER:
+    case SLAVE:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // change radio configuration based on a packet received
 void reactToPDU(const BLE_Frame *frame)
 {
-    if (snifferState != DATA || frame->channel >= 37)
+    if (!isDataState(snifferState) || frame->channel >= 37)
     {
         // Advertising PDU
         uint8_t pduType;
@@ -621,7 +682,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
 
     /* clock synchronization
      * first packet on each channel is anchor point
-     * this is only used in DATA state
+     * this is only used in DATA and SLAVE states
      */
     if (firstPacket)
     {
