@@ -465,17 +465,20 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
  *  initAddr    Our (initiator) MAC address
  *  peerAddr    Peer (advertiser) MAC address
  *  connReqData LLData of CONNECT_IND
+ *  connTime    Time of first connection event is written here
+ *  secPhy      PHY used for connection is written here
  *
  * Returns:
  *  -3 on misc error
  *  -2 on connection failure (no AUX_CONNECT_RSP)
  *  -1 on timeout (didn't get connectable peer advert)
- *  0 on connection success with ChSel0
- *  1 on connection success with ChSel1
+ *  0 on legacy connection success with ChSel0
+ *  1 on legacy connection success with ChSel1
+ *  2 on aux connection success (implies ChSel1)
  */
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
-    RadioWrapper_Callback callback, uint16_t *initAddr, uint16_t *peerAddr,
-    void *connReqData)
+    RadioWrapper_Callback callback, const uint16_t *initAddr, const uint16_t *peerAddr,
+    const void *connReqData, uint32_t *connTime, PHY_Mode *connPhy)
 {
     // set up initiator parameters
     RF_cmdBle5Initiator.channel = chan;
@@ -503,13 +506,14 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     // TODO: should I touch backoff parameters here?
 
     RF_cmdBle5Initiator.pParams->connectReqLen = 22; // as per BLE spec
-    RF_cmdBle5Initiator.pParams->pConnectReqData = connReqData;
+    RF_cmdBle5Initiator.pParams->pConnectReqData = (uint8_t *)connReqData;
 
     // Note: these pointers must be 16 bit aligned
     // According to docs, pWhiteList can be overridden as peer address
-    RF_cmdBle5Initiator.pParams->pDeviceAddress = initAddr;
+    RF_cmdBle5Initiator.pParams->pDeviceAddress = (uint16_t *)initAddr;
     RF_cmdBle5Initiator.pParams->pWhiteList = (rfc_bleWhiteListEntry_t *)peerAddr;
 
+    RF_cmdBle5Initiator.pParams->connectTime = RF_getCurrentTime() + 24000;
     RF_cmdBle5Initiator.pParams->maxWaitTimeForAuxCh = 0xFFFF; // units?
 
     /* receive forever if timeout == 0xFFFFFFFF */
@@ -535,9 +539,21 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Initiator, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
+    *connTime = RF_cmdBle5Initiator.pParams->connectTime;
+
+    if (RF_cmdBle5Initiator.status == BLE_DONE_CONNECT_CHSEL0)
+        *connPhy = PHY_1M;
+    else if (RF_cmdBle5Initiator.pParams->rxListenTime == 0) // no aux pkt received
+        *connPhy = PHY_1M;
+    else
+        *connPhy = (PHY_Mode)RF_cmdBle5Initiator.pParams->channelNo;
+
     switch (RF_cmdBle5Initiator.status)
     {
     case BLE_DONE_CONNECT:
+    if (RF_cmdBle5Initiator.pParams->rxListenTime != 0) // aux pkt received
+        return 2;
+    else
         return 1;
     case BLE_DONE_CONNECT_CHSEL0:
         return 0;

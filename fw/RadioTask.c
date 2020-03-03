@@ -103,8 +103,8 @@ static uint16_t peerAddr[3];
 static uint8_t connReqLLData[22];
 
 // target offset before anchor point to start listing on next data channel
-// 1 ms @ 4 Mhz
-#define AO_TARG 4000
+// 0.5 ms @ 4 Mhz
+#define AO_TARG 2000
 
 // be ready some microseconds before aux advertisement is received
 #define AUX_OFF_TARG_USEC 700
@@ -122,6 +122,8 @@ static void computeMap1(uint64_t map);
 static void handleConnFinished(void);
 static void reactToDataPDU(const BLE_Frame *frame);
 static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen);
+static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
+        bool isAuxReq);
 
 /***** Function definitions *****/
 void RadioTask_init(void)
@@ -392,13 +394,19 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             afterConnEvent(true);
         } else if (snifferState == INITIATING) {
+            uint32_t connTime;
+            PHY_Mode connPhy;
             int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
-                    indicatePacket, ourAddr, peerAddr, connReqLLData);
+                    indicatePacket, ourAddr, peerAddr, connReqLLData, &connTime, &connPhy);
             if (status < 0) {
                 handleConnFinished();
                 continue;
             }
-            // TODO: parse connReqLLData, set up rconf/hopping params
+
+            use_csa2 = (status >= 1) ? true : false;
+            handleConnReq(connPhy, 0, connReqLLData, status >= 2);
+            nextHopTime = connTime - AO_TARG + rconf.hopIntervalTicks;
+
             stateTransition(MASTER);
         } else if (snifferState == MASTER) {
             dataQueue_t txq;
@@ -610,7 +618,6 @@ void reactToPDU(const BLE_Frame *frame)
         // TODO: deal with AUX_CONNECT_RSP (wait for it? require it? need to decide)
         if ((pduType == CONNECT_IND) && (endTrim < ENDTRIM_MAX_CONN_FOLLOW))
         {
-            uint16_t WinOffset, Interval;
             bool isAuxReq = frame->channel < 37;
 
             // make sure body length is correct
@@ -628,38 +635,8 @@ void reactToPDU(const BLE_Frame *frame)
                     use_csa2 = true;
             }
 
-            accessAddress = *(uint32_t *)(frame->pData + 14);
-            hopIncrement = frame->pData[35] & 0x1F;
-            crcInit = (*(uint32_t *)(frame->pData + 18)) & 0xFFFFFF;
-
-            // start on the hop increment channel
-            curUnmapped = hopIncrement;
-
-            rconf.chanMap = 0;
-            memcpy(&rconf.chanMap, frame->pData + 30, 5);
-            if (use_csa2)
-                csa2_computeMapping(accessAddress, rconf.chanMap);
-            else
-                computeMap1(rconf.chanMap);
-
-            /* see pg 2640 of BT5.0 core spec:
-             *  transmitWaitDelay = 1.25 ms for CONNECT_IND
-             *                      2.5 ms for AUX_CONNECT_REQ (1M and 2M)
-             *                      3.75 ms for AUX_CONNECT_REQ (coded)
-             * Radio clock is 4 MHz, so multiply by 4000 ticks/ms
-             * This function doesn't know the PHY, so it always uses 2.5 ms for aux
-             * I subracted 250 uS (1000 ticks) as a fudge factor for latency
-             */
-            uint32_t transmitWaitDelay = isAuxReq ? 9000 : 4000;
-            WinOffset = *(uint16_t *)(frame->pData + 22);
-            Interval = *(uint16_t *)(frame->pData + 24);
-            nextHopTime = (frame->timestamp << 2) + transmitWaitDelay + (WinOffset * 5000);
-            rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
-            nextHopTime += rconf.hopIntervalTicks;
-            rconf.phy = isAuxReq ? frame->phy : PHY_1M;
-            rconf.slaveLatency = *(uint16_t *)(frame->pData + 26);
-            connEventCount = 0;
-            rconf_reset();
+            handleConnReq(frame->phy, frame->timestamp << 2, frame->pData + 14,
+                    isAuxReq);
 
             stateTransition(DATA);
             RadioWrapper_stop();
@@ -904,6 +881,50 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         else
             DelayStopTrigger_trig(5000);
     }
+}
+
+static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
+        bool isAuxReq)
+{
+    uint16_t WinOffset, Interval;
+
+    accessAddress = *(uint32_t *)llData;
+    hopIncrement = llData[21] & 0x1F;
+    crcInit = (*(uint32_t *)(llData + 4)) & 0xFFFFFF;
+
+    // start on the hop increment channel
+    curUnmapped = hopIncrement;
+
+    rconf.chanMap = 0;
+    memcpy(&rconf.chanMap, llData + 16, 5);
+    if (use_csa2)
+        csa2_computeMapping(accessAddress, rconf.chanMap);
+    else
+        computeMap1(rconf.chanMap);
+
+    /* see pg 2983 of BT5.2 core spec:
+     *  transmitWindowDelay = 1.25 ms for CONNECT_IND
+     *                        2.5 ms for AUX_CONNECT_REQ (1M and 2M)
+     *                        3.75 ms for AUX_CONNECT_REQ (coded)
+     * Radio clock is 4 MHz, so multiply by 4000 ticks/ms
+     */
+    uint32_t transmitWindowDelay;
+    if (!isAuxReq)
+        transmitWindowDelay = 5000;
+    else if (phy == PHY_CODED)
+        transmitWindowDelay = 15000;
+    else
+        transmitWindowDelay = 10000;
+    transmitWindowDelay -= AO_TARG; // account for latency
+    WinOffset = *(uint16_t *)(llData + 8);
+    Interval = *(uint16_t *)(llData + 10);
+    nextHopTime = connTime + transmitWindowDelay + (WinOffset * 5000);
+    rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
+    nextHopTime += rconf.hopIntervalTicks;
+    rconf.phy = phy;
+    rconf.slaveLatency = *(uint16_t *)(llData + 12);
+    connEventCount = 0;
+    rconf_reset();
 }
 
 static void handleConnFinished()

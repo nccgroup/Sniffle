@@ -74,8 +74,8 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 
 // Initiate connection with peer
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
-    RadioWrapper_Callback callback, uint16_t *initAddr, uint16_t *peerAddr,
-    void *connReqData);
+    RadioWrapper_Callback callback, const uint16_t *initAddr, const uint16_t *peerAddr,
+    const void *connReqData, uint32_t *connTime, PHY_Mode *connPhy);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();
