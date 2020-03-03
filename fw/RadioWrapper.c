@@ -355,7 +355,15 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
-    return 0;
+    switch (RF_cmdBle5Master.status)
+    {
+    case BLE_DONE_OK:
+    case BLE_DONE_ENDED:
+    case BLE_DONE_STOPPED:
+        return 0;
+    default:
+        return -ENOLINK;
+    }
 }
 
 /* Receive/transmit in BLE5 Slave Mode
@@ -436,7 +444,15 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
-    return 0;
+    switch (RF_cmdBle5Slave.status)
+    {
+    case BLE_DONE_OK:
+    case BLE_DONE_ENDED:
+    case BLE_DONE_STOPPED:
+        return 0;
+    default:
+        return -ENOLINK;
+    }
 }
 
 /* Initiate a connection to the specified peer address
