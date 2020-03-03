@@ -406,6 +406,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             use_csa2 = (status >= 1) ? true : false;
             handleConnReq(connPhy, 0, connReqLLData, status >= 2);
             nextHopTime = connTime - AO_TARG + rconf.hopIntervalTicks;
+            RadioWrapper_resetSeqStat();
 
             stateTransition(MASTER);
         } else if (snifferState == MASTER) {

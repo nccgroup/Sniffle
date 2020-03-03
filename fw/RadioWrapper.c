@@ -467,6 +467,12 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     }
 }
 
+void RadioWrapper_resetSeqStat()
+{
+    memset(&(RF_cmdBle5Master.pParams->seqStat), 0, 1);
+    memset(&(RF_cmdBle5Slave.pParams->seqStat), 0, 1);
+}
+
 /* Initiate a connection to the specified peer address
  *
  * Arguments:

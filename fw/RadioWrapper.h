@@ -72,6 +72,9 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent);
 
+// Reset sequence numbers for master/slave modes
+void RadioWrapper_resetSeqStat(void);
+
 // Initiate connection with peer
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RadioWrapper_Callback callback, const uint16_t *initAddr, const uint16_t *peerAddr,
