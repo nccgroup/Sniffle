@@ -224,6 +224,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     sniff37.rangeDelay = 0x00;
     sniff37.txPower = 0x0000;
     sniff37.pParams = NULL;
+    sniff37.pOutput = NULL;
     sniff37.tx20Power = 0x00000000;
 
     // duplicate the default settings
