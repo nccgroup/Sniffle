@@ -447,6 +447,10 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Slave.pParams->endTime = 0;
     }
 
+    /* for now, we're not defining a timeout separate from end */
+    RF_cmdBle5Initiator.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
+    RF_cmdBle5Initiator.pParams->timeoutTime = 0;
+
     last_channel = chan;
     last_phy = phy;
 
@@ -544,6 +548,10 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
         RF_cmdBle5Initiator.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5Initiator.pParams->endTime = 0;
     }
+
+    /* for now, we're not defining a timeout separate from end */
+    RF_cmdBle5Initiator.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
+    RF_cmdBle5Initiator.pParams->timeoutTime = 0;
 
     /* Known Issue:
      * Aux channel packets will have their PHY and channel reported incorrectly
