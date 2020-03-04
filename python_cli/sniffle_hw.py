@@ -9,6 +9,7 @@ from binascii import Error as BAError
 from sys import stderr
 from time import time
 from enum import Enum
+from random import randint
 
 class SniffleHW:
     def __init__(self, serport):
@@ -67,21 +68,21 @@ class SniffleHW:
         self._send_cmd([0x18])
 
     # for master or slave modes
-    def cmd_transmit(llid, pdu):
+    def cmd_transmit(self, llid, pdu):
         if not (0 <= llid <= 3):
             raise ValueError("Out of bounds LLID")
         if len(pdu) > 255:
             raise ValueError("Too long PDU")
         self._send_cmd([0x19, llid, len(pdu), *pdu])
 
-    def cmd_connect(peerAddr, llData):
+    def cmd_connect(self, peerAddr, llData):
         if len(peerAddr) != 6:
             raise ValueError("Invalid peer address")
         if len(llData) != 22:
             raise ValueError("Invalid LLData")
         self._send_cmd([0x1A, *peerAddr, *llData])
 
-    def cmd_setaddr(addr):
+    def cmd_setaddr(self, addr):
         if len(addr) != 6:
             raise ValueError("Invalid MAC address")
         self._send_cmd([0x1B, *addr])
@@ -135,6 +136,40 @@ class SniffleHW:
                 continue
             if isinstance(msg, MarkerMessage):
                 break
+
+    def random_addr(self):
+        # generate a random static address, set it
+        addr = [randint(0, 255) for i in range(6)]
+        addr[5] |= 0xC0 # make it static
+        self.cmd_setaddr(bytes(addr))
+
+    # automatically generate sane LLData
+    def initiate_conn(self, peerAddr):
+        llData = []
+
+        # access address
+        llData.extend([randint(0, 255) for i in range(4)])
+
+        # initial CRC
+        llData.extend([randint(0, 255) for i in range(3)])
+
+        # WinSize, WinOffset, Interval, Latency, Timeout
+        llData.append(3)
+        llData.extend(pack("<H", randint(5, 15)))
+        llData.extend(pack("<H", 24))
+        llData.extend(pack("<H", 1))
+        llData.extend(pack("<H", 50))
+
+        # Channel Map
+        llData.extend([0xFF, 0xFF, 0xFF, 0xFF, 0x1F])
+
+        # Hop, SCA = 0
+        llData.append(randint(5, 16))
+
+        self.cmd_connect(peerAddr, bytes(llData))
+
+        # return the access address
+        return unpack("<L", bytes(llData[:4]))[0]
 
 # raised when sniffle HW gives invalid data (shouldn't happen)
 # this is not for malformed Bluetooth traffic
@@ -230,13 +265,13 @@ class SnifferState(Enum):
     STATIC = 0
     ADVERT_SEEK = 1
     ADVERT_HOP = 2
-    DATA = 2
-    PAUSED = 3
-    INITIATING = 4
-    MASTER = 5
-    SLAVE = 6
-    ADVERTISING = 7
-    SCANNING = 8
+    DATA = 3
+    PAUSED = 4
+    INITIATING = 5
+    MASTER = 6
+    SLAVE = 7
+    ADVERTISING = 8
+    SCANNING = 9
 
 class StateMessage:
     def __init__(self, raw_msg, dstate):
