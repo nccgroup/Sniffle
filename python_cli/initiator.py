@@ -81,10 +81,19 @@ def print_message(msg):
             hw.decoder_state.cur_aa = _aa
     print()
 
+msg_ctr = 0
 def print_packet(pkt):
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
     print(dpkt)
+
+    # do a ping every fourth message
+    global msg_ctr
+    MCMASK = 3
+    if (msg_ctr & MCMASK) == MCMASK:
+        #hw.cmd_transmit(3, bytes([msg_ctr & 0xFF]))
+        hw.cmd_transmit(3, b'\x12') # LL_PING_REQ
+    msg_ctr += 1
 
 if __name__ == "__main__":
     main()
