@@ -10,6 +10,7 @@ from sys import stderr
 from time import time
 from enum import Enum
 from random import randint
+from traceback import print_exc
 
 class SniffleHW:
     def __init__(self, serport):
@@ -94,31 +95,38 @@ class SniffleHW:
             try:
                 data = b64decode(pkt.rstrip())
             except BAError as e:
+                print(str(pkt, encoding='ascii').rstrip())
                 print("Ignoring message:", e, file=stderr)
                 continue
             got_msg = True
 
         if self.recv_cancelled:
             self.recv_cancelled = False
-            return -1, None
+            return -1, None, b''
 
         # msg type, msg body
-        return data[0], data[1:]
+        return data[0], data[1:], pkt
 
     def recv_and_decode(self):
-        mtype, mbody = self.recv_msg()
-        if mtype == 0x10:
-            return PacketMessage(mbody, self.decoder_state)
-        elif mtype == 0x11:
-            return DebugMessage(mbody)
-        elif mtype == 0x12:
-            return MarkerMessage(mbody, self.decoder_state)
-        elif mtype == 0x13:
-            return StateMessage(mbody, self.decoder_state)
-        elif mtype == -1:
-            return None # receive cancelled
-        else:
-            raise SniffleHWPacketError("Unknown message type 0x%02X!" % mtype)
+        mtype, mbody, pkt = self.recv_msg()
+        try:
+            if mtype == 0x10:
+                return PacketMessage(mbody, self.decoder_state)
+            elif mtype == 0x11:
+                return DebugMessage(mbody)
+            elif mtype == 0x12:
+                return MarkerMessage(mbody, self.decoder_state)
+            elif mtype == 0x13:
+                return StateMessage(mbody, self.decoder_state)
+            elif mtype == -1:
+                return None # receive cancelled
+            else:
+                raise SniffleHWPacketError("Unknown message type 0x%02X!" % mtype)
+        except BaseException as e:
+            print(str(pkt, encoding='ascii').rstrip())
+            print("Ignoring message:", e, file=stderr)
+            print_exc()
+            return None
 
     def cancel_recv(self):
         self.recv_cancelled = True
