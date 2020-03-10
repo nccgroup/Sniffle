@@ -15,7 +15,7 @@ from traceback import print_exc
 class SniffleHW:
     def __init__(self, serport):
         self.decoder_state = SniffleDecoderState()
-        self.ser = Serial(serport, 921600)
+        self.ser = Serial(serport, 2000000)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
 
