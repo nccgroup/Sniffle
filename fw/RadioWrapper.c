@@ -595,6 +595,135 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     }
 }
 
+/* Advertises in legacy mode on 37/38/39, accepts connections
+ *
+ * Arguments:
+ *  callback    Function to call when a packet is received
+ *  advAddr     Our (advertiser) MAC address
+ *  advData     Advertisement data
+ *  advLen      Advertisement data length
+ *  scanRspData Scan response data
+ *  scanRspLen  Scan response data length
+ *
+ * Returns:
+ *  -3 on misc error
+ *  -2 on advertiser being stopped
+ *  -1 on timeout (didn't get connection request)
+ *  0 on legacy connection success with ChSel0
+ *  1 on legacy connection success with ChSel1
+ */
+int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advAddr,
+        const void *advData, uint8_t advLen, const void *scanRspData, uint8_t scanRspLen)
+{
+    RF_cmdBleAdv.whitening.bOverride = 0x0;
+
+    RF_cmdBleAdv.pParams->pRxQ = &dataQueue;
+    RF_cmdBleAdv.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBleAdv.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBleAdv.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBleAdv.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBleAdv.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBleAdv.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBleAdv.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBleAdv.pParams->rxConfig.bAppendTimestamp = 1;
+
+    RF_cmdBleAdv.pParams->advConfig.advFilterPolicy = 0x0; // no whitelist
+    RF_cmdBleAdv.pParams->advConfig.deviceAddrType = 1; // random addr
+    RF_cmdBleAdv.pParams->advConfig.peerAddrType = 0; // not applicable
+    RF_cmdBleAdv.pParams->advConfig.bStrictLenFilter = 0;
+    RF_cmdBleAdv.pParams->advConfig.chSel = 1; // allow CSA 2
+    RF_cmdBleAdv.pParams->advConfig.privIgnMode = 0; // ???
+    RF_cmdBleAdv.pParams->advConfig.rpaMode = 0;
+
+    RF_cmdBleAdv.pParams->advLen = advLen;
+    RF_cmdBleAdv.pParams->scanRspLen = scanRspLen;
+    RF_cmdBleAdv.pParams->pAdvData = (void *)advData;
+    RF_cmdBleAdv.pParams->pScanRspData = (void *)scanRspData;
+    RF_cmdBleAdv.pParams->pDeviceAddress = (uint16_t *)advAddr;
+
+    // 1 ms per channel
+    RF_cmdBleAdv.pParams->endTrigger.triggerType = TRIG_REL_START;
+    RF_cmdBleAdv.pParams->endTrigger.bEnaCmd = 0;
+    RF_cmdBleAdv.pParams->endTrigger.triggerNo = 0;
+    RF_cmdBleAdv.pParams->endTrigger.pastTrig = 1;
+    RF_cmdBleAdv.pParams->endTime = 4000;
+
+    RF_cmdBleAdv.channel = 37;
+    last_channel = 37;
+    last_phy = PHY_1M;
+
+    /* Enter advertiser mode, and stay till we're done */
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    switch (RF_cmdBleAdv.status)
+    {
+    case BLE_DONE_CONNECT:
+        return 1;
+    case BLE_DONE_CONNECT_CHSEL0:
+        return 0;
+    case BLE_DONE_ENDED:
+    case BLE_DONE_NOSYNC:
+    case BLE_DONE_RXERR:
+        // move on to next channel
+        break;
+    case BLE_DONE_STOPPED:
+        // end immediately
+        return -2;
+    default:
+        // unhandled error
+        return -3;
+    }
+
+    RF_cmdBleAdv.channel = 38;
+    last_channel = 38;
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    switch (RF_cmdBleAdv.status)
+    {
+    case BLE_DONE_CONNECT:
+        return 1;
+    case BLE_DONE_CONNECT_CHSEL0:
+        return 0;
+    case BLE_DONE_ENDED:
+    case BLE_DONE_NOSYNC:
+    case BLE_DONE_RXERR:
+        // move on to next channel
+        break;
+    case BLE_DONE_STOPPED:
+        // end immediately
+        return -2;
+    default:
+        // unhandled error
+        return -3;
+    }
+
+    RF_cmdBleAdv.channel = 39;
+    last_channel = 39;
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    switch (RF_cmdBleAdv.status)
+    {
+    case BLE_DONE_CONNECT:
+        return 1;
+    case BLE_DONE_CONNECT_CHSEL0:
+        return 0;
+    case BLE_DONE_ENDED:
+    case BLE_DONE_NOSYNC:
+    case BLE_DONE_RXERR:
+        // no connection attempts made
+        return -1;
+    case BLE_DONE_STOPPED:
+        // end immediately
+        return -2;
+    default:
+        // unhandled error
+        return -3;
+    }
+}
+
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations
