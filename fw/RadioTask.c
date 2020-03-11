@@ -637,23 +637,6 @@ void reactToPDU(const BLE_Frame *frame)
                 return;
 
             if (snifferState == ADVERTISING) {
-                /* TODO:
-                 * Is this check necessary, or does it filter for me before receive queue?
-                 *
-                 * TI documentation says (25.8.8 Legacy Advertiser):
-                 * A SCAN_REQ or CONNECT_IND message is received into the RX queue given
-                 * by pParams->pRxQ, as described in Section 25.10.4.1. The bCrcErr and
-                 * bIgnore bits are set according to the CRC result and the received message.
-                 * The AdvA field in the message and the TxAdd bit of the received header
-                 * are compared to the pParams->pDeviceAddress array and
-                 * pParams->advConfig.deviceAddrType, respectively, to see if the message
-                 * was addressed to this advertiser.
-                 *
-                 * It's unclear to me if check if before or after message goes to RX queue.
-                 */
-                if (memcmp(frame->pData + 8, ourAddr, 6) != 0)
-                    return;
-
                 use_csa2 = ChSel ? true : false;
             } else {
                 // Use CSA#2 if both initiator and advertiser support it
