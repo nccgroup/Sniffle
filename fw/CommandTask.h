@@ -22,5 +22,6 @@ void CommandTask_init(void);
 #define COMMAND_TRANSMIT        0x19
 #define COMMAND_CONNECT         0x1A
 #define COMMAND_SETADDR         0x1B
+#define COMMAND_ADVERTISE       0x1C
 
 #endif /* COMMANDTASK_H */

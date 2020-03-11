@@ -102,6 +102,11 @@ static uint16_t peerAddr[3];
 
 static uint8_t connReqLLData[22];
 
+static uint8_t s_advLen;
+static uint8_t s_advData[31];
+static uint8_t s_scanRspLen;
+static uint8_t s_scanRspData[31];
+
 // target offset before anchor point to start listing on next data channel
 // 0.5 ms @ 4 Mhz
 #define AO_TARG 2000
@@ -453,6 +458,12 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 Task_sleep(rticksRemaining / 40);
 
             afterConnEvent(true);
+        } else if (snifferState == ADVERTISING) {
+            // slightly "randomize" advertisement timing as per spec
+            uint32_t sleep_ms = 100 + (RF_getCurrentTime() & 0x7);
+            RadioWrapper_advertise3(indicatePacket, ourAddr, s_advData, s_advLen,
+                    s_scanRspData, s_scanRspLen);
+            Task_sleep(sleep_ms * 100); // 100 kHz ticks
         }
     }
 }
@@ -625,21 +636,46 @@ void reactToPDU(const BLE_Frame *frame)
             if (advLen != 34)
                 return;
 
-            // Use CSA#2 if both initiator and advertiser support it
-            // AUX_CONNECT_REQ always uses CSA#2, ChSel is RFU
-            use_csa2 = isAuxReq ? true : false;
-            if (!isAuxReq && ChSel)
-            {
-                // check if advertiser supports it
-                uint8_t adv_hdr = adv_cache_fetch(frame->pData + 8);
-                if (adv_hdr != 0xFF && (adv_hdr & 0x20))
-                    use_csa2 = true;
+            if (snifferState == ADVERTISING) {
+                /* TODO:
+                 * Is this check necessary, or does it filter for me before receive queue?
+                 *
+                 * TI documentation says (25.8.8 Legacy Advertiser):
+                 * A SCAN_REQ or CONNECT_IND message is received into the RX queue given
+                 * by pParams->pRxQ, as described in Section 25.10.4.1. The bCrcErr and
+                 * bIgnore bits are set according to the CRC result and the received message.
+                 * The AdvA field in the message and the TxAdd bit of the received header
+                 * are compared to the pParams->pDeviceAddress array and
+                 * pParams->advConfig.deviceAddrType, respectively, to see if the message
+                 * was addressed to this advertiser.
+                 *
+                 * It's unclear to me if check if before or after message goes to RX queue.
+                 */
+                if (memcmp(frame->pData + 8, ourAddr, 6) != 0)
+                    return;
+
+                use_csa2 = ChSel ? true : false;
+            } else {
+                // Use CSA#2 if both initiator and advertiser support it
+                // AUX_CONNECT_REQ always uses CSA#2, ChSel is RFU
+                use_csa2 = isAuxReq ? true : false;
+                if (!isAuxReq && ChSel)
+                {
+                    // check if advertiser supports it
+                    uint8_t adv_hdr = adv_cache_fetch(frame->pData + 8);
+                    if (adv_hdr != 0xFF && (adv_hdr & 0x20))
+                        use_csa2 = true;
+                }
             }
 
+            // use_csa2 needs to be set before calling this
             handleConnReq(frame->phy, frame->timestamp << 2, frame->pData + 14,
                     isAuxReq);
 
-            stateTransition(DATA);
+            if (snifferState == ADVERTISING)
+                stateTransition(SLAVE);
+            else
+                stateTransition(DATA);
             RadioWrapper_stop();
         }
     } else {
@@ -1017,5 +1053,16 @@ void initiateConn(void *_peerAddr, void *llData)
     memcpy(connReqLLData, llData, 22);
 
     stateTransition(INITIATING);
+    RadioWrapper_stop();
+}
+
+/* Enter advertising state */
+void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen)
+{
+    s_advLen = advLen;
+    s_scanRspLen = scanRspLen;
+    memcpy(s_advData, advData, advLen);
+    memcpy(s_scanRspData, scanRspData, scanRspLen);
+    stateTransition(ADVERTISING);
     RadioWrapper_stop();
 }

@@ -58,6 +58,9 @@ void setAddr(void *addr);
 /* Enter initiating state */
 void initiateConn(void *peerAddr, void *llData);
 
+/* Enter advertising state */
+void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,

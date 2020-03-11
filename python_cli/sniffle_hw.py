@@ -88,6 +88,15 @@ class SniffleHW:
             raise ValueError("Invalid MAC address")
         self._send_cmd([0x1B, *addr])
 
+    def cmd_advertise(self, advData, scanRspData):
+        if len(advData) > 31:
+            raise ValueError("advData too long!")
+        if len(scanRspData) > 31:
+            raise ValueError("scanRspData too long!")
+        paddedAdvData = [len(advData), *advData] + [0]*(31 - len(advData))
+        paddedScnData = [len(scanRspData), *scanRspData] + [0]*(31 - len(scanRspData))
+        self._send_cmd([0x1C, *paddedAdvData, *paddedScnData])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:
