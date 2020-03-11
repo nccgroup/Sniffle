@@ -463,7 +463,9 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             uint32_t sleep_ms = 100 + (RF_getCurrentTime() & 0x7);
             RadioWrapper_advertise3(indicatePacket, ourAddr, s_advData, s_advLen,
                     s_scanRspData, s_scanRspLen);
-            Task_sleep(sleep_ms * 100); // 100 kHz ticks
+            // don't sleep if we had a connection established
+            if (snifferState == ADVERTISING)
+                Task_sleep(sleep_ms * 100); // 100 kHz ticks
         }
     }
 }
