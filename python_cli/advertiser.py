@@ -41,6 +41,9 @@ def main():
     # advertiser needs a MAC address
     hw.random_addr()
 
+    # advertise roughly every 200 ms
+    hw.cmd_adv_interval(200)
+
     # zero timestamps and flush old packets
     hw.mark_and_flush()
 

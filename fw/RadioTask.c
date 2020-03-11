@@ -106,6 +106,7 @@ static uint8_t s_advLen;
 static uint8_t s_advData[31];
 static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
+static uint16_t s_advIntervalMs = 100;
 
 // target offset before anchor point to start listing on next data channel
 // 0.5 ms @ 4 Mhz
@@ -460,7 +461,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             afterConnEvent(true);
         } else if (snifferState == ADVERTISING) {
             // slightly "randomize" advertisement timing as per spec
-            uint32_t sleep_ms = 100 + (RF_getCurrentTime() & 0x7);
+            uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
             RadioWrapper_advertise3(indicatePacket, ourAddr, s_advData, s_advLen,
                     s_scanRspData, s_scanRspLen);
             // don't sleep if we had a connection established
@@ -1050,4 +1051,10 @@ void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRsp
     memcpy(s_scanRspData, scanRspData, scanRspLen);
     stateTransition(ADVERTISING);
     RadioWrapper_stop();
+}
+
+/* Set advertising interval (for advertising state) in milliseconds */
+void setAdvInterval(uint32_t intervalMs)
+{
+    s_advIntervalMs = intervalMs;
 }

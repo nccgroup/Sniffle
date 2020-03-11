@@ -132,6 +132,15 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (msgBuf[34] > 31) continue;
             advertise(msgBuf + 3, msgBuf[2], msgBuf + 35, msgBuf[34]);
             break;
+        case COMMAND_ADVINTRVL:
+        {
+            if (ret != 4) continue;
+            uint16_t intervalMs;
+            memcpy(&intervalMs, msgBuf + 2, 2);
+            if (intervalMs < 20) continue;
+            setAdvInterval(intervalMs);
+            break;
+        }
         default:
             break;
         }

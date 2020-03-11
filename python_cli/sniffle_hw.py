@@ -97,6 +97,11 @@ class SniffleHW:
         paddedScnData = [len(scanRspData), *scanRspData] + [0]*(31 - len(scanRspData))
         self._send_cmd([0x1C, *paddedAdvData, *paddedScnData])
 
+    def cmd_adv_interval(self, intervalMs):
+        if not (20 < intervalMs < 0xFFFF):
+            raise ValueError("Advertising interval out of bounds")
+        self._send_cmd([0x1D, intervalMs & 0xFF, intervalMs >> 8])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

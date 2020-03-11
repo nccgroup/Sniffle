@@ -61,6 +61,9 @@ void initiateConn(void *peerAddr, void *llData);
 /* Enter advertising state */
 void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen);
 
+/* Set advertising interval (for advertising state) in milliseconds */
+void setAdvInterval(uint32_t intervalMs);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,
