@@ -57,7 +57,7 @@ uint32_t TXQueue_take(dataQueue_t *pRFQueue)
         queue_entries[i].config.lenSz = 0;                  // No length indicator byte in data
 
         uint32_t n = (queue_tail + i) & TX_QUEUE_MASK;
-        queue_entries[i].length = packet_lens[n];
+        queue_entries[i].length = packet_lens[n] + 1;       // extra byte for LLID
         queue_entries[i].pData = packet_buf + (n * PACKET_SIZE);
     }
 
