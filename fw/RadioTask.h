@@ -53,10 +53,10 @@ void setAuxAdvEnabled(bool enable);
 void sendMarker(void);
 
 /* Set Sniffle's MAC address for advertising/scanning/initiating */
-void setAddr(void *addr);
+void setAddr(bool isRandom, void *addr);
 
 /* Enter initiating state */
-void initiateConn(void *peerAddr, void *llData);
+void initiateConn(bool isRandom, void *peerAddr, void *llData);
 
 /* Enter advertising state */
 void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen);

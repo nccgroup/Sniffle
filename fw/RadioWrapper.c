@@ -486,7 +486,9 @@ void RadioWrapper_resetSeqStat()
  *  timeout     When to stop (in radio ticks)
  *  callback    Function to call when a packet is received
  *  initAddr    Our (initiator) MAC address
+ *  initRandom  TxAdd of CONNECT_IND
  *  peerAddr    Peer (advertiser) MAC address
+ *  peerRandom  RxAdd of CONNECT_IND
  *  connReqData LLData of CONNECT_IND
  *  connTime    Time of first connection event is written here
  *  secPhy      PHY used for connection is written here
@@ -500,8 +502,9 @@ void RadioWrapper_resetSeqStat()
  *  2 on aux connection success (implies ChSel1)
  */
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
-    RadioWrapper_Callback callback, const uint16_t *initAddr, const uint16_t *peerAddr,
-    const void *connReqData, uint32_t *connTime, PHY_Mode *connPhy)
+    RadioWrapper_Callback callback, const uint16_t *initAddr, bool initRandom,
+    const uint16_t *peerAddr, bool peerRandom, const void *connReqData,
+    uint32_t *connTime, PHY_Mode *connPhy)
 {
     // set up initiator parameters
     RF_cmdBle5Initiator.channel = chan;
@@ -520,8 +523,8 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
 
     RF_cmdBle5Initiator.pParams->initConfig.bUseWhiteList = 0; // specific peer
     RF_cmdBle5Initiator.pParams->initConfig.bDynamicWinOffset = 1;
-    RF_cmdBle5Initiator.pParams->initConfig.deviceAddrType = 1;
-    RF_cmdBle5Initiator.pParams->initConfig.peerAddrType = 1;
+    RF_cmdBle5Initiator.pParams->initConfig.deviceAddrType = initRandom ? 1 : 0;
+    RF_cmdBle5Initiator.pParams->initConfig.peerAddrType = peerRandom ? 1 : 0;
     RF_cmdBle5Initiator.pParams->initConfig.bStrictLenFilter = 1;
     RF_cmdBle5Initiator.pParams->initConfig.chSel = 1; // we can use CSA2
 
@@ -600,6 +603,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  * Arguments:
  *  callback    Function to call when a packet is received
  *  advAddr     Our (advertiser) MAC address
+ *  advRandom   TxAdd for advertisement
  *  advData     Advertisement data
  *  advLen      Advertisement data length
  *  scanRspData Scan response data
@@ -613,7 +617,8 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  *  1 on legacy connection success with ChSel1
  */
 int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advAddr,
-        const void *advData, uint8_t advLen, const void *scanRspData, uint8_t scanRspLen)
+    bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
+    uint8_t scanRspLen)
 {
     RF_cmdBleAdv.whitening.bOverride = 0x0;
 
@@ -628,7 +633,7 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     RF_cmdBleAdv.pParams->rxConfig.bAppendTimestamp = 1;
 
     RF_cmdBleAdv.pParams->advConfig.advFilterPolicy = 0x0; // no whitelist
-    RF_cmdBleAdv.pParams->advConfig.deviceAddrType = 1; // random addr
+    RF_cmdBleAdv.pParams->advConfig.deviceAddrType = advRandom ? 1 : 0;
     RF_cmdBleAdv.pParams->advConfig.peerAddrType = 0; // not applicable
     RF_cmdBleAdv.pParams->advConfig.bStrictLenFilter = 0;
     RF_cmdBleAdv.pParams->advConfig.chSel = 1; // allow CSA 2

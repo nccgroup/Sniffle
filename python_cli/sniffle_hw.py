@@ -76,17 +76,17 @@ class SniffleHW:
             raise ValueError("Too long PDU")
         self._send_cmd([0x19, llid, len(pdu), *pdu])
 
-    def cmd_connect(self, peerAddr, llData):
+    def cmd_connect(self, peerAddr, llData, is_random=True):
         if len(peerAddr) != 6:
             raise ValueError("Invalid peer address")
         if len(llData) != 22:
             raise ValueError("Invalid LLData")
-        self._send_cmd([0x1A, *peerAddr, *llData])
+        self._send_cmd([0x1A, 1 if is_random else 0, *peerAddr, *llData])
 
-    def cmd_setaddr(self, addr):
+    def cmd_setaddr(self, addr, is_random=True):
         if len(addr) != 6:
             raise ValueError("Invalid MAC address")
-        self._send_cmd([0x1B, *addr])
+        self._send_cmd([0x1B, 1 if is_random else 0, *addr])
 
     def cmd_advertise(self, advData, scanRspData):
         if len(advData) > 31:
@@ -176,7 +176,7 @@ class SniffleHW:
         self.cmd_setaddr(bytes(addr))
 
     # automatically generate sane LLData
-    def initiate_conn(self, peerAddr):
+    def initiate_conn(self, peerAddr, is_random=True):
         llData = []
 
         # access address
@@ -198,7 +198,7 @@ class SniffleHW:
         # Hop, SCA = 0
         llData.append(randint(5, 16))
 
-        self.cmd_connect(peerAddr, bytes(llData))
+        self.cmd_connect(peerAddr, bytes(llData), is_random)
 
         # return the access address
         return unpack("<L", bytes(llData[:4]))[0]

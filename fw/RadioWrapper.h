@@ -77,12 +77,14 @@ void RadioWrapper_resetSeqStat(void);
 
 // Initiate connection with peer
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
-    RadioWrapper_Callback callback, const uint16_t *initAddr, const uint16_t *peerAddr,
-    const void *connReqData, uint32_t *connTime, PHY_Mode *connPhy);
+    RadioWrapper_Callback callback, const uint16_t *initAddr, bool initRandom,
+    const uint16_t *peerAddr, bool peerRandom, const void *connReqData,
+    uint32_t *connTime, PHY_Mode *connPhy);
 
 // Legacy advertise on all three primary channels
 int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advAddr,
-        const void *advData, uint8_t advLen, const void *scanRspData, uint8_t scanRspLen);
+    bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
+    uint8_t scanRspLen);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();

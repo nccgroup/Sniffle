@@ -96,7 +96,9 @@ static bool postponed = false;
 static bool advHopEnabled = false;
 static bool auxAdvEnabled = false;
 
-// need to be 16 bit aligned for radio core, hence type
+// MAC addresses need to be 16 bit aligned for radio core, hence type
+static bool ourAddrRandom = false;
+static bool peerAddrRandom = false;
 static uint16_t ourAddr[3];
 static uint16_t peerAddr[3];
 
@@ -403,7 +405,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             uint32_t connTime;
             PHY_Mode connPhy;
             int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
-                    indicatePacket, ourAddr, peerAddr, connReqLLData, &connTime, &connPhy);
+                    indicatePacket, ourAddr, ourAddrRandom, peerAddr, peerAddrRandom,
+                    connReqLLData, &connTime, &connPhy);
             if (status < 0) {
                 handleConnFinished();
                 continue;
@@ -462,8 +465,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == ADVERTISING) {
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
-            RadioWrapper_advertise3(indicatePacket, ourAddr, s_advData, s_advLen,
-                    s_scanRspData, s_scanRspLen);
+            RadioWrapper_advertise3(indicatePacket, ourAddr, ourAddrRandom,
+                    s_advData, s_advLen, s_scanRspData, s_scanRspLen);
             // don't sleep if we had a connection established
             if (snifferState == ADVERTISING)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
@@ -1027,14 +1030,16 @@ void sendMarker()
 }
 
 /* Set Sniffle's MAC address for advertising/scanning/initiating */
-void setAddr(void *addr)
+void setAddr(bool isRandom, void *addr)
 {
+    ourAddrRandom = isRandom;
     memcpy(ourAddr, addr, 6);
 }
 
 /* Enter initiating state */
-void initiateConn(void *_peerAddr, void *llData)
+void initiateConn(bool isRandom, void *_peerAddr, void *llData)
 {
+    peerAddrRandom = isRandom;
     memcpy(peerAddr, _peerAddr, 6);
     memcpy(connReqLLData, llData, 22);
 
