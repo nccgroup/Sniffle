@@ -15,17 +15,18 @@ def _safe_asciify(c):
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
 
-def _str_atype(addr):
+def _str_atype(addr, is_random):
     # Non-resolvable private address
     # Resolvable private address
     # Reserved for future use
     # Static device address
+    if not is_random: return "Public"
     atypes = ["NRPA", "RPA", "RFU", "Static"]
     atype = addr[5] >> 6
     return atypes[atype]
 
-def str_mac2(mac):
-    return "%s (%s)" % (str_mac(mac), _str_atype(mac))
+def str_mac2(mac, is_random):
+    return "%s (%s)" % (str_mac(mac), _str_atype(mac, is_random))
 
 class DPacketMessage(PacketMessage):
     pdutype = "RFU"
@@ -181,7 +182,7 @@ class AdvaMessage(AdvertMessage):
         self.AdvA = self.body[2:8]
 
     def str_adva(self):
-        return "AdvA: %s" % str_mac2(self.AdvA)
+        return "AdvA: %s" % str_mac2(self.AdvA, self.TxAdd)
 
     def __str__(self):
         return "\n".join([
@@ -211,7 +212,7 @@ class AdvDirectIndMessage(AdvertMessage):
         self.TargetA = self.body[8:14]
 
     def str_ata(self):
-        return "AdvA: %s TargetA: %s" % (str_mac2(self.AdvA), str_mac2(self.TargetA))
+        return "AdvA: %s TargetA: %s" % (str_mac2(self.AdvA, self.TxAdd), str_mac2(self.TargetA, self.RxAdd))
 
     def __str__(self):
         return "\n".join([
@@ -229,7 +230,7 @@ class ScanReqMessage(AdvertMessage):
         self.AdvA = self.body[8:14]
 
     def str_asa(self):
-        return "ScanA: %s AdvA: %s" % (str_mac2(self.ScanA), str_mac2(self.AdvA))
+        return "ScanA: %s AdvA: %s" % (str_mac2(self.ScanA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd))
 
     def __str__(self):
         return "\n".join([
@@ -250,7 +251,7 @@ class ConnectIndMessage(AdvertMessage):
 
     def str_aia(self):
         return "InitA: %s AdvA: %s AA: 0x%08X" % (
-                str_mac2(self.InitA), str_mac2(self.AdvA), self.aa)
+                str_mac2(self.InitA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd), self.aa)
 
     def __str__(self):
         return "\n".join([
@@ -337,9 +338,9 @@ class AdvExtIndMessage(AdvertMessage):
 
         dispMsgs = []
         if self.AdvA:
-            dispMsgs.append("AdvA: %s" % str_mac2(self.AdvA))
+            dispMsgs.append("AdvA: %s" % str_mac2(self.AdvA, self.TxAdd))
         if self.TargetA:
-            dispMsgs.append("TargetA: %s" % str_mac2(self.TargetA))
+            dispMsgs.append("TargetA: %s" % str_mac2(self.TargetA, self.RxAdd))
         if self.CTEInfo:
             dispMsgs.append("CTEInfo: 0x%02X" % self.CTEInfo)
         if self.AdvDataInfo:

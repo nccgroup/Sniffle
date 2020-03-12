@@ -107,7 +107,7 @@ def handle_packet(pkt):
 
     if isinstance(dpkt, AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
             isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-        adva = str_mac2(dpkt.AdvA)
+        adva = str_mac2(dpkt.AdvA, dpkt.TxAdd)
 
         if not adva in advertisers:
             advertisers[adva] = Advertiser()
