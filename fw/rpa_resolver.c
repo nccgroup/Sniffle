@@ -14,14 +14,36 @@ static uint8_t last_roundKeys[176] = {0};
 static uint32_t last_prand;
 static uint32_t last_hash;
 
+/* On Android, keys can be found in /data/misc/bluedroid/bt_config.conf
+ * The LE_LOCAL_KEY_IRK is the device's own IRK (LSB first)
+ * For bonded devices, the first 16 bytes of LE_KEY_PID are the IRK (LSB first)
+ *
+ * Example:
+ * LE_LOCAL_KEY_IRK = 22bc0e3f2eacf08ee36b865553ea0b4e
+ * Received RPA is 56:EA:76:5D:9D:F4 (display order, MSB first)
+ *
+ * We need to endian swap the key to make it big endian, since our AES
+ * implementation is big endian (as is the norm).
+ *
+ * Key:     4E0BEA5355866BE38EF0AC2E3F0EBC22
+ * Prand:   0000000000000000000000000056EA76
+ * AES:     DDB32B98E111AAAAB3C1ACA0E95D9DF4
+ * Hash:    000000000000000000000000005D9DF4
+ *          ^MSB                          ^LSB
+ *
+ * Computed hash matches hash portion of RPA, so we have a match
+ */
+
 static uint32_t BLE_ah(const void *irk, uint32_t prand)
 {
     uint8_t r_[16] = {0};
     uint8_t res[16];
-    uint32_t ret = 0;
 
-    // zero pad prand to get r'
-    memcpy(r_, &prand, 3);
+    // r_ (input to AES) is big endian
+    // three least significant bytes are prand
+    r_[15] = prand & 0xFF;
+    r_[14] = (prand & 0xFF00) >> 8;
+    r_[13] = (prand & 0xFF0000) >> 16;
 
     // I use software AES to avoid changing global state of hardware and to
     // minimize the overhead of setting up hardware for one-off operations
@@ -36,10 +58,8 @@ static uint32_t BLE_ah(const void *irk, uint32_t prand)
 
     aes_encrypt_128(last_roundKeys, r_, res);
 
-    // truncate to 24 LSB
-    memcpy(&ret, res, 3);
-
-    return ret;
+    // hash is 3 LSB of the big endian AES result
+    return res[15] | (res[14] << 8) | (res[13] << 16);
 }
 
 // returns true on RPA matching IRK
