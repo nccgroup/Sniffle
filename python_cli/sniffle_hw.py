@@ -102,6 +102,16 @@ class SniffleHW:
             raise ValueError("Advertising interval out of bounds")
         self._send_cmd([0x1D, intervalMs & 0xFF, intervalMs >> 8])
 
+    def cmd_irk(self, irk=None, hop3=True):
+        if irk is None:
+            self._send_cmd([0x1E])
+        elif len(irk) != 16:
+            raise ValueError("Invalid IRK length!")
+        else:
+            self._send_cmd([0x1E, *irk])
+            if hop3:
+                self._send_cmd([0x14])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

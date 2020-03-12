@@ -20,7 +20,7 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-r", "--rssi", default=-80, type=int,
             help="Filter packets by minimum RSSI")
-    aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
+    aparse.add_argument("-m", "--mac", default=None, help="Specify target MAC address")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
     args = aparse.parse_args()

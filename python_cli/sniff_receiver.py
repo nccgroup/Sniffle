@@ -8,6 +8,7 @@ import argparse, sys
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage
 from packet_decoder import DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
+from binascii import unhexlify
 
 # global variable to access hardware
 hw = None
@@ -32,6 +33,7 @@ def main():
     aparse.add_argument("-r", "--rssi", default=-80, type=int,
             help="Filter packets by minimum RSSI")
     aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
+    aparse.add_argument("-i", "--irk", default=None, help="Filter packets by advertiser IRK")
     aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
             help="Sniff only advertisements, don't follow connections")
     aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
@@ -44,8 +46,8 @@ def main():
     args = aparse.parse_args()
 
     # Sanity check argument combinations
-    if args.hop and args.mac is None:
-        print("Primary adv. channel hop requires a MAC address specified!", file=sys.stderr)
+    if args.hop and args.mac is None and args.irk is None:
+        print("Primary adv. channel hop requires a MAC address or IRK specified!", file=sys.stderr)
         return
     if args.longrange and not args.extadv:
         print("Long-range PHY only supported in extended advertising!", file=sys.stderr)
@@ -53,6 +55,9 @@ def main():
     if args.longrange and args.hop:
         # this would be pointless anyway, since long range always uses extended ads
         print("Primary ad channel hopping unsupported on long range PHY!", file=sys.stderr)
+        return
+    if args.mac and args.irk:
+        print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
         return
 
     global hw
@@ -82,8 +87,10 @@ def main():
 
     # configure MAC filter
     global _delay_top_mac
-    if args.mac is None:
+    if args.mac is None and args.irk is None:
         hw.cmd_mac()
+    elif args.irk:
+        hw.cmd_irk(unhexlify(args.irk), _allow_hop3)
     elif args.mac == "top":
         hw.cmd_mac()
         _delay_top_mac = True

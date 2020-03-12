@@ -113,7 +113,9 @@ SOURCES += \
     PacketTask.c \
     RadioTask.c \
     RadioWrapper.c \
+    rpa_resolver.c \
     RFQueue.c \
+    sw_aes128.c \
     TXQueue.c
 
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))

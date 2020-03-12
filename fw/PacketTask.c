@@ -15,6 +15,7 @@
 #include <RadioTask.h>
 #include <RadioWrapper.h>
 #include <messenger.h>
+#include <rpa_resolver.h>
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
@@ -46,6 +47,9 @@ static int8_t minRssi = -128;
 
 static uint8_t targMac[6];
 static bool filterMacs = false;
+
+static uint8_t targIrk[16];
+static bool filterRpas = false;
 
 /***** Prototypes *****/
 static void packetTaskFunction(UArg arg0, UArg arg1);
@@ -192,7 +196,7 @@ void indicatePacket(BLE_Frame *frame)
                 return;
 
             // MAC filtering
-            if (filterMacs && !macFilterCheck(frame))
+            if (!macFilterCheck(frame))
                 return;
         }
 
@@ -221,26 +225,40 @@ void setMinRssi(int8_t rssi)
     minRssi = rssi;
 }
 
+// RPA and MAC filters are mutually exclusive
 void setMacFilt(bool filt, uint8_t *mac)
 {
     if (mac != NULL)
         memcpy(targMac, mac, 6);
     filterMacs = filt;
+    filterRpas = false;
 }
 
-// used for extended advertising to prevent sniffing wrong device's connection
+void setRpaFilt(bool filt, void *irk)
+{
+    if (irk != NULL)
+        memcpy(targIrk, irk, 16);
+    filterRpas = filt;
+    filterMacs = false;
+}
+
 bool macOk(uint8_t *mac)
 {
-    if (!filterMacs)
+    if (filterMacs)
+        return memcmp(mac, targMac, 6) == 0;
+    else if (filterRpas)
+        return rpa_match(targIrk, mac);
+    else
         return true;
-    if (memcmp(mac, targMac, 6) == 0)
-        return true;
-    return false;
 }
 
 static bool macFilterCheck(BLE_Frame *frame)
 {
     uint8_t advType;
+    uint8_t *mac;
+
+    if (!filterMacs && !filterRpas)
+        return true;
 
     // make sure it has a header at least
     if (frame->length < 2)
@@ -257,16 +275,14 @@ static bool macFilterCheck(BLE_Frame *frame)
     case SCAN_RSP:
         if (frame->length < 8)
             return false;
-        if (memcmp(frame->pData + 2, targMac, 6) == 0)
-            return true;
-        return false;
+        mac = frame->pData + 2;
+        break;
     case SCAN_REQ:
     case CONNECT_IND:
         if (frame->length < 14)
             return false;
-        if (memcmp(frame->pData + 8, targMac, 6) == 0)
-            return true;
-        return false;
+        mac = frame->pData + 8;
+        break;
     case ADV_EXT_IND:
         // generally only an AuxPtr provided on primary channel, no AdvA
         // thus, we have to let it by (AdvA is in aux packet)
@@ -274,4 +290,6 @@ static bool macFilterCheck(BLE_Frame *frame)
     default:
         return false;
     }
+
+    return macOk(mac);
 }

@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2018, NCC Group plc
+ * Copyright (c) 2016-2020, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -22,6 +22,9 @@ void setMinRssi(int8_t rssi);
 
 /* specify whether or not we want MAC filtering, and specify target MAC */
 void setMacFilt(bool filt, uint8_t *mac);
+
+/* specify whether or not we want RPA filtering, and specify target IRK */
+void setRpaFilt(bool filt, void *irk);
 
 /* check if specified MAC address is allowed by filter */
 bool macOk(uint8_t *mac);

@@ -141,6 +141,12 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             setAdvInterval(intervalMs);
             break;
         }
+        case COMMAND_SETIRK:
+            if (ret == 18)
+                setRpaFilt(true, msgBuf + 2); // filter to supplied IRK
+            else
+                setRpaFilt(false, NULL); // disable RPA filter
+            break;
         default:
             break;
         }
