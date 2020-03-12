@@ -125,6 +125,7 @@ optional arguments:
   -p, --pause           Pause sniffer after disconnect
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -m MAC, --mac MAC     Filter packets by advertiser MAC
+  -i IRK, --irk IRK     Filter packets by advertiser IRK
   -a, --advonly         Sniff only advertisements, don't follow connections
   -e, --extadv          Capture BT5 extended (auxiliary) advertising
   -H, --hop             Hop primary advertising channels in extended mode
@@ -165,6 +166,18 @@ the RSSI filter. The `-m top` mode should thus always be used with an RSSI
 filter to avoid locking onto a spurious MAC address. Once the sniffer locks
 onto a MAC address, the RSSI filter will be disabled automatically by the
 sniff receiver script (except when the `-e` option is used).
+
+Most new BLE devices use Resolvable Private Addresses (RPAs) rather than fixed
+static or public addresses. While you can set up a MAC filter to a particular
+RPA, devices periodically change their RPA. RPAs can can be resolved (associated
+with a particular device) if the Identity Resolving Key (IRK) is known. Sniffle
+supports automated RPA resolution when the IRK is provided. This avoids the need
+to keep updating the MAC filter whenever the RPA changes. You can specify an
+IRK for Sniffle with the `-i` option; the IRK should be provided in hexadecimal
+format, with the most significant byte (MSB) first. Specifying an IRK allows
+Sniffle to channel hop with an advertiser the same way it does with a MAC filter.
+The IRK based MAC filtering feature (`-i`) is mutually exclusive with the static
+MAC filtering feature (`-m`).
 
 To enable following auxiliary pointers in Bluetooth 5 extended advertising,
 enable the `-e` option. To improve performance and reliability in extended
@@ -211,7 +224,7 @@ The scanner command line arguments work the same as the sniffer. The purpose of
 the scanner utility is to passively gather a list of nearby devices advertising,
 without having the deluge of fast scrolling data you get with the sniffer
 utility. The hardware/firmware works exactly the same, but the scanner utility
-will record and report observed MAC adddresses only once without spamming the
+will record and report observed MAC addresses only once without spamming the
 display. Once you're done capturing advertisements, press Ctrl-C to stop
 scanning and report the results. The scanner will show the last advertisement
 and scan response from each target. Scan results will be sorted by RSSI in
@@ -241,6 +254,13 @@ has been locked onto. Save captured data to `data2.pcap`.
 ./sniff_receiver.py -m top -r -40 -o data2.pcap
 ```
 
+Sniff advertisements and connections from the peripheral with big endian IRK
+4E0BEA5355866BE38EF0AC2E3F0EBC22.
+
+```
+./sniff_receiver.py -i 4E0BEA5355866BE38EF0AC2E3F0EBC22
+```
+
 Sniff BT5 extended advertisements and connections from nearby (RSSI >= -55) devices.
 
 ```
@@ -267,3 +287,15 @@ enable capture of extended advertising.
 ```
 ./scanner.py -c 39 -e -r -50
 ```
+
+## Obtaining the IRK
+
+If you have a rooted Android phone, you can find IRKs (and LTKs) in the Bluedroid
+configuration file. On Android 8.1, this is located at `/data/misc/bluedroid/bt_config.conf`.
+The `LE_LOCAL_KEY_IRK` specifies the Android device's own IRK, and the first 16
+bytes of `LE_KEY_PID` for every bonded device in the file indicate the bonded
+device's IRK. Be aware that keys stored in this file are little endian, so
+**the byte order of keys in this file will need to be reversed.** For example,
+the little endian IRK 22BC0E3F2EACF08EE36B865553EA0B4E needs to be changed to
+4E0BEA5355866BE38EF0AC2E3F0EBC22 (big endian) when being passed to Sniffle with
+the `-i` option.
