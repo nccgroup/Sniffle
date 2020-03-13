@@ -132,6 +132,7 @@ static void reactToDataPDU(const BLE_Frame *frame);
 static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen);
 static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
         bool isAuxReq);
+static void reactToTransmitted(dataQueue_t *pTXQ, uint32_t numEntries);
 
 /***** Function definitions *****/
 void RadioTask_init(void)
@@ -431,6 +432,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             int status = RadioWrapper_master(rconf.phy, chan, accessAddress,
                     crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
+            reactToTransmitted(&txq, numSent);
             TXQueue_flush(numSent);
 
             if (status != 0) empty_hops++;
@@ -452,6 +454,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
                     crcInit, nextHopTime, indicatePacket, &txq, 0, &numSent);
+            reactToTransmitted(&txq, numSent);
             TXQueue_flush(numSent);
 
             if (status != 0) empty_hops++;
@@ -965,6 +968,44 @@ static void handleConnFinished()
     accessAddress = BLE_ADV_AA;
     if (snifferState != PAUSED && advHopEnabled)
         advHopSeekMode();
+}
+
+static void reactToTransmitted(dataQueue_t *pTXQ, uint32_t numEntries)
+{
+    BLE_Frame f;
+    uint8_t pduBody[40]; // all control PDUs should be under 40 bytes
+
+    f.timestamp = RF_getCurrentTime() >> 2;
+    f.rssi = 0;
+    f.channel = getCurrChan();
+    f.phy = rconf.phy;
+    f.pData = pduBody;
+
+    // don't trip up anchor offset calculations
+    firstPacket = false;
+
+    rfc_dataEntryPointer_t *entry = (rfc_dataEntryPointer_t *)pTXQ->pCurrEntry;
+    if (entry == NULL) return;
+
+    for (uint32_t i = 0; i < numEntries; i++)
+    {
+        if (entry->length > sizeof(pduBody) - 1) goto next;
+        if (entry->length < 1) goto next;
+        if ((entry->pData[0] & 0x3) != 0x3) goto next; // ignore non-control PDUs
+
+        // prepare the BLE_Frame for waht we transmitted
+        f.length = entry->length + 1; // add length byte
+        f.pData[0] = entry->pData[0];
+        f.pData[1] = entry->length - 1;
+        memcpy(f.pData + 2, entry->pData + 1, f.pData[1]);
+
+        // now process the frame
+        reactToDataPDU(&f);
+
+next:
+        if (entry->pNextEntry == NULL) break;
+        entry = (rfc_dataEntryPointer_t *)entry->pNextEntry;
+    }
 }
 
 void setChanAAPHYCRCI(uint8_t chan, uint32_t aa, PHY_Mode phy, uint32_t crcInit)
