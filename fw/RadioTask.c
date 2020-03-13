@@ -288,6 +288,9 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             RadioWrapper_recvAdv3(200, 22*4000, indicatePacket);
             firstPacket = false;
 
+            // break out early if we cancelled
+            if (snifferState != ADVERT_SEEK) continue;
+
             // Timeout case
             if (!gotLegacy && auxAdvEnabled) {
                 // assume 700 us hop interval
@@ -331,6 +334,9 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 firstPacket = true;
                 aiInd = 0;
                 RadioWrapper_recvAdv3(200, rconf.hopIntervalTicks * 4, indicatePacket);
+
+                // break out early if we cancelled
+                if (snifferState != ADVERT_HOP) continue;
 
                 if (!gotLegacy)
                     continue; // wrong advertising set, try again
@@ -432,8 +438,16 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             int status = RadioWrapper_master(rconf.phy, chan, accessAddress,
                     crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
-            reactToTransmitted(&txq, numSent);
-            TXQueue_flush(numSent);
+
+            if (snifferState != MASTER)
+            {
+                // quickly break out due to cancellation
+                TXQueue_flush(numSent);
+                continue;
+            } else {
+                reactToTransmitted(&txq, numSent);
+                TXQueue_flush(numSent);
+            }
 
             if (status != 0) empty_hops++;
             else empty_hops = 0;
@@ -454,8 +468,16 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
                     crcInit, nextHopTime, indicatePacket, &txq, 0, &numSent);
-            reactToTransmitted(&txq, numSent);
-            TXQueue_flush(numSent);
+
+            if (snifferState != SLAVE)
+            {
+                // quickly break out due to cancellation
+                TXQueue_flush(numSent);
+                continue;
+            } else {
+                reactToTransmitted(&txq, numSent);
+                TXQueue_flush(numSent);
+            }
 
             if (status != 0) empty_hops++;
             else empty_hops = 0;
