@@ -27,6 +27,6 @@ void setMacFilt(bool filt, uint8_t *mac);
 void setRpaFilt(bool filt, void *irk);
 
 /* check if specified MAC address is allowed by filter */
-bool macOk(uint8_t *mac);
+bool macOk(uint8_t *mac, bool isRandom);
 
 #endif /* PACKETTASK_H */

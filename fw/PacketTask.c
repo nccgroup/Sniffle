@@ -242,12 +242,12 @@ void setRpaFilt(bool filt, void *irk)
     filterMacs = false;
 }
 
-bool macOk(uint8_t *mac)
+bool macOk(uint8_t *mac, bool isRandom)
 {
     if (filterMacs)
         return memcmp(mac, targMac, 6) == 0;
     else if (filterRpas)
-        return rpa_match(targIrk, mac);
+        return isRandom && rpa_match(targIrk, mac);
     else
         return true;
 }
@@ -256,6 +256,7 @@ static bool macFilterCheck(BLE_Frame *frame)
 {
     uint8_t advType;
     uint8_t *mac;
+    bool isRandom;
 
     if (!filterMacs && !filterRpas)
         return true;
@@ -276,12 +277,14 @@ static bool macFilterCheck(BLE_Frame *frame)
         if (frame->length < 8)
             return false;
         mac = frame->pData + 2;
+        isRandom = frame->pData[0] & 0x40 ? true : false; // TxAdd
         break;
     case SCAN_REQ:
     case CONNECT_IND:
         if (frame->length < 14)
             return false;
         mac = frame->pData + 8;
+        isRandom = frame->pData[0] & 0x80 ? true : false; // RxAdd
         break;
     case ADV_EXT_IND:
         // generally only an AuxPtr provided on primary channel, no AdvA
@@ -291,5 +294,5 @@ static bool macFilterCheck(BLE_Frame *frame)
         return false;
     }
 
-    return macOk(mac);
+    return macOk(mac, isRandom);
 }
