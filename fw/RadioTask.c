@@ -428,10 +428,11 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             stateTransition(MASTER);
         } else if (snifferState == MASTER) {
-            dataQueue_t txq;
+            dataQueue_t txq, txq2;
             uint32_t numSent;
             uint8_t chan = getCurrChan();
             TXQueue_take(&txq);
+            txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = false; // no need for anchor offset calcs, since we're master
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
@@ -445,7 +446,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 TXQueue_flush(numSent);
                 continue;
             } else {
-                reactToTransmitted(&txq, numSent);
+                reactToTransmitted(&txq2, numSent);
                 TXQueue_flush(numSent);
             }
 
@@ -460,10 +461,11 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             afterConnEvent(false);
         } else if (snifferState == SLAVE) {
-            dataQueue_t txq;
+            dataQueue_t txq, txq2;
             uint32_t numSent;
             uint8_t chan = getCurrChan();
             TXQueue_take(&txq);
+            txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = true; // for anchor offset calculations
 
             int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
@@ -475,7 +477,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 TXQueue_flush(numSent);
                 continue;
             } else {
-                reactToTransmitted(&txq, numSent);
+                reactToTransmitted(&txq2, numSent);
                 TXQueue_flush(numSent);
             }
 
