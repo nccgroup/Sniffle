@@ -146,14 +146,17 @@ $(NAME).out: $(OBJECTS) $(CONFIGPKG)/linker.cmd
 	@ echo linking...
 	@ $(LNK)  $(OBJECTS) $(LFLAGS) -o $(NAME).out
 
-.PHONY: load clean
+.PHONY: load clean clean2
 
-clean:
+clean: clean2
+	@ $(RM) -r $(CONFIGPKG) > $(DEVNULL) 2>&1
+
+# cleans everything except TI SDK and RTOS
+clean2:
 	@ echo Cleaning...
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
-	@ $(RM) -r $(CONFIGPKG) > $(DEVNULL) 2>&1
 	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs > $(DEVNULL) 2>&1
 
 load: $(NAME).out
