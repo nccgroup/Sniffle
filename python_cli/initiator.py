@@ -33,6 +33,9 @@ def main():
     if args.mac is None and args.irk is None:
         print("Must specify target MAC address or IRK", file=sys.stderr)
         return
+    if args.mac and args.irk:
+        print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
+        return
 
     # set the advertising channel (and return to ad-sniffing mode)
     hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
