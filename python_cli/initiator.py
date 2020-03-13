@@ -25,6 +25,8 @@ def main():
     aparse.add_argument("-i", "--irk", default=None, help="Specify target IRK")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
+    aparse.add_argument("-P", "--public", action="store_const", default=False, const=True,
+            help="Supplied MAC address is public")
     args = aparse.parse_args()
 
     global hw
@@ -35,6 +37,9 @@ def main():
         return
     if args.mac and args.irk:
         print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
+        return
+    if args.public and args.irk:
+        print("IRK only works on RPAs, not public addresses!", file=sys.stderr)
         return
 
     # set the advertising channel (and return to ad-sniffing mode)
@@ -75,7 +80,7 @@ def main():
 
     # now enter initiator mode
     global _aa
-    _aa = hw.initiate_conn(macBytes)
+    _aa = hw.initiate_conn(macBytes, not args.public)
 
     while True:
         msg = hw.recv_and_decode()
