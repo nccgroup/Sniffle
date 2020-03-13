@@ -740,7 +740,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         return;
 
     // make sure length is coherent
-    if (frame->length - 2 < datLen)
+    if (frame->length - 2 != datLen)
         return;
 
     last_rconf = rconf_latest();
@@ -750,6 +750,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
     switch (opcode)
     {
     case 0x00: // LL_CONNECTION_UPDATE_IND
+        if (datLen != 12) break;
         next_rconf.chanMap = last_rconf->chanMap;
         next_rconf.offset = *(uint16_t *)(frame->pData + 4);
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
@@ -759,6 +760,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         rconf_enqueue(nextInstant, &next_rconf);
         break;
     case 0x01: // LL_CHANNEL_MAP_IND
+        if (datLen != 8) break;
         next_rconf.chanMap = 0;
         memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
         next_rconf.offset = 0;
@@ -769,9 +771,11 @@ static void reactToDataPDU(const BLE_Frame *frame)
         rconf_enqueue(nextInstant, &next_rconf);
         break;
     case 0x02: // LL_TERMINATE_IND
+        if (datLen != 2) break;
         handleConnFinished();
         break;
     case 0x18: // LL_PHY_UPDATE_IND
+        if (datLen != 5) break;
         next_rconf.chanMap = last_rconf->chanMap;
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
