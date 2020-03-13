@@ -122,9 +122,19 @@ def print_packet(pkt):
     global msg_ctr
     MCMASK = 3
     if (msg_ctr & MCMASK) == MCMASK:
-        #hw.cmd_transmit(3, bytes([msg_ctr & 0xFF]))
         hw.cmd_transmit(3, b'\x12') # LL_PING_REQ
     msg_ctr += 1
+
+    # also test sending LL_CONNECTION_UPDATE_IND
+    if msg_ctr == 0x40:
+        # WinSize = 0x04
+        # WinOffset = 0x0008
+        # Interval = 0x0030
+        # Latency = 0x0003
+        # Timeout = 0x0080
+        # Instant = 0x0080
+        hw.cmd_transmit(3, b'\x00\x04\x08\x00\x30\x00\x03\x00\x80\x00\x80\x00')
+        print("sent change!")
 
 if __name__ == "__main__":
     main()
