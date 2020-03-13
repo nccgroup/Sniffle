@@ -407,6 +407,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
                     indicatePacket, ourAddr, ourAddrRandom, peerAddr, peerAddrRandom,
                     connReqLLData, &connTime, &connPhy);
+            if (snifferState != INITIATING)
+                continue; // initiating state was cancelled
             if (status < 0) {
                 handleConnFinished();
                 continue;
