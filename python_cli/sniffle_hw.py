@@ -214,7 +214,7 @@ class SniffleHWPacketError(ValueError):
 BLE_ADV_AA = 0x8E89BED6
 
 class SniffleDecoderState:
-    def __init__(self):
+    def __init__(self, is_data=False):
         # packet receive time tracking
         self.time_offset = 1
         self.first_epoch_time = 0
@@ -222,7 +222,7 @@ class SniffleDecoderState:
         self.last_ts = -1
 
         # access address tracking
-        self.cur_aa = BLE_ADV_AA
+        self.cur_aa = 0 if is_data else BLE_ADV_AA
 
         # state tracking
         self.last_state = SnifferState.STATIC
@@ -264,10 +264,10 @@ class PacketMessage:
         self.phy = phy
         self.body = body
 
-    @staticmethod
-    def from_body(body):
+    @classmethod
+    def from_body(cls, body, is_data=False):
         fake_hdr = pack("<LHbB", 0, len(body), 0, 0)
-        return PacketMessage(fake_hdr + body, SniffleDecoderState())
+        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
 
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, body=%s)" % (

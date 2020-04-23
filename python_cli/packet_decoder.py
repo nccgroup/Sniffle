@@ -49,6 +49,10 @@ class DPacketMessage(PacketMessage):
     def __str__(self):
         return "\n".join([self.str_header(), self.hexdump()])
 
+    @classmethod
+    def from_body(cls, body, is_data=False):
+        return cls.decode(super().from_body(body, is_data))
+
     @staticmethod
     def decode(pkt: PacketMessage):
         if pkt.aa == BLE_ADV_AA:
