@@ -69,7 +69,8 @@ static PIN_Config ledPinTable[] = {
 #define JANKY_QUEUE_SIZE 8u
 #define JANKY_QUEUE_MASK (JANKY_QUEUE_SIZE - 1)
 
-#define PACKET_SIZE 257
+// 255+2=257 is the most we need, but use 260 for better alignment/performance
+#define PACKET_SIZE 260
 
 static uint8_t packet_buf[PACKET_SIZE*JANKY_QUEUE_SIZE];
 static BLE_Frame s_frames[JANKY_QUEUE_SIZE];
@@ -113,6 +114,10 @@ static void sendPacket(BLE_Frame *frame)
     static uint8_t msg_buf[MESSAGE_MAX];
     uint8_t *msg_ptr = msg_buf;
 
+    // should never happen
+    if (frame->length > PACKET_SIZE)
+        return;
+
     // special case: debug prints
     if (frame->channel == 40)
     {
@@ -143,16 +148,17 @@ static void sendPacket(BLE_Frame *frame)
         memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
         msg_ptr += sizeof(frame->timestamp);
 
-        // byte 5 is length
-        *msg_ptr++ = frame->length;
+        // bytes 5-6 are length (little endian)
+        memcpy(msg_ptr, &frame->length, sizeof(frame->length));
+        msg_ptr += sizeof(frame->length);
 
-        // byte 6 is rssi
+        // byte 7 is rssi
         *msg_ptr++ = (uint8_t)frame->rssi;
 
-        // byte 7 is channel and PHY
+        // byte 8 is channel and PHY
         *msg_ptr++ = frame->channel | (frame->phy << 6);
 
-        // bytes 8+ are message body
+        // bytes 9+ are message body
         memcpy(msg_ptr, frame->pData, frame->length);
         msg_ptr += frame->length;
     }
@@ -204,6 +210,9 @@ void indicatePacket(BLE_Frame *frame)
         reactToPDU(frame);
     }
 
+    if (frame->length > PACKET_SIZE)
+        return;
+
     // discard the packet if we're full
     queue_check = (atomic_load(&queue_head) - atomic_load(&queue_tail)) & JANKY_QUEUE_MASK;
     if (queue_check == JANKY_QUEUE_MASK) return;
@@ -211,7 +220,7 @@ void indicatePacket(BLE_Frame *frame)
     // wraparound is safe due to our masking
     queue_head_ = atomic_fetch_add(&queue_head, 1) & JANKY_QUEUE_MASK;
 
-    memcpy(s_frames[queue_head_].pData, frame->pData, frame->length & 0xFF);
+    memcpy(s_frames[queue_head_].pData, frame->pData, frame->length);
     s_frames[queue_head_].length = frame->length;
     s_frames[queue_head_].rssi = frame->rssi;
     s_frames[queue_head_].timestamp = frame->timestamp;

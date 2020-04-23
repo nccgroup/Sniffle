@@ -229,8 +229,8 @@ TS_WRAP_PERIOD = 0x100000000 / 4E6
 
 class PacketMessage:
     def __init__(self, raw_msg, dstate):
-        ts, l, rssi, chan = unpack("<LBbB", raw_msg[:7])
-        body = raw_msg[7:]
+        ts, l, rssi, chan = unpack("<LHbB", raw_msg[:8])
+        body = raw_msg[8:]
 
         if len(body) != l:
             raise SniffleHWPacketError("Incorrect length field!")
@@ -261,6 +261,11 @@ class PacketMessage:
         self.phy = phy
         self.body = body
 
+    @staticmethod
+    def from_body(body):
+        fake_hdr = pack("<LHbB", 0, len(body), 0, 0)
+        return PacketMessage(fake_hdr + body, SniffleDecoderState())
+
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, body=%s)" % (
                 type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy, repr(self.body))
@@ -290,8 +295,6 @@ class MarkerMessage:
         # these messages are intended to mark the zero time
         dstate.first_epoch_time = time()
         dstate.time_offset = ts / -1000000.
-
-# TODO: have a state enum in Python
 
 class SnifferState(Enum):
     STATIC = 0
