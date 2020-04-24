@@ -767,7 +767,9 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
             frame.channel = last_channel;
         else if (!trigTimeSet)
             frame.channel = 37;
-        else if (frame.timestamp*4 - trigTime < delay39)
+        else if (frame.timestamp*4 < trigTime)
+            frame.channel = 37; // stragglers
+        else if (frame.timestamp*4 < trigTime + delay39)
             frame.channel = 38;
         else
             frame.channel = 39;
