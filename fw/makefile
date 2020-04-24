@@ -86,7 +86,7 @@ LFLAGS += \
     -nostartfiles \
     -static \
     -Wl,--gc-sections \
-	"-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/hard" \
+    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/hard" \
     -lgcc \
     -lc \
     -lm \
