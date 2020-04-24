@@ -111,8 +111,10 @@ To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 
 If building for or installing on a CC1352R Launchpad instead of a CC26x2R,
 you must specify `PLATFORM=CC1352R1F3`, either as an argument to make, or
-by defining it as an environment variable prior to invoking make. Be sure
-to perform a `make clean` before switching between CC13x2 and CC26x2.
+by defining it as an environment variable prior to invoking make. Similarly,
+specify `PLATFORM=CC2652RB1F` when building for CC2652RB Launchpad instead of
+the regular CC26x2R version. Be sure to perform a `make clean` before building
+for a different platform.
 
 ## Sniffer Usage
 
