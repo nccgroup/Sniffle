@@ -138,7 +138,7 @@ syscfg: sniffle.syscfg
 	@ echo Generating configuration files...
 	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
 
-%.obj: %.c $(CONFIGPKG)/compiler.opt
+%.obj: %.c $(CONFIGPKG)/compiler.opt syscfg
 	@ echo Building $@
 	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
 
