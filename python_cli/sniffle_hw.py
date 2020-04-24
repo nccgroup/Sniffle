@@ -238,7 +238,7 @@ class SniffleHW:
         self.cmd_setaddr(bytes(addr))
 
     # automatically generate sane LLData
-    def initiate_conn(self, peerAddr, is_random=True):
+    def initiate_conn(self, peerAddr, is_random=True, interval=24, latency=1):
         llData = []
 
         # access address
@@ -250,8 +250,8 @@ class SniffleHW:
         # WinSize, WinOffset, Interval, Latency, Timeout
         llData.append(3)
         llData.extend(pack("<H", randint(5, 15)))
-        llData.extend(pack("<H", 24))
-        llData.extend(pack("<H", 1))
+        llData.extend(pack("<H", interval))
+        llData.extend(pack("<H", latency))
         llData.extend(pack("<H", 50))
 
         # Channel Map
