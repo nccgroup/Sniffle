@@ -48,8 +48,8 @@ def main():
     # pause after sniffing
     hw.cmd_pause_done(True)
 
-    # capture advertisements
-    hw.cmd_endtrim(0x10)
+    # capture advertisements only
+    hw.cmd_follow(False)
 
     # configure RSSI filter
     hw.cmd_rssi(args.rssi)

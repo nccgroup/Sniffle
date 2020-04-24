@@ -86,12 +86,12 @@ static volatile bool firstPacket;
 static uint32_t anchorOffset[16];
 static uint32_t aoInd = 0;
 
-static uint32_t endTrim = 0;
 static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[9];
 static uint32_t aiInd = 0;
 static bool postponed = false;
+static bool followConnections = true;
 
 static bool advHopEnabled = false;
 static bool auxAdvEnabled = false;
@@ -120,9 +120,6 @@ static uint16_t s_advIntervalMs = 100;
 // don't bother listening for fewer than this many ticks
 // radio will get stuck if end time is in past
 #define LISTEN_TICKS_MIN 2000
-
-// if endTrim is >= this, user probably doesn't want to follow connections
-#define ENDTRIM_MAX_CONN_FOLLOW 0x80
 
 /***** Prototypes *****/
 static void radioTaskFunction(UArg arg0, UArg arg1);
@@ -307,8 +304,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 rconf.hopIntervalTicks = percentile25(advInterval, ARR_SZ(advInterval)) * 2;
 
                 // If hop interval is over 11 ms (* 4000 ticks/ms), something is wrong
-                // Hop interval under 500 us is also wrong
-                if ((rconf.hopIntervalTicks > 11*4000) || (rconf.hopIntervalTicks < 500*4))
+                // Hop interval under 400 us is also wrong
+                if ((rconf.hopIntervalTicks > 11*4000) || (rconf.hopIntervalTicks < 400*4))
                 {
                     // try again
                     advHopSeekMode();
@@ -383,12 +380,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     } else {
                         // we need to force cancel recvAdv3 eventually
                         DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
-                        RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
-                                rconf.hopIntervalTicks * 2, indicatePacket);
+                        RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
                     }
                 } else {
-                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - (endTrim * 4),
-                            rconf.hopIntervalTicks * 2, indicatePacket);
+                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
                 }
             }
 
@@ -604,32 +599,81 @@ void reactToPDU(const BLE_Frame *frame)
             if ( (frame->channel == 37) &&
                 ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
             {
-                /* We will usually miss 38/39 advertisements with endTrim = 10,
-                 * but we will capture every message to the end of the window
-                 * (except for endTrim microseconds).
+                /* Packet timestamps represent the start of the packet.
+                 * I'm not sure if it's the time of the preamble or time of the access address.
                  *
-                 * To capture most advertisements, set endTrim >= 160
+                 * Regardless, the time it takes from advertisement start to advertisement
+                 * end (frame duration) is approximately (frame->length + 8)*8 microseconds.
+                 *
+                 * The latency in 4 MHz radio ticks between end of transmission and now is:
+                 * RF_getCurrentTime() - ((frame->timestamp << 2) + (frame->length + 8)*32)
+                 * I've measured this to be typically around 165 us
+                 *
+                 * There's a 150 us inter-frame separation as per BLE spec.
+                 * A scan request needs approximately 176 us of transmission time.
+                 * A connection request needs approximately 352 us of transmission time.
+                 *
+                 * If endTrigger fires during receipt of a packet, it will still be received
+                 * to completion.
+                 *
+                 * If nothing was received around T_IFS, an advertisement will be sent on the
+                 * next channel in typically 200-300 us after T_IFS. This exact time (let's
+                 * call it turnaround time) can be calculated as:
+                 * hop interval - frame duration - 150 us T_IFS
+                 *
+                 * To be sure there's no scan request or conn request, we need to wait this
+                 * long after the timestamp of our advertisement on 37:
+                 * frame duration + 150 us T_IFS + 176 us scan request + 165 us latency
+                 * = frame duration + 491 us
+                 *
+                 * If there's a connection request on 38, and there was no scan on 37, the
+                 * connection request will start the following amount of time after 37 timestamp:
+                 * frame duration + hop interval + 150 us T_IFS
+                 *
+                 * Our listener needs to be running on 38 before this. There's also software
+                 * latency in the delay trigger, and latency in tuning/configuring the radio.
+                 * Let's say this combined latency is 240 us. It's a bit tricky to measure, but
+                 * it really does seem this long.
+                 *
+                 * When following connections, at latest, we must hop 240 us (aforementioned
+                 * latency) before the scan or connect request on 38. That is at:
+                 * timestamp_37 + frame duration + hop interval + 150 us T_IFS - 240 us latency
+                 * = timestamp_37 + frame duration + hop interval - 90 us
+                 *
+                 * Usually, hop interval - 90 us > 491 us, so we can just use a fixed hop delay
+                 * after the end of the advertisement on 37. Instead of setting the timer at 491
+                 * us after the advert end, we set it at 530 us to give us some time to postpone
+                 * the radio trigger.
                  */
-                uint32_t recvLatency = (RF_getCurrentTime() - frame->timestamp*4) >> 2;
                 uint32_t timeRemaining;
 
-                if (snifferState == ADVERT_SEEK)
+                if (snifferState == ADVERT_SEEK) {
                     timeRemaining = 0;
-                else if (recvLatency < (rconf.hopIntervalTicks >> 2))
-                    timeRemaining = (rconf.hopIntervalTicks >> 2) - recvLatency;
-                else
-                    timeRemaining = 0;
+                } else {
+                    // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
+                    uint32_t targHopTime;
+
+                    // we should hop around 530 us (2120 radio ticks) after frame end
+                    // this should give us enough time to postpone hop if necessary
+                    targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2120;
+
+                    timeRemaining = targHopTime - RF_getCurrentTime();
+                    if (timeRemaining >= 0x80000000)
+                        timeRemaining = 0; // should not happen given typical latency
+                    else
+                        timeRemaining >>= 2; // convert to microseconds from radio ticks
+                }
 
                 // Let them no we got a legacy adv on 37 (to increment connEventCount)
                 gotLegacy = true;
 
-                DelayHopTrigger_trig(timeRemaining > endTrim ? timeRemaining - endTrim : 0);
+                DelayHopTrigger_trig(timeRemaining);
             }
         }
 
         // hop interval gets temporarily stretched by 400 us if a scan request is received,
         // since the advertiser needs to respond
-        if (pduType == 0x3 && frame->channel == 37 && snifferState == ADVERT_HOP && !postponed)
+        if (pduType == SCAN_REQ && frame->channel == 37 && snifferState == ADVERT_HOP && !postponed)
         {
             DelayHopTrigger_postpone(400);
             postponed = true;
@@ -663,7 +707,7 @@ void reactToPDU(const BLE_Frame *frame)
 
         // handle CONNECT_IND or AUX_CONNECT_REQ (0x5)
         // TODO: deal with AUX_CONNECT_RSP (wait for it? require it? need to decide)
-        if ((pduType == CONNECT_IND) && (endTrim < ENDTRIM_MAX_CONN_FOLLOW))
+        if ((pduType == CONNECT_IND) && followConnections)
         {
             bool isAuxReq = frame->channel < 37;
 
@@ -1049,13 +1093,9 @@ void setChanAAPHYCRCI(uint8_t chan, uint32_t aa, PHY_Mode phy, uint32_t crcInit)
     RadioWrapper_stop();
 }
 
-void setEndTrim(uint32_t trim_us)
+void setFollowConnections(bool follow)
 {
-    // Radio tunimg latency is <200 us, so endTrim >200 is pointless
-    if (trim_us > 200)
-        endTrim = 200;
-    else
-        endTrim = trim_us;
+    followConnections = follow;
 }
 
 // The idea behind this mode is that most devices send a single advertisement

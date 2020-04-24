@@ -93,9 +93,9 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != 2) continue;
             advHopSeekMode();
             break;
-        case COMMAND_ENDTRIM:
-            if (ret != 6) continue;
-            setEndTrim(*(uint32_t *)(msgBuf + 2));
+        case COMMAND_FOLLOW:
+            if (ret != 3) continue;
+            setFollowConnections(msgBuf[2] ? true : false);
             break;
         case COMMAND_AUXADV:
             if (ret != 3) continue;

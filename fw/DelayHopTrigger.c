@@ -49,10 +49,13 @@ void DelayHopTrigger_trig(uint32_t delay_us)
 
 void DelayHopTrigger_postpone(uint32_t delay_us)
 {
+    uint32_t new_delay_ticks;
+
     if (!trig_pending)
         return;
-    uint32_t new_delay_ticks = target_ticks - RF_getCurrentTime() + delay_us*4;
+
     Timer_stop(tim);
+    new_delay_ticks = target_ticks - RF_getCurrentTime() + delay_us*4;
     Timer_setPeriodMicroSecs(tim, new_delay_ticks >> 2);
     Timer_start(tim);
 }

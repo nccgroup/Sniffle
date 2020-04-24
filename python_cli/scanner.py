@@ -50,7 +50,7 @@ def main():
     hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
 
     # only sniff advertisements (don't follow connections)
-    hw.cmd_endtrim(0xB0)
+    hw.cmd_follow(False)
 
     # configure RSSI filter
     hw.cmd_rssi(args.rssi)

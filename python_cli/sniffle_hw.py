@@ -53,8 +53,11 @@ class SniffleHW:
                 # unnecessary/detrimental with extended advertising
                 self._send_cmd([0x14])
 
-    def cmd_endtrim(self, end_trim=0x10):
-        self._send_cmd([0x15, *list(pack("<L", end_trim))])
+    def cmd_follow(self, enable=True):
+        if enable:
+            self._send_cmd([0x15, 0x01])
+        else:
+            self._send_cmd([0x15, 0x00])
 
     def cmd_auxadv(self, enable=True):
         if enable:

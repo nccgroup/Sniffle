@@ -79,11 +79,8 @@ def main():
     # set whether or not to pause after sniffing
     hw.cmd_pause_done(args.pause)
 
-    # set up endTrim
-    if args.advonly:
-        hw.cmd_endtrim(0xB0)
-    else:
-        hw.cmd_endtrim(0x10)
+    # set up whether or not to follow connections
+    hw.cmd_follow(not args.advonly)
 
     # configure RSSI filter
     global _rssi_min

@@ -29,22 +29,8 @@ void pauseAfterSniffDone(bool do_pause);
  */
 void advHopSeekMode(void);
 
-/* Set how many microseconds before advertisement window end
- * should the jump from 37 to 38 be triggered when in advHopSeekMode.
- *
- * This adjustment exists because there is latency from when you
- * trigger the 37->38 jump and when it actually completes. The latency
- * is somewhat variable, but is consistently under 200 us. Setting
- * a larger endTrim value increases the probability of capturing
- * advertisements early on in the next channel's window, but it
- * comes at the expense of shortening capture time on the current
- * channel (37).
- *
- * For reliable detection of data channel connection initiation,
- * endTrig = 10 works well. For capturing more advertisements,
- * endTrig = 160 works well.
- */
-void setEndTrim(uint32_t trim_us);
+/* Enable/disable connection following */
+void setFollowConnections(bool follow);
 
 /* Enable hopping to auxiliary advertisements */
 void setAuxAdvEnabled(bool enable);
