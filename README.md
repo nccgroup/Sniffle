@@ -29,7 +29,14 @@ Sniffle has a number of useful features, including:
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
-Note: it should be possible to compile Sniffle to run on CC1352P Launchpad
+Note 1: **If you don't want to go through the effort of setting up a build
+environment for the firmware, you can just flash prebuilt firmware binaries
+using UniFlash/DSLite.** Prebuilt firmware binaries are attached to releases
+on the GitHub releases tab of this project. When using prebuilt firmware, be
+sure to use the Python code corresponding to the release tag rather than master
+to avoid compatibility issues with firmware that is behind the master branch.
+
+Note 2: it should be possible to compile Sniffle to run on CC1352P Launchpad
 boards with minimal modifications, but I have not yet tried this.
 
 ### Installing GCC
