@@ -26,7 +26,7 @@ _allow_hop3 = True
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
-    aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
+    aparse.add_argument("-c", "--advchan", default=40, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
     aparse.add_argument("-p", "--pause", action="store_const", default=False, const=True,
             help="Pause sniffer after disconnect")
@@ -59,9 +59,19 @@ def main():
     if args.mac and args.irk:
         print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
         return
+    if args.advchan != 40 and args.hop:
+        print("Don't specify an advertising channel if you want advertising channel hopping!", file=sys.stderr)
+        return
 
     global hw
     hw = SniffleHW(args.serport)
+
+    # if a channel was explicitly specified, don't hop
+    global _allow_hop3
+    if args.advchan == 40:
+        args.advchan = 37
+    else:
+        _allow_hop3 = False
 
     # set the advertising channel (and return to ad-sniffing mode)
     hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
@@ -81,7 +91,6 @@ def main():
     hw.cmd_rssi(args.rssi)
 
     # disable 37/38/39 hop in extended mode unless overridden
-    global _allow_hop3
     if args.extadv and not args.hop:
         _allow_hop3 = False
 
