@@ -11,3 +11,4 @@ ti_drivers_config.h
 ti_radio_config.c
 ti_radio_config.h
 syscfg_c.rov.xs
+ti_utils_build_linker.cmd.exp

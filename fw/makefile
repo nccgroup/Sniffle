@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_3_40_00_02
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_4_10_00_78
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -86,8 +86,7 @@ LFLAGS += \
     -nostartfiles \
     -static \
     -Wl,--gc-sections \
-    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/fpv4-sp/hard" \
-    "-L$(GCC_ARMCOMPILER)/arm-none-eabi/lib" \
+	"-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/hard" \
     -lgcc \
     -lc \
     -lm \
@@ -136,7 +135,7 @@ ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_d
 
 syscfg: sniffle.syscfg
 	@ echo Generating configuration files...
-	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
+	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
 
 %.obj: %.c $(CONFIGPKG)/compiler.opt syscfg
 	@ echo Building $@
@@ -157,7 +156,7 @@ clean2:
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
-	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs > $(DEVNULL) 2>&1
+	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs ti_utils_build_linker.cmd.exp > $(DEVNULL) 2>&1
 
 load: $(NAME).out
 	@ echo Flashing...
