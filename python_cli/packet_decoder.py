@@ -273,17 +273,43 @@ class ConnectIndMessage(AdvertMessage):
         self.InitA = self.body[2:8]
         self.AdvA = self.body[8:14]
         self.aa_conn = struct.unpack('<L', self.body[14:18])[0]
-        # TODO: decode the rest
+        self.CRCInit = self.body[18] | (self.body[19] << 8) | (self.body[20] << 16)
+        self.WinSize = self.body[21]
+        self.WinOffset, self.Interval, self.Latency, self.Timeout = struct.unpack(
+                "<HHHH", self.body[22:30])
+        self.ChM = self.body[30:35]
+        self.Hop = self.body[35] & 0x1F
+        self.SCA = self.body[35] >> 5
 
     def str_aia(self):
-        return "InitA: %s AdvA: %s AA: 0x%08X" % (
-                str_mac2(self.InitA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd), self.aa)
+        return "InitA: %s AdvA: %s AA: 0x%08X CRCInit: 0x%06X" % (
+                str_mac2(self.InitA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd), self.aa, self.CRCInit)
+
+    def str_conn_params(self):
+        return "WinSize: %d WinOffset: %d Interval: %d Latency: %d Timeout: %d Hop: %d SCA: %d" % (
+                self.WinSize, self.WinOffset, self.Interval, self.Latency, self.Timeout,
+                self.Hop, self.SCA)
+
+    def str_chm(self):
+        if self.ChM == b'\xFF\xFF\xFF\xFF\x1F':
+            descstr = "all channels"
+        else:
+            has_chan = lambda chm, i: (chm[i // 8] & (1 << (i & 7))) != 0
+            excludes = []
+            for i in range(37):
+                if not has_chan(self.ChM, i):
+                    excludes.append(i)
+            descstr = "excludes " + ", ".join([str(i) for i in excludes])
+        chanstr = "%02X %02X %02X %02X %02X" % tuple(self.ChM)
+        return "Channel Map: %s (%s)" % (chanstr, descstr)
 
     def __str__(self):
         return "\n".join([
             self.str_header(),
             self.str_adtype(),
             self.str_aia(),
+            self.str_conn_params(),
+            self.str_chm(),
             self.hexdump()])
 
 class AuxConnectReqMessage(ConnectIndMessage):
