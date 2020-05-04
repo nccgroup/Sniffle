@@ -26,8 +26,8 @@ def main():
     # pause after sniffing
     hw.cmd_pause_done(True)
 
-    # capture advertisements only (not that we really care)
-    hw.cmd_follow(False)
+    # Accept/follow connections
+    hw.cmd_follow(True)
 
     # turn off RSSI filter
     hw.cmd_rssi(-128)
