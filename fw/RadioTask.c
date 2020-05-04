@@ -83,7 +83,7 @@ static uint32_t empty_hops = 0;
 
 static volatile bool gotLegacy;
 static volatile bool firstPacket;
-static uint32_t anchorOffset[16];
+static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 
 static uint32_t timestamp37 = 0;
@@ -227,7 +227,7 @@ static void afterConnEvent(bool slave)
     nextHopTime += rconf.hopIntervalTicks;
 
     // slaves need to adjust for master clock drift
-    if (slave && (connEventCount & 0xF) == 0xF)
+    if (slave && (connEventCount == 0))
     {
         uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
         nextHopTime += medAnchorOffset - AO_TARG;
@@ -764,7 +764,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
     {
         // compute anchor point offset from start of receive window
         anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
-        aoInd = (aoInd + 1) & 0xF;
+        aoInd = (aoInd + 1) & (ARR_SZ(anchorOffset) - 1);
         firstPacket = false;
     }
 
