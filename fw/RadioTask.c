@@ -977,8 +977,13 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
 
         // wait for a little longer than the expected aux packet start time
         // it will actually remain till packet completion if a packet is detected
-        uint32_t auxPeriod = (AUX_OFF_TARG_USEC + 400) * 4;
-        if (phy == PHY_CODED) auxPeriod = (AUX_OFF_TARG_USEC + 800) * 4;
+        uint32_t auxPeriod;
+        if (phy == PHY_1M)
+            auxPeriod = (AUX_OFF_TARG_USEC + 3000) * 4;
+        else if (phy == PHY_2M)
+            auxPeriod = (AUX_OFF_TARG_USEC + 2000) * 4;
+        else // (phy == PHY_CODED)
+            auxPeriod = (AUX_OFF_TARG_USEC + 20000) * 4;
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, auxPeriod);
 
         // schedule a scheduler invocation in 5 ms or sooner if needed
