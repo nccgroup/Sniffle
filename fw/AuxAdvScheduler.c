@@ -187,16 +187,37 @@ uint32_t AuxAdvScheduler_next(uint32_t radio_time, uint8_t *chan, PHY_Mode *phy)
     sched_clear_past(radio_time);
 
     // priority is: (non-periodic) aux, then regular advertising (0xFF do whatever)
-    // (lazy) first come first serve for overlapping events
+    // for overlapping events, use the most recently started one
     if (num_aux_events)
         time_to_soonest_aux = (int32_t)(aux_events[0].radio_time - radio_time);
 
     if (time_to_soonest_aux <= 0)
     {
-        // top priority, stay as long as it lasts
-        *chan = aux_events[0].chan;
-        *phy = aux_events[0].phy;
-        return aux_events[0].radio_time + aux_events[0].duration;
+        uint32_t event_to_use = 0;
+
+        // check if there are any newer ongoing overlapping events
+        for (uint32_t i = 1; i < num_aux_events; i++)
+        {
+            if ((int32_t)(aux_events[i].radio_time - radio_time) <= 0)
+                event_to_use = i;
+            else
+                break;
+        }
+
+        // check if next event starts sooner than current event ends
+        uint32_t etime = aux_events[event_to_use].radio_time +
+            aux_events[event_to_use].duration;
+        if (num_aux_events > event_to_use + 1)
+        {
+            uint32_t next_start = aux_events[event_to_use + 1].radio_time;
+            int32_t d = (int32_t)(next_start - etime);
+            if (d < 0)
+                etime = next_start;
+        }
+
+        *chan = aux_events[event_to_use].chan;
+        *phy = aux_events[event_to_use].phy;
+        return etime;
     }
 
     // no aux happening
