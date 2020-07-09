@@ -1,5 +1,5 @@
 # Copyright (c) 2018 virtualabs
-# Copyright (c) 2018-2019, NCC Group plc
+# Copyright (c) 2018-2020, NCC Group plc
 # Released as open source under GPLv3
 
 """
@@ -76,20 +76,35 @@ class PcapBleWriter(object):
         )
         self.output.write(pkt_header)
 
-    def payload(self, aa, packet, chan, rssi):
+    def payload(self, aa, packet, chan, rssi, phy, pdu_type, aux_type, ci):
         """
         Generate payload with specific header.
         """
+        # 0xC13 means dewhitened, signal power valid, ref AA valid, CRC check passed
+        flags = 0xC13
+        flags |= (phy & 0x3) << 14
+        flags |= (pdu_type & 0x7) << 7
+        if pdu_type == 1:
+            flags |= (aux_type & 0x3) << 12
+
         payload_header = pack(
             '<BbbBIH',
-            chan,
-            rssi,
-            -128,
-            0,
-            aa,
-            0xC13
+            chan,   # RF power
+            rssi,   # Signal power
+            -128,   # Noise power
+            0,      # Access address offenses
+            aa,     # Reference access address
+            flags   # Flags
         )
-        payload_data = pack('<I', aa) + packet + pack('<BBB', 0, 0, 0)
+
+        # we need a coding indicator byte for coded PHY
+        if phy == 2:
+            ci_b = bytes([ci & 0x3])
+        else:
+            ci_b = b''
+
+        # we append a dummy 3 byte CRC of zeros
+        payload_data = pack('<I', aa) + ci_b + packet + b'\x00\x00\x00'
         return payload_header + payload_data
 
     @staticmethod
@@ -105,7 +120,8 @@ class PcapBleWriter(object):
         else:
             return chan + 2
 
-    def write_packet(self, ts_usec, aa, chan, rssi, packet):
+    def write_packet(self, ts_usec, aa, chan, rssi, packet,
+            phy=0, pdu_type=0, aux_type=0, ci=0):
         """
         Add packet to PCAP output.
 
@@ -113,7 +129,8 @@ class PcapBleWriter(object):
         """
         ts_s = ts_usec // 1000000
         ts_u = int(ts_usec - ts_s*1000000)
-        payload = self.payload(aa, packet, self._ble_to_rf_chan(chan), rssi)
+        payload = self.payload(aa, packet, self._ble_to_rf_chan(chan), rssi,
+                               phy, pdu_type, aux_type, ci)
         self.write_packet_header(ts_s, ts_u, len(payload))
         self.output.write(payload)
 

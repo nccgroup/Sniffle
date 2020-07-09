@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2018-2019, NCC Group plc
+# Copyright (c) 2018-2020, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys
@@ -135,7 +135,8 @@ def print_message(msg):
 
 def print_packet(pkt):
     if pcwriter:
-        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi, pkt.body)
+        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
+                pkt.body, pkt.phy)
 
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
