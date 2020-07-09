@@ -82,19 +82,30 @@ class AdvertMessage(DPacketMessage):
     @staticmethod
     def decode(pkt: PacketMessage):
         pdu_type = pkt.body[0] & 0xF
-        type_classes = [
-                AdvIndMessage,          # 0
-                AdvDirectIndMessage,    # 1
-                AdvNonconnIndMessage,   # 2
-                ScanReqMessage,         # 3
-                ScanRspMessage,         # 4
-                ConnectIndMessage,      # 5
-                AdvScanIndMessage,      # 6
-                AdvExtIndMessage]       # 7
-        if pdu_type < len(type_classes):
-            tc = type_classes[pdu_type]
+        if pkt.chan >= 37:
+            type_classes = [
+                    AdvIndMessage,          # 0
+                    AdvDirectIndMessage,    # 1
+                    AdvNonconnIndMessage,   # 2
+                    ScanReqMessage,         # 3
+                    ScanRspMessage,         # 4
+                    ConnectIndMessage,      # 5
+                    AdvScanIndMessage,      # 6
+                    AdvExtIndMessage]       # 7
+            if pdu_type < len(type_classes):
+                tc = type_classes[pdu_type]
+            else:
+                tc = AdvertMessage
         else:
-            tc = AdvertMessage
+            if pdu_type == 3:
+                tc = AuxScanReqMessage
+            elif pdu_type == 5:
+                tc = AuxConnectReqMessage
+            elif pdu_type == 7:
+                tc = AuxAdvIndMessage
+            else:
+                tc = AdvertMessage
+
         return tc(pkt)
 
 class DataMessage(DPacketMessage):
@@ -243,6 +254,9 @@ class ScanReqMessage(AdvertMessage):
             self.str_asa(),
             self.hexdump()])
 
+class AuxScanReqMessage(ScanReqMessage):
+    pdutype = "AUX_SCAN_REQ"
+
 class ConnectIndMessage(AdvertMessage):
     pdutype = "CONNECT_IND"
 
@@ -263,6 +277,9 @@ class ConnectIndMessage(AdvertMessage):
             self.str_adtype(),
             self.str_aia(),
             self.hexdump()])
+
+class AuxConnectReqMessage(ConnectIndMessage):
+    pdutype = "AUX_CONNECT_REQ"
 
 class AuxPtr:
     def __init__(self, ptr):
@@ -371,3 +388,6 @@ class AdvExtIndMessage(AdvertMessage):
             self.str_adtype(),
             self.str_aext(),
             self.hexdump()])
+
+class AuxAdvIndMessage(AdvExtIndMessage):
+    pdutype = "AUX_ADV_IND"
