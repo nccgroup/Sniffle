@@ -115,7 +115,7 @@ static uint16_t s_advIntervalMs = 100;
 #define AO_TARG 2000
 
 // be ready some microseconds before aux advertisement is received
-#define AUX_OFF_TARG_USEC 700
+#define AUX_OFF_TARG_USEC 600
 
 // don't bother listening for fewer than this many ticks
 // radio will get stuck if end time is in past
@@ -975,9 +975,10 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         // multiply by 4 to convert from usec to radio ticks
         uint32_t radioTimeStart = (frame->timestamp + auxOffsetUs) * 4;
 
-        // wait for 4 ms (or 8 ms coded) on aux channel
-        uint32_t auxPeriod = 4000 * 4;
-        if (phy == PHY_CODED) auxPeriod = 8000 * 4;
+        // wait for a little longer than the expected aux packet start time
+        // it will actually remain till packet completion if a packet is detected
+        uint32_t auxPeriod = (AUX_OFF_TARG_USEC + 400) * 4;
+        if (phy == PHY_CODED) auxPeriod = (AUX_OFF_TARG_USEC + 800) * 4;
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, auxPeriod);
 
         // schedule a scheduler invocation in 5 ms or sooner if needed
