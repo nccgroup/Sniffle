@@ -214,7 +214,7 @@ class SniffleHWPacketError(ValueError):
 BLE_ADV_AA = 0x8E89BED6
 
 class SniffleDecoderState:
-    def __init__(self, is_data=False):
+    def __init__(self, is_data=False, slave_send=False):
         # packet receive time tracking
         self.time_offset = 1
         self.first_epoch_time = 0
@@ -226,6 +226,11 @@ class SniffleDecoderState:
 
         # state tracking
         self.last_state = SnifferState.STATIC
+
+        # data direction tracking
+        # 0 is M->S, 1 is S->M
+        self.data_dir = 1 if slave_send else 0
+        self.last_chan = 0
 
 # radio time wraparound period in seconds
 TS_WRAP_PERIOD = 0x100000000 / 4E6
@@ -255,6 +260,15 @@ class PacketMessage:
         real_ts = dstate.time_offset + (ts / 1000000.) + (dstate.ts_wraps * TS_WRAP_PERIOD)
         real_ts_epoch = dstate.first_epoch_time + real_ts
 
+        if dstate.cur_aa == BLE_ADV_AA or dstate.last_state != SnifferState.DATA:
+            self.data_dir = None
+        else:
+            if chan != dstate.last_chan:
+                dstate.data_dir = 0
+                dstate.last_chan = chan
+            self.data_dir = dstate.data_dir
+            dstate.data_dir ^= 1
+
         # Now actually set instance attributes
         self.ts = real_ts
         self.ts_epoch = real_ts_epoch
@@ -265,9 +279,9 @@ class PacketMessage:
         self.body = body
 
     @classmethod
-    def from_body(cls, body, is_data=False):
+    def from_body(cls, body, is_data=False, slave_send=False):
         fake_hdr = pack("<LHbB", 0, len(body), 0, 0)
-        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
+        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data, slave_send))
 
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, body=%s)" % (

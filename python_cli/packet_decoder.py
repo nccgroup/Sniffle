@@ -40,6 +40,7 @@ class DPacketMessage(PacketMessage):
         self.chan = pkt.chan
         self.phy = pkt.phy
         self.body = pkt.body
+        self.data_dir = pkt.data_dir
 
     def hexdump(self):
         hexstr = " ".join(["%02X" % b for b in self.body])
@@ -50,8 +51,8 @@ class DPacketMessage(PacketMessage):
         return "\n".join([self.str_header(), self.hexdump()])
 
     @classmethod
-    def from_body(cls, body, is_data=False):
-        return cls.decode(super().from_body(body, is_data))
+    def from_body(cls, body, is_data=False, slave_send=False):
+        return cls.decode(super().from_body(body, is_data, slave_send))
 
     @staticmethod
     def decode(pkt: PacketMessage):
@@ -118,6 +119,7 @@ class DataMessage(DPacketMessage):
 
     def str_datatype(self):
         dtstr = "LLID: %s\n" % self.pdutype
+        dtstr += "Dir: %s " % ("S->M" if self.data_dir else "M->S")
         dtstr += "NESN: %i " % self.NESN
         dtstr += "SN: %i " % self.SN
         dtstr += "MD: %i " % self.MD

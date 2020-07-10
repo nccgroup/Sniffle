@@ -78,6 +78,7 @@ def print_packet(pkt):
 
     if isinstance(dpkt, ConnectIndMessage):
         hw.decoder_state.cur_aa = dpkt.aa
+        hw.decoder_state.last_chan = -1
 
 if __name__ == "__main__":
     main()

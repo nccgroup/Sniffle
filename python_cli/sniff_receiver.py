@@ -7,7 +7,8 @@
 import argparse, sys
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage
-from packet_decoder import DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, ConnectIndMessage
+from packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
+        ConnectIndMessage, DataMessage)
 from binascii import unhexlify
 
 # global variable to access hardware
@@ -134,13 +135,18 @@ def print_message(msg):
     print()
 
 def print_packet(pkt):
-    if pcwriter:
-        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
-                pkt.body, pkt.phy)
-
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
     print(dpkt)
+
+    # Record the packet if PCAP writing is enabled
+    if pcwriter:
+        if isinstance(dpkt, DataMessage):
+            pdu_type = 3 if dpkt.data_dir else 2
+        else:
+            pdu_type = 0
+        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
+                pkt.body, pkt.phy, pdu_type)
 
     # React to the packet
     if isinstance(dpkt, AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
@@ -150,6 +156,7 @@ def print_packet(pkt):
     if isinstance(dpkt, ConnectIndMessage):
         # PCAP write is already done here, safe to update cur_aa
         hw.decoder_state.cur_aa = dpkt.aa
+        hw.decoder_state.last_chan = -1
 
 # If we are in _delay_top_mac mode and received a high RSSI advertisement,
 # lock onto it
