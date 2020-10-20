@@ -29,13 +29,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/*
- *  ======== CC1352R1_LAUNCHXL_TIRTOS.lds ========
- *  Default Linker script for the Texas Instruments CC1352R1
- */
 
 STACKSIZE = 1024;
-HEAPSIZE = 0x1000; /* Size of heap buffer used by HeapMem */
+HEAPSIZE = 0x4000; /* Size of heap buffer used by HeapMem */
 
 MEMORY
 {
@@ -47,6 +43,13 @@ MEMORY
     FLASH_CCFG (RX) : ORIGIN = 0x00057fa8, LENGTH = 0x00000058
     SRAM (RWX)      : ORIGIN = 0x20000000, LENGTH = 0x00014000
     GPRAM (RWX)     : ORIGIN = 0x11000000, LENGTH = 0x00002000
+    /* Explicitly placed off target for the storage of logging data.
+     * The data placed here is NOT loaded onto the target device.
+     * This is part of 1 GB of external memory from 0x60000000 - 0x9FFFFFFF.
+     * ARM memory map can be found here:
+     * https://developer.arm.com/documentation/ddi0337/e/memory-map/about-the-memory-map
+     */
+    LOG_DATA (R) : ORIGIN = 0x90000000, LENGTH = 0x40000
 }
 
 REGION_ALIAS("REGION_TEXT", FLASH);
@@ -54,6 +57,7 @@ REGION_ALIAS("REGION_BSS", SRAM);
 REGION_ALIAS("REGION_DATA", SRAM);
 REGION_ALIAS("REGION_STACK", SRAM);
 REGION_ALIAS("REGION_HEAP", SRAM);
+REGION_ALIAS("REGION_LOG", LOG_DATA);
 REGION_ALIAS("REGION_ARM_EXIDX", FLASH);
 REGION_ALIAS("REGION_ARM_EXTAB", FLASH);
 
@@ -281,4 +285,8 @@ SECTIONS {
         KEEP(*(.stack))
         . += STACKSIZE;
     } > REGION_STACK AT> REGION_STACK
+
+    .log_data (COPY) : {
+        KEEP (*(.log_data))
+    } > REGION_LOG
 }

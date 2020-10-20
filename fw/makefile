@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_4_10_00_78
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_4_30_00_54
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -24,33 +24,27 @@ ifeq ($(filter $(PLATFORM), $(SUPPORTED_PLATFORMS)),)
 endif
 
 ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
-    SOURCES = $(wildcard CC26X2/*.c)
     CCXML = CC26X2/CC2652R1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
     CFLAGS += -ICC26X2
-    LFLAGS += -Wl,-T,CC26X2/CC26X2R1_LAUNCHXL_TIRTOS.lds
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC26X2R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
-    SOURCES = $(wildcard CC1352/*.c)
     CCXML = CC1352/CC1352R1F3.ccxml
     CFLAGS += -DDeviceFamily_CC13X2
     CFLAGS += -ICC1352
-    LFLAGS += -Wl,-T,CC1352/CC1352R1_LAUNCHXL_TIRTOS.lds
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
-    SOURCES = $(wildcard CC2652RB/*.c)
     CCXML = CC2652RB/CC2652RB1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
     CFLAGS += -ICC26X2
-    LFLAGS += -Wl,-T,CC2652RB/CC2652RB_LAUNCHXL_TIRTOS.lds
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
@@ -71,6 +65,7 @@ CFLAGS += -I. \
     -Wall
 
 LFLAGS += \
+    -Wl,-T,cc13x2_cc26x2_tirtos.lds \
     "-Wl,-Map,$(NAME).map" \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
     -l:ti/display/lib/display.am4fg \
@@ -156,7 +151,7 @@ clean2:
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
-	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs ti_utils_build_linker.cmd.exp > $(DEVNULL) 2>&1
+	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs ti_utils_build_linker.cmd.exp ti_utils_build_linker.cmd.genlibs ti_utils_runtime_Makefile ti_utils_runtime_model.gv > $(DEVNULL) 2>&1
 
 load: $(NAME).out
 	@ echo Flashing...

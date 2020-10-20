@@ -1,0 +1,172 @@
+commit 9ad0decf76fd920f2ce1e337173da313c9964edd
+Author: Sultan Qasim Khan <sultan.qasimkhan@nccgroup.com>
+Date:   Tue Oct 20 00:18:48 2020 -0400
+
+    Get rid of auxChRes field
+    
+    This field is not implemented properly by the SDK currently.
+
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json
+index 8157e67c0..be1117ae5 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json
+@@ -6786,14 +6786,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7212,14 +7204,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9219,4 +9203,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc2642r_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2642r_ble_pg21/rf_command_definitions.json
+index caef58b2b..5f22e2faa 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc2642r_ble_pg21/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc2642r_ble_pg21/rf_command_definitions.json
+@@ -6762,14 +6762,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7188,14 +7180,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9736,4 +9720,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json
+index caef58b2b..5f22e2faa 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json
+@@ -6762,14 +6762,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7188,14 +7180,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9736,4 +9720,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json
+index caef58b2b..5f22e2faa 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json
+@@ -6762,14 +6762,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7188,14 +7180,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9736,4 +9720,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
