@@ -5,11 +5,11 @@ mkdir builds
 
 make clean
 make -j3 PLATFORM=CC2642R1F
-cp sniffle.out builds/sniffle_cc26x2.out
+cp sniffle.out builds/sniffle_cc26x2r.out
 
 make clean
 make -j3 PLATFORM=CC1352R1F3
-cp sniffle.out builds/sniffle_cc1352.out
+cp sniffle.out builds/sniffle_cc1352r.out
 
 make clean
 make -j3 PLATFORM=CC2652RB1F
