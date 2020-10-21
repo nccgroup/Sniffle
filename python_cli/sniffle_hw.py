@@ -270,12 +270,10 @@ class PacketMessage:
         self.data_dir = pkt_dir
 
     @classmethod
-    def from_body(cls, body, is_data=False, slave_send=False):
-        fake_hdr = pack("<LHbB", 0, len(body), 0, 0)
-        m = PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
-        if slave_send:
-            m.data_dir = 1
-        return m
+    def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
+        fake_hdr = pack("<LHbB", 0, len(body) | (0x8000 if slave_send else 0), 0,
+                0 if is_data or is_aux_adv else 37)
+        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
 
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, body=%s)" % (
