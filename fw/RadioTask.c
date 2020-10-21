@@ -227,7 +227,7 @@ static void afterConnEvent(bool slave)
     nextHopTime += rconf.hopIntervalTicks;
 
     // slaves need to adjust for master clock drift
-    if (slave && (connEventCount == 0))
+    if (slave && (connEventCount & (ARR_SZ(anchorOffset) - 1)) == 0)
     {
         uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
         nextHopTime += medAnchorOffset - AO_TARG;
