@@ -148,9 +148,11 @@ static void sendPacket(BLE_Frame *frame)
         memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
         msg_ptr += sizeof(frame->timestamp);
 
-        // bytes 5-6 are length (little endian)
-        memcpy(msg_ptr, &frame->length, sizeof(frame->length));
-        msg_ptr += sizeof(frame->length);
+        // bytes 5-6 are length (little endian), MSB is direction
+        uint16_t len_dir = frame->length;
+        len_dir |= frame->direction << 15;
+        memcpy(msg_ptr, &len_dir, sizeof(len_dir));
+        msg_ptr += sizeof(len_dir);
 
         // byte 7 is rssi
         *msg_ptr++ = (uint8_t)frame->rssi;
@@ -204,6 +206,8 @@ void indicatePacket(BLE_Frame *frame)
             // MAC filtering
             if (!macFilterCheck(frame))
                 return;
+        } else {
+            frame->direction = g_pkt_dir;
         }
 
         // always process PDU regardless of queue state
@@ -222,6 +226,7 @@ void indicatePacket(BLE_Frame *frame)
 
     memcpy(s_frames[queue_head_].pData, frame->pData, frame->length);
     s_frames[queue_head_].length = frame->length;
+    s_frames[queue_head_].direction = frame->direction;
     s_frames[queue_head_].rssi = frame->rssi;
     s_frames[queue_head_].timestamp = frame->timestamp;
     s_frames[queue_head_].channel = frame->channel;

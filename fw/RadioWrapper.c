@@ -775,6 +775,7 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
             frame.channel = 39;
 
         frame.phy = last_phy;
+        frame.direction = 0;
 
         if (userCallback) userCallback(&frame);
 

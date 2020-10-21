@@ -69,4 +69,7 @@ struct RadioConfig {
     PHY_Mode phy;
 };
 
+// 0 for M->S, 1 for S->M
+extern uint8_t g_pkt_dir;
+
 #endif

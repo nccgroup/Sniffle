@@ -110,6 +110,8 @@ static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
 static uint16_t s_advIntervalMs = 100;
 
+uint8_t g_pkt_dir = 0;
+
 // target offset before anchor point to start listing on next data channel
 // 0.5 ms @ 4 Mhz
 #define AO_TARG 2000
@@ -248,6 +250,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             empty_hops = 0;
             lastState = snifferState;
         }
+
+        g_pkt_dir = 0;
 
         if (snifferState == STATIC)
         {
@@ -406,6 +410,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == INITIATING) {
             uint32_t connTime;
             PHY_Mode connPhy;
+            g_pkt_dir = 1;
             int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
                     indicatePacket, ourAddr, ourAddrRandom, peerAddr, peerAddrRandom,
                     connReqLLData, &connTime, &connPhy);
@@ -429,6 +434,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             TXQueue_take(&txq);
             txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = false; // no need for anchor offset calcs, since we're master
+            g_pkt_dir = 1;
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
 
@@ -767,6 +773,9 @@ static void reactToDataPDU(const BLE_Frame *frame)
         aoInd = (aoInd + 1) & (ARR_SZ(anchorOffset) - 1);
         firstPacket = false;
     }
+
+    if (snifferState == DATA)
+        g_pkt_dir ^= 1;
 
     // data channel PDUs should at least have a 2 byte header
     // we only care about LL Control PDUs that all have an opcode byte too
@@ -1145,6 +1154,7 @@ void sendMarker()
     frame.phy = PHY_1M;
     frame.pData = NULL;
     frame.length = 0;
+    frame.direction = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);

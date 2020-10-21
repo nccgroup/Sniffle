@@ -26,7 +26,8 @@ typedef enum
 typedef struct
 {
     uint32_t timestamp; // microseconds
-    uint16_t length;
+    uint16_t length:15;
+    uint8_t direction:1; // 0 is M->S, 1 is S->M
     int8_t rssi;
     uint8_t channel:6;
     PHY_Mode phy:2;
