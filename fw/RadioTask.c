@@ -741,9 +741,12 @@ void reactToPDU(const BLE_Frame *frame)
                     isAuxReq);
 
             if (snifferState == ADVERTISING)
+            {
+                RadioWrapper_resetSeqStat();
                 stateTransition(SLAVE);
-            else
+            } else {
                 stateTransition(DATA);
+            }
             RadioWrapper_stop();
         }
     } else {

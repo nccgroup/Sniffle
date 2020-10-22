@@ -449,8 +449,8 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     }
 
     /* for now, we're not defining a timeout separate from end */
-    RF_cmdBle5Initiator.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
-    RF_cmdBle5Initiator.pParams->timeoutTime = 0;
+    RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
+    RF_cmdBle5Slave.pParams->timeoutTime = 0;
 
     last_channel = chan;
     last_phy = phy;
@@ -474,8 +474,22 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 
 void RadioWrapper_resetSeqStat()
 {
-    memset(&(RF_cmdBle5Master.pParams->seqStat), 0, 1);
-    memset(&(RF_cmdBle5Slave.pParams->seqStat), 0, 1);
+    RF_cmdBle5Master.pParams->seqStat.lastRxSn = 1;
+    RF_cmdBle5Master.pParams->seqStat.lastTxSn = 1;
+    RF_cmdBle5Master.pParams->seqStat.nextTxSn = 0;
+    RF_cmdBle5Master.pParams->seqStat.bFirstPkt = 1;
+    RF_cmdBle5Master.pParams->seqStat.bAutoEmpty = 0;
+    RF_cmdBle5Master.pParams->seqStat.bLlCtrlTx = 0;
+    RF_cmdBle5Master.pParams->seqStat.bLlCtrlAckRx = 0;
+    RF_cmdBle5Master.pParams->seqStat.bLlCtrlAckPending = 0;
+    RF_cmdBle5Slave.pParams->seqStat.lastRxSn = 1;
+    RF_cmdBle5Slave.pParams->seqStat.lastTxSn = 1;
+    RF_cmdBle5Slave.pParams->seqStat.nextTxSn = 0;
+    RF_cmdBle5Slave.pParams->seqStat.bFirstPkt = 1;
+    RF_cmdBle5Slave.pParams->seqStat.bAutoEmpty = 0;
+    RF_cmdBle5Slave.pParams->seqStat.bLlCtrlTx = 0;
+    RF_cmdBle5Slave.pParams->seqStat.bLlCtrlAckRx = 0;
+    RF_cmdBle5Slave.pParams->seqStat.bLlCtrlAckPending = 0;
 }
 
 /* Initiate a connection to the specified peer address
