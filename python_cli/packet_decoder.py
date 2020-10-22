@@ -134,8 +134,8 @@ class DataMessage(DPacketMessage):
         LLID = pkt.body[0] & 0x3
         type_classes = [
                 DataMessage,        # 0 (RFU)
-                LlDataMessage,      # 1
-                LlDataContMessage,  # 2
+                LlDataContMessage,  # 1
+                LlDataMessage,      # 2
                 LlControlMessage]   # 3
         return type_classes[LLID](pkt)
 
