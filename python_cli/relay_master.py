@@ -7,6 +7,9 @@
 import argparse, sys
 from binascii import unhexlify
 from threading import Thread
+from queue import Queue
+from time import time
+from signal import SIGINT, signal
 
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
@@ -68,6 +71,10 @@ Empty--------->
 hw = None
 _aa = 0
 
+# global variable for pcap writer
+pcwriter = None
+pktq = Queue()
+
 def main():
     aparse = argparse.ArgumentParser(description="Relay master script for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
@@ -79,6 +86,7 @@ def main():
             help="Supplied MAC address is public")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
             help="Don't show empty packets")
+    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
     global hw
@@ -130,11 +138,23 @@ def main():
     connector_random = bool(conn_req.TxAdd)
     connector_interval = conn_req.Interval
     connector_latency = conn_req.Latency
-    print("Relay slave notified us of connection request. Connecting to real target.")
+    print("Relay slave notified us of connection request. Connecting to real target...")
+
+    global pcwriter
+    if not (args.output is None):
+        pcwriter = PcapBleWriter(args.output)
 
     # connect to real target, impersonating who connected to relay slave
     connect_target(macBytes, args.advchan, not args.public, connector_addr,
             connector_random, connector_interval, connector_latency)
+
+    # wait for transition to master state
+    while True:
+        msg = hw.recv_and_decode()
+        if isinstance(msg, StateMessage) and msg.new_state == SnifferState.MASTER:
+            hw.decoder_state.cur_aa = _aa
+            break
+    print("Connected to target.", end='\n\n')
 
     # spawn another thread to receive and forward packets from relay slave
     # it's safe to call hardware commands from a separate thread since
@@ -142,27 +162,29 @@ def main():
     slave_thread = Thread(target=network_thread_loop, args=(conn,), daemon=True)
     slave_thread.start()
 
+    # spawn another thread to display packets and record PCAP
+    signal(SIGINT, sigint_handler)
+    display_thread = Thread(target=display_thread_loop, args=(args.quiet,))
+    display_thread.start()
+
     while True:
         msg = hw.recv_and_decode()
-        print_message(msg, args.quiet)
 
-        # only forward packets
-        if not isinstance(msg, PacketMessage):
-            continue
-        msg = DPacketMessage.decode(msg)
+        if isinstance(msg, PacketMessage):
+            msg = DPacketMessage.decode(msg)
+            # only forward non-empty data
+            if not (isinstance(msg, LlDataContMessage) and msg.data_length == 0):
+                # TODO: filter/edit messages as needed
 
-        # ignore straggling advertisements
-        if not isinstance(msg, DataMessage):
-            continue
+                # Forward packets to the relay slave
+                conn.send_msg(MessageType.PACKET, msg.body)
 
-        # ignore empty packets
-        if isinstance(msg, LlDataContMessage) and msg.data_length == 0:
-            continue
+        pktq.put(msg)
 
-        # TODO: filter/edit messages as needed
-
-        # Forward packets to the relay slave
-        conn.send_msg(MessageType.PACKET, msg.body)
+def sigint_handler(sig, frame):
+    # shut down display thread
+    pktq.put(None)
+    sys.exit(0)
 
 def network_thread_loop(conn):
     # receive packets from relay slave and retransmit them here
@@ -176,6 +198,27 @@ def network_thread_loop(conn):
         # TODO: filter/edit messages as needed
 
         hw.cmd_transmit(llid, pdu)
+
+        # construct packet object for display and PCAP
+        pkt = DPacketMessage.from_body(body, True)
+        pkt.ts_epoch = time()
+        pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
+        pkt.aa = hw.decoder_state.cur_aa
+        pktq.put(pkt)
+
+def display_thread_loop(quiet):
+    while True:
+        msg = pktq.get()
+        if isinstance(msg, DPacketMessage):
+            print_packet(msg, quiet)
+        elif isinstance(msg, DebugMessage):
+            print(msg, end='\n\n')
+        elif isinstance(msg, StateMessage):
+            print(msg, end='\n\n')
+        elif not msg:
+            break
+    if pcwriter:
+        pcwriter.close()
 
 # assumes sniffer is already configured to receive ads with IRK filter
 def get_mac_from_irk(irk, chan=37):
@@ -251,22 +294,20 @@ def connect_target(targ_mac, chan=37, targ_random=True, initiator_mac=None, init
     global _aa
     _aa = hw.initiate_conn(targ_mac, targ_random, interval, latency)
 
-def print_message(msg, quiet=False):
-    if isinstance(msg, PacketMessage):
-        print_packet(msg, quiet)
-    elif isinstance(msg, DebugMessage):
-        print(msg, end='\n\n')
-    elif isinstance(msg, StateMessage):
-        print(msg, end='\n\n')
-        if msg.new_state == SnifferState.MASTER:
-            hw.decoder_state.cur_aa = _aa
-
 def print_packet(pkt, quiet=False):
-    # Further decode and print the packet
-    dpkt = DPacketMessage.decode(pkt)
-    if quiet and isinstance(dpkt, LlDataContMessage) and dpkt.data_length == 0:
-        return
-    print(dpkt, end='\n\n')
+    is_not_empty = not (isinstance(pkt, LlDataContMessage) and pkt.data_length == 0)
+
+    if not quiet or is_not_empty:
+        print(pkt, end='\n\n')
+
+    # Record the packet if PCAP writing is enabled
+    if pcwriter and is_not_empty:
+        if isinstance(pkt, DataMessage):
+            pdu_type = 3 if pkt.data_dir else 2
+        else:
+            pdu_type = 0
+        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
+                pkt.body, pkt.phy, pdu_type)
 
 if __name__ == "__main__":
     main()
