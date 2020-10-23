@@ -69,7 +69,6 @@ Empty--------->
 
 # global variable to access hardware
 hw = None
-_aa = 0
 
 # global variable for pcap writer
 pcwriter = None
@@ -161,7 +160,7 @@ def main():
     while True:
         msg = hw.recv_and_decode()
         if isinstance(msg, StateMessage) and msg.new_state == SnifferState.MASTER:
-            hw.decoder_state.cur_aa = _aa
+            hw.decoder_state.cur_aa = conn_req.aa_conn
             break
     print("Connected to target.", end='\n\n')
 
@@ -300,8 +299,7 @@ def connect_target(targ_mac, chan=37, targ_random=True, initiator_mac=None, init
     hw.mark_and_flush()
 
     # now enter initiator mode
-    global _aa
-    _aa = hw.initiate_conn(targ_mac, targ_random, interval, latency)
+    return hw.initiate_conn(targ_mac, targ_random, interval, latency)
 
 def print_packet(pkt, quiet=False):
     is_not_empty = not (isinstance(pkt, LlDataContMessage) and pkt.data_length == 0)
