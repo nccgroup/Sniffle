@@ -214,7 +214,7 @@ class SniffleHWPacketError(ValueError):
     pass
 
 class RateLimiter:
-    def __init__(self, max_depth=4, time_per_cmd=0.005):
+    def __init__(self, max_depth=4, time_per_cmd=0.01):
         self.cmdq = []
         self.max_depth = max_depth
         self.tpcmd = time_per_cmd
