@@ -437,20 +437,23 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Slave.startTime = startTime;
     }
 
-    /* receive forever if timeout == 0xFFFFFFFF */
+    // receive forever if timeout == 0xFFFFFFFF
+    // endTrigger is for after M->S is received
+    // timeoutTrigger is for before M->S is received
+    // both triggers need to be set for reliability
     if (timeout != 0xFFFFFFFF)
     {
         // 4 MHz radio clock, so multiply microsecond timeout by 4
         RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
         RF_cmdBle5Slave.pParams->endTime = timeout;
+        RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Slave.pParams->timeoutTime = timeout;
     } else {
         RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5Slave.pParams->endTime = 0;
+        RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
+        RF_cmdBle5Slave.pParams->timeoutTime = 0;
     }
-
-    /* for now, we're not defining a timeout separate from end */
-    RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
-    RF_cmdBle5Slave.pParams->timeoutTime = 0;
 
     last_channel = chan;
     last_phy = phy;
