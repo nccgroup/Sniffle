@@ -155,7 +155,7 @@ def print_packet(pkt):
 
     if isinstance(dpkt, ConnectIndMessage):
         # PCAP write is already done here, safe to update cur_aa
-        hw.decoder_state.cur_aa = dpkt.aa
+        hw.decoder_state.cur_aa = dpkt.aa_conn
         hw.decoder_state.last_chan = -1
 
 # If we are in _delay_top_mac mode and received a high RSSI advertisement,

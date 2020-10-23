@@ -266,7 +266,7 @@ class ConnectIndMessage(AdvertMessage):
         super().__init__(pkt)
         self.InitA = self.body[2:8]
         self.AdvA = self.body[8:14]
-        self.aa = struct.unpack('<L', self.body[14:18])[0]
+        self.aa_conn = struct.unpack('<L', self.body[14:18])[0]
         # TODO: decode the rest
 
     def str_aia(self):
