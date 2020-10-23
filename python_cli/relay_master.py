@@ -121,8 +121,8 @@ def main():
 
     # obtain the target's advertisement and scan response, share it with relay slave
     adv, scan_rsp = scan_target(macBytes)
-    conn.send_msg(MessageType.ADVERT, adv)
-    conn.send_msg(MessageType.SCAN_RSP, scan_rsp)
+    conn.send_msg(MessageType.ADVERT, adv.body)
+    conn.send_msg(MessageType.SCAN_RSP, scan_rsp.body)
 
     # relay slave will now impersonate our target
 
@@ -139,10 +139,19 @@ def main():
     connector_interval = conn_req.Interval
     connector_latency = conn_req.Latency
     print("Relay slave notified us of connection request. Connecting to real target...")
+    print(body)
+    print(conn_req)
 
     global pcwriter
     if not (args.output is None):
         pcwriter = PcapBleWriter(args.output)
+
+        pcwriter.write_packet(int(adv.ts_epoch * 1000000), adv.aa, adv.chan,
+                adv.rssi, adv.body, adv.phy)
+        pcwriter.write_packet(int(scan_rsp.ts_epoch * 1000000), scan_rsp.aa,
+                scan_rsp.chan, scan_rsp.rssi, scan_rsp.body, scan_rsp.phy)
+        pcwriter.write_packet(int(time() * 1000000), conn_req.aa, conn_req.chan,
+                conn_req.rssi, conn_req.body, conn_req.phy)
 
     # connect to real target, impersonating who connected to relay slave
     connect_target(macBytes, args.advchan, not args.public, connector_addr,
@@ -274,7 +283,7 @@ def scan_target(mac):
     print(scanRspPkt)
     print()
 
-    return advPkt.body, scanRspPkt.body
+    return advPkt, scanRspPkt
 
 def connect_target(targ_mac, chan=37, targ_random=True, initiator_mac=None, initiator_random=True,
         interval=24, latency=1):
