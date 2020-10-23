@@ -70,7 +70,7 @@ def main():
         print(dpkt, end='\n\n')
 
         if isinstance(dpkt, ConnectIndMessage):
-            hw.decoder_state.cur_aa = dpkt.aa
+            hw.decoder_state.cur_aa = dpkt.aa_conn
             conn_pkt = dpkt
 
     # notify relay master of the connection
