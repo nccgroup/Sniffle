@@ -28,6 +28,12 @@ def main():
     conn = connect_relay(args.masteraddr)
     print("Connected to master.")
 
+    # Network latency test
+    mtype, body = conn.recv_msg()
+    if mtype != MessageType.PING or body != b'latency_test':
+        raise ValueError("Unexpected message type in latency test")
+    conn.send_msg(MessageType.PING, b'latency_test')
+
     # put the hardware in a normal state
     hw.cmd_chan_aa_phy(37, BLE_ADV_AA, 0)
     hw.cmd_pause_done(True)

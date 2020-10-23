@@ -107,6 +107,15 @@ def main():
     conn = server.accept()
     print("Got connection from", conn.peer_ip)
 
+    # Network latency test
+    stime = time()
+    conn.send_msg(MessageType.PING, b'latency_test')
+    mtype, body = conn.recv_msg()
+    etime = time()
+    if mtype != MessageType.PING or body != b'latency_test':
+        raise ValueError("Unexpected message type in latency test")
+    print("Round trip latency: %.1f ms" % ((etime - stime) * 1000))
+
     if args.irk:
         macBytes = get_mac_from_irk(unhexlify(args.irk), args.advchan)
     else:
