@@ -78,8 +78,9 @@ static uint8_t hopIncrement;
 static uint32_t crcInit;
 static uint32_t nextHopTime;
 static uint32_t connEventCount;
-static bool use_csa2;
 static uint32_t empty_hops = 0;
+static bool use_csa2;
+static bool ll_encryption;
 
 static volatile bool gotLegacy;
 static volatile bool firstPacket;
@@ -801,6 +802,11 @@ static void reactToDataPDU(const BLE_Frame *frame)
     if (frame->length - 2 != datLen)
         return;
 
+    // for now, we lack decryption support, so encrypted LL control opcode is random
+    // don't react to encrypted control PDUs we can't decipher
+    if (ll_encryption)
+        return;
+
     last_rconf = rconf_latest();
     if (!last_rconf)
         last_rconf = &rconf;
@@ -831,6 +837,9 @@ static void reactToDataPDU(const BLE_Frame *frame)
     case 0x02: // LL_TERMINATE_IND
         if (datLen != 2) break;
         handleConnFinished();
+        break;
+    case 0x05: // LL_START_ENC_REQ
+        ll_encryption = true;
         break;
     case 0x18: // LL_PHY_UPDATE_IND
         if (datLen != 5) break;
@@ -1016,6 +1025,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     accessAddress = *(uint32_t *)llData;
     hopIncrement = llData[21] & 0x1F;
     crcInit = (*(uint32_t *)(llData + 4)) & 0xFFFFFF;
+    ll_encryption = false;
 
     // start on the hop increment channel
     curUnmapped = hopIncrement;
