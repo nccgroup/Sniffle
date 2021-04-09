@@ -1,4 +1,4 @@
-commit 9ad0decf76fd920f2ce1e337173da313c9964edd
+commit 6d3651ddf99565b42b9f29fc6fc4c3e46a67d127
 Author: Sultan Qasim Khan <sultan.qasimkhan@nccgroup.com>
 Date:   Tue Oct 20 00:18:48 2020 -0400
 
@@ -6,6 +6,47 @@ Date:   Tue Oct 20 00:18:48 2020 -0400
     
     This field is not implemented properly by the SDK currently.
 
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc1352p7_ble_pg10/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc1352p7_ble_pg10/rf_command_definitions.json
+index caef58b2b..5f22e2faa 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc1352p7_ble_pg10/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc1352p7_ble_pg10/rf_command_definitions.json
+@@ -6762,14 +6762,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7188,14 +7180,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9736,4 +9720,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
 diff --git a/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json
 index 8157e67c0..be1117ae5 100644
 --- a/source/ti/devices/radioconfig/.meta/config/cc1352p_ble_pg21/rf_command_definitions.json
@@ -88,6 +129,88 @@ index caef58b2b..5f22e2faa 100644
 -}
 \ No newline at end of file
 +}
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652p7_ble_pg10/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652p7_ble_pg10/rf_command_definitions.json
+index caef58b2b..5f22e2faa 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc2652p7_ble_pg10/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc2652p7_ble_pg10/rf_command_definitions.json
+@@ -6762,14 +6762,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7188,14 +7180,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9736,4 +9720,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652r7_ble_pg10/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652r7_ble_pg10/rf_command_definitions.json
+index caef58b2b..5f22e2faa 100644
+--- a/source/ti/devices/radioconfig/.meta/config/cc2652r7_ble_pg10/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc2652r7_ble_pg10/rf_command_definitions.json
+@@ -6762,14 +6762,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -7188,14 +7180,6 @@
+                             {
+                                 "_name": "phyMode",
+                                 "ByteIndex": "79..79"
+-                            },
+-                            {
+-                                "_name": "auxChRes",
+-                                "ByteIndex": "72..72",
+-                                "CodeGen": {
+-                                    "Action": "DISABLE_FIELD",
+-                                    "ValComment": "The value must be integrated as part of the previous field"
+-                                }
+                             }
+                         ]
+                     },
+@@ -9736,4 +9720,4 @@
+             }
+         ]
+     }
+-}
+\ No newline at end of file
++}
 diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json
 index caef58b2b..5f22e2faa 100644
 --- a/source/ti/devices/radioconfig/.meta/config/cc2652r_ble_pg21/rf_command_definitions.json
@@ -129,10 +252,10 @@ index caef58b2b..5f22e2faa 100644
 -}
 \ No newline at end of file
 +}
-diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json
+diff --git a/source/ti/devices/radioconfig/.meta/config/cc2652rsip_ble_pg21/rf_command_definitions.json b/source/ti/devices/radioconfig/.meta/config/cc2652rsip_ble_pg21/rf_command_definitions.json
 index caef58b2b..5f22e2faa 100644
---- a/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json
-+++ b/source/ti/devices/radioconfig/.meta/config/cc2652rs_ble_pg21/rf_command_definitions.json
+--- a/source/ti/devices/radioconfig/.meta/config/cc2652rsip_ble_pg21/rf_command_definitions.json
++++ b/source/ti/devices/radioconfig/.meta/config/cc2652rsip_ble_pg21/rf_command_definitions.json
 @@ -6762,14 +6762,6 @@
                              {
                                  "_name": "phyMode",
