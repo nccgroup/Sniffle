@@ -93,6 +93,10 @@ static uint32_t advInterval[9];
 static uint32_t aiInd = 0;
 static bool postponed = false;
 static bool followConnections = true;
+static bool instaHop = false;
+
+// bit 0 is M->S, bit 1 is S->M
+static uint8_t moreData;
 
 static bool advHopEnabled = false;
 static bool auxAdvEnabled = false;
@@ -401,6 +405,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == DATA) {
             uint8_t chan = getCurrChan();
             firstPacket = true;
+            moreData = 0x3;
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
                     nextHopTime, indicatePacket);
 
@@ -759,7 +764,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
 {
     uint8_t LLID;
     //uint8_t NESN, SN;
-    //uint8_t MD;
+    uint8_t MD;
     uint8_t datLen;
     uint8_t opcode;
     uint16_t nextInstant;
@@ -782,17 +787,22 @@ static void reactToDataPDU(const BLE_Frame *frame)
         g_pkt_dir ^= 1;
 
     // data channel PDUs should at least have a 2 byte header
-    // we only care about LL Control PDUs that all have an opcode byte too
-    if (frame->length < 3)
+    if (frame->length < 2)
         return;
 
     // decode the header
     LLID = frame->pData[0] & 0x3;
     //NESN = frame->pData[0] & 0x4 ? 1 : 0;
     //SN = frame->pData[0] & 0x8 ? 1 : 0;
-    //MD = frame->pData[0] & 0x10 ? 1 : 0;
+    MD = frame->pData[0] & 0x10 ? 1 : 0;
     datLen = frame->pData[1];
     opcode = frame->pData[2];
+
+    if (!MD)
+        moreData &= ~(1 << g_pkt_dir);
+
+    if (ll_encryption && instaHop && !moreData && snifferState == DATA)
+        RadioWrapper_stop();
 
     // We only care about LL Control PDUs
     if (LLID != 0x3)
@@ -1206,4 +1216,10 @@ void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRsp
 void setAdvInterval(uint32_t intervalMs)
 {
     s_advIntervalMs = intervalMs;
+}
+
+/* Enable hopping to next channel immediately for encrypted conns */
+void setInstaHop(bool enable)
+{
+    instaHop = enable;
 }

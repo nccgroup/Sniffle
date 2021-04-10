@@ -147,6 +147,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             else
                 setRpaFilt(false, NULL); // disable RPA filter
             break;
+        case COMMAND_INSTAHOP:
+            if (ret != 3) continue;
+            setInstaHop(msgBuf[2] ? true : false);
+            break;
         default:
             break;
         }

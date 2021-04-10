@@ -117,6 +117,12 @@ class SniffleHW:
             if hop3:
                 self._send_cmd([0x14])
 
+    def cmd_instahop(self, enable=True):
+        if enable:
+            self._send_cmd([0x1F, 0x01])
+        else:
+            self._send_cmd([0x1F, 0x00])
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

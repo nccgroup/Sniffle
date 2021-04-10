@@ -50,6 +50,9 @@ void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRsp
 /* Set advertising interval (for advertising state) in milliseconds */
 void setAdvInterval(uint32_t intervalMs);
 
+/* Enable hopping to next channel immediately for encrypted conns */
+void setInstaHop(bool enable);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,
