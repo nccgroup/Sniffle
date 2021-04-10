@@ -812,14 +812,30 @@ static void reactToDataPDU(const BLE_Frame *frame)
     if (frame->length - 2 != datLen)
         return;
 
-    // for now, we lack decryption support, so encrypted LL control opcode is random
-    // don't react to encrypted control PDUs we can't decipher
-    if (ll_encryption)
-        return;
-
     last_rconf = rconf_latest();
     if (!last_rconf)
         last_rconf = &rconf;
+
+    // for now, we lack decryption support, so encrypted LL control opcode is random
+    // don't react to encrypted control PDUs we can't decipher
+    if (ll_encryption)
+    {
+        if (datLen == 5)
+        {
+            // special case: this must be a LL_PHY_UPDATE_IND due to length
+            // usually this means switching to 2M PHY mode
+            // usually the switch is 6-10 instants from now
+            // thus, we'll make an educated guess
+            next_rconf.chanMap = last_rconf->chanMap;
+            next_rconf.offset = 0;
+            next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+            next_rconf.phy = PHY_2M;
+            next_rconf.slaveLatency = last_rconf->slaveLatency;
+            nextInstant = (connEventCount + 8) & 0xFFFF;
+            rconf_enqueue(nextInstant, &next_rconf);
+        }
+        return;
+    }
 
     switch (opcode)
     {
