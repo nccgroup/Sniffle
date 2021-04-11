@@ -70,6 +70,7 @@ struct RadioConfig {
     uint16_t offset;
     uint16_t slaveLatency;
     PHY_Mode phy;
+    bool intervalCertain;
 };
 
 // 0 for M->S, 1 for S->M

@@ -87,6 +87,10 @@ static volatile bool firstPacket;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 
+static uint32_t lastAnchorTicks;
+static uint32_t intervalTicks[7];
+static uint32_t itInd;
+
 static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[9];
@@ -226,19 +230,41 @@ static void afterConnEvent(bool slave)
     if (rconf_dequeue(connEventCount & 0xFFFF, &rconf))
     {
         nextHopTime += rconf.offset * 5000;
+
         if (use_csa2)
             csa2_computeMapping(accessAddress, rconf.chanMap);
         else
             computeMap1(rconf.chanMap);
+
+        if (instaHop && !rconf.intervalCertain)
+            itInd = 0xFFFFFFFF;
     }
-    nextHopTime += rconf.hopIntervalTicks;
 
     // slaves need to adjust for master clock drift
-    if (slave && (connEventCount & (ARR_SZ(anchorOffset) - 1)) == 0)
+    if (slave && rconf.intervalCertain &&
+            (connEventCount & (ARR_SZ(anchorOffset) - 1)) == 0)
     {
         uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
         nextHopTime += medAnchorOffset - AO_TARG;
     }
+
+    // we can calculate median hop interval based on our measurements
+    if (slave && instaHop && !rconf.intervalCertain &&
+            itInd >= ARR_SZ(intervalTicks) && itInd != 0xFFFFFFFF)
+    {
+        uint32_t medIntervalTicks = median(intervalTicks, ARR_SZ(intervalTicks));
+        uint32_t interval = (medIntervalTicks + 2500) / 5000; // snap to nearest multiple of 1.25 ms
+        rconf.hopIntervalTicks = interval * 5000;
+        rconf.intervalCertain = true;
+        dprintf("meas conn interval: %u", interval);
+
+        // clock drift compensator only works correctly when interval is correct
+        // reset its state, and make sure we don't time out prematurely
+        for (uint32_t i = 0; i < ARR_SZ(anchorOffset); i++)
+            anchorOffset[i] = AO_TARG;
+    }
+
+    nextHopTime += rconf.hopIntervalTicks;
 }
 
 static void radioTaskFunction(UArg arg0, UArg arg1)
@@ -778,10 +804,20 @@ static void reactToDataPDU(const BLE_Frame *frame)
      */
     if (firstPacket)
     {
+        uint32_t curTicks = frame->timestamp << 2;
+
         // compute anchor point offset from start of receive window
-        anchorOffset[aoInd] = (frame->timestamp << 2) + rconf.hopIntervalTicks - nextHopTime;
+        anchorOffset[aoInd] = curTicks + rconf.hopIntervalTicks - nextHopTime;
         aoInd = (aoInd + 1) & (ARR_SZ(anchorOffset) - 1);
         firstPacket = false;
+
+        if (instaHop && !rconf.intervalCertain)
+        {
+            if (itInd < ARR_SZ(intervalTicks))
+                intervalTicks[itInd] = curTicks - lastAnchorTicks;
+            lastAnchorTicks = curTicks;
+            itInd++;
+        }
     }
 
     if (snifferState == DATA)
@@ -821,18 +857,35 @@ static void reactToDataPDU(const BLE_Frame *frame)
     // don't react to encrypted control PDUs we can't decipher
     if (ll_encryption)
     {
-        if (datLen == 9) // 1 byte opcode + 4 byte CtrData + 4 byte MIC
+        if (datLen == 9)
         {
             // special case: this must be a LL_PHY_UPDATE_IND due to length
+            // 1 byte opcode + 4 byte CtrData + 4 byte MIC
             // usually this means switching to 2M PHY mode
             // usually the switch is 6-10 instants from now
             // thus, we'll make an educated guess
             next_rconf.chanMap = last_rconf->chanMap;
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+            next_rconf.intervalCertain = last_rconf->intervalCertain;
             next_rconf.phy = PHY_2M;
             next_rconf.slaveLatency = last_rconf->slaveLatency;
             nextInstant = (connEventCount + 7) & 0xFFFF;
+            rconf_enqueue(nextInstant, &next_rconf);
+        } else if (datLen == 16 && instaHop) {
+            // special case: this must be a LL_CONNECTION_UPDATE_IND due to length
+            // 1 byte opcode + 11 byte CtrData + 4 byte MIC
+            // usually this means switching to a different connection interval, or slave latency
+            // usually the switch is 6-10 instants from now
+            // with instahop, setting an inaccurately long interval temporarily is OK
+            // we'll figure out the correct interval and update accordingly
+            next_rconf.chanMap = last_rconf->chanMap;
+            next_rconf.offset = 0;
+            next_rconf.hopIntervalTicks = 240 * 5000;
+            next_rconf.intervalCertain = false;
+            next_rconf.phy = last_rconf->phy;
+            next_rconf.slaveLatency = last_rconf->slaveLatency;
+            nextInstant = (connEventCount + 6) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
         }
         return;
@@ -845,6 +898,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         next_rconf.chanMap = last_rconf->chanMap;
         next_rconf.offset = *(uint16_t *)(frame->pData + 4);
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
+        next_rconf.intervalCertain = last_rconf->intervalCertain;
         next_rconf.phy = last_rconf->phy;
         next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
         nextInstant = *(uint16_t *)(frame->pData + 12);
@@ -856,6 +910,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+        next_rconf.intervalCertain = last_rconf->intervalCertain;
         next_rconf.phy = last_rconf->phy;
         next_rconf.slaveLatency = last_rconf->slaveLatency;
         nextInstant = *(uint16_t *)(frame->pData + 8);
@@ -873,6 +928,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         next_rconf.chanMap = last_rconf->chanMap;
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+        next_rconf.intervalCertain = last_rconf->intervalCertain;
         // we don't handle different M->S and S->M PHYs, assume both match
         switch (frame->pData[3] & 0x7)
         {
@@ -1083,6 +1139,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     nextHopTime = connTime + transmitWindowDelay + (WinOffset * 5000);
     rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
     nextHopTime += rconf.hopIntervalTicks;
+    rconf.intervalCertain = true;
     rconf.phy = phy;
     rconf.slaveLatency = *(uint16_t *)(llData + 12);
     connEventCount = 0;
