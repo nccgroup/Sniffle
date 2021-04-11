@@ -146,6 +146,7 @@ optional arguments:
   -l, --longrange       Use long range (coded) PHY for primary advertising
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
+  -q, --quiet           Don't display empty packets
 ```
 
 The XDS110 debugger on the Launchpad boards creates two serial ports. On

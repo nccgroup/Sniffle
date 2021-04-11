@@ -44,6 +44,8 @@ def main():
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
+    aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
+            help="Don't display empty packets")
     args = aparse.parse_args()
 
     # Sanity check argument combinations
@@ -123,21 +125,19 @@ def main():
 
     while True:
         msg = hw.recv_and_decode()
-        print_message(msg)
+        print_message(msg, args.quiet)
 
-def print_message(msg):
+def print_message(msg, quiet):
     if isinstance(msg, PacketMessage):
-        print_packet(msg)
-    elif isinstance(msg, DebugMessage):
-        print(msg)
-    elif isinstance(msg, StateMessage):
-        print(msg)
-    print()
+        print_packet(msg, quiet)
+    elif isinstance(msg, DebugMessage) or isinstance(msg, StateMessage):
+        print(msg, end='\n\n')
 
-def print_packet(pkt):
+def print_packet(pkt, quiet):
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
-    print(dpkt)
+    if not (quiet and isinstance(dpkt, DataMessage) and dpkt.data_length == 0):
+        print(dpkt, end='\n\n')
 
     # Record the packet if PCAP writing is enabled
     if pcwriter:
