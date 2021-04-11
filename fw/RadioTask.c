@@ -91,6 +91,8 @@ static uint32_t lastAnchorTicks;
 static uint32_t intervalTicks[7];
 static uint32_t itInd;
 
+static uint64_t chanMapTestMask;
+
 static uint32_t timestamp37 = 0;
 static uint32_t lastAdvTicks = 0;
 static uint32_t advInterval[9];
@@ -225,6 +227,28 @@ static void afterConnEvent(bool slave)
     if (empty_hops > rconf.slaveLatency + 3)
         handleConnFinished();
 
+    if (!rconf.chanMapCertain && slave)
+    {
+        uint64_t chanBit = 1ULL << getCurrChan();
+        if (firstPacket)
+        {
+            rconf.chanMap &= ~chanBit;
+
+            // need to recompute whenever map changes
+            if (use_csa2)
+                csa2_computeMapping(accessAddress, rconf.chanMap);
+            else
+                computeMap1(rconf.chanMap);
+        }
+        chanMapTestMask |= chanBit;
+        if (chanMapTestMask == 0x1FFFFFFFFFULL)
+        {
+            rconf.chanMapCertain = true;
+            dprintf("meas chan map: 0x%02x%08x",
+                    (uint32_t)(rconf.chanMap>>32), (uint32_t)(rconf.chanMap & 0xFFFFFFFF));
+        }
+    }
+
     curUnmapped = (curUnmapped + hopIncrement) % 37;
     connEventCount++;
     if (rconf_dequeue(connEventCount & 0xFFFF, &rconf))
@@ -238,6 +262,9 @@ static void afterConnEvent(bool slave)
 
         if (instaHop && !rconf.intervalCertain)
             itInd = 0xFFFFFFFF;
+
+        if (!rconf.chanMapCertain)
+            chanMapTestMask = 0;
     }
 
     // slaves need to adjust for master clock drift
@@ -857,14 +884,14 @@ static void reactToDataPDU(const BLE_Frame *frame)
     // don't react to encrypted control PDUs we can't decipher
     if (ll_encryption)
     {
-        if (datLen == 9)
-        {
-            // special case: this must be a LL_PHY_UPDATE_IND due to length
+        if (datLen == 9) {
+            // must be LL_PHY_UPDDATE_IND due to length
             // 1 byte opcode + 4 byte CtrData + 4 byte MIC
             // usually this means switching to 2M PHY mode
             // usually the switch is 6-10 instants from now
             // thus, we'll make an educated guess
             next_rconf.chanMap = last_rconf->chanMap;
+            next_rconf.chanMapCertain = last_rconf->chanMapCertain;
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
             next_rconf.intervalCertain = last_rconf->intervalCertain;
@@ -872,14 +899,31 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.slaveLatency = last_rconf->slaveLatency;
             nextInstant = (connEventCount + 7) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
+        } else if (datLen == 12 && snifferState != MASTER && last_rconf->intervalCertain) {
+            // must be a LL_CHANNEL_MAP_IND due to length
+            // 1 byte opcode + 7 byte CtrData + 4 byte MIC
+            // usually the switch is 6-10 instants from now
+            // we'll switch on the late side to avoid false measurement
+            // we'll figure out the correct map and update accordingly
+            // note: we can't try to guess the map when we're a master
+            next_rconf.chanMap = 0x1FFFFFFFFFULL;
+            next_rconf.chanMapCertain = false;
+            next_rconf.offset = 0;
+            next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+            next_rconf.intervalCertain = true; // interval test would conflict
+            next_rconf.phy = last_rconf->phy;
+            next_rconf.slaveLatency = 10; // tolerate sparse channel map
+            nextInstant = (connEventCount + 9) & 0xFFFF;
+            rconf_enqueue(nextInstant, &next_rconf);
         } else if (datLen == 16 && instaHop) {
-            // special case: this must be a LL_CONNECTION_UPDATE_IND due to length
+            // must be a LL_CONNECTION_UPDATE_IND due to length
             // 1 byte opcode + 11 byte CtrData + 4 byte MIC
             // usually this means switching to a different connection interval, or slave latency
             // usually the switch is 6-10 instants from now
             // with instahop, setting an inaccurately long interval temporarily is OK
             // we'll figure out the correct interval and update accordingly
             next_rconf.chanMap = last_rconf->chanMap;
+            next_rconf.chanMapCertain = true; // chan map test would conflict
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = 240 * 5000;
             next_rconf.intervalCertain = false;
@@ -896,6 +940,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
     case 0x00: // LL_CONNECTION_UPDATE_IND
         if (datLen != 12) break;
         next_rconf.chanMap = last_rconf->chanMap;
+        next_rconf.chanMapCertain = last_rconf->chanMapCertain;
         next_rconf.offset = *(uint16_t *)(frame->pData + 4);
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
         next_rconf.intervalCertain = last_rconf->intervalCertain;
@@ -908,6 +953,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         if (datLen != 8) break;
         next_rconf.chanMap = 0;
         memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
+        next_rconf.chanMapCertain = true;
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
         next_rconf.intervalCertain = last_rconf->intervalCertain;
@@ -926,6 +972,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
     case 0x18: // LL_PHY_UPDATE_IND
         if (datLen != 5) break;
         next_rconf.chanMap = last_rconf->chanMap;
+        next_rconf.chanMapCertain = last_rconf->chanMapCertain;
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
         next_rconf.intervalCertain = last_rconf->intervalCertain;
@@ -1115,6 +1162,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
 
     rconf.chanMap = 0;
     memcpy(&rconf.chanMap, llData + 16, 5);
+    rconf.chanMapCertain = true;
     if (use_csa2)
         csa2_computeMapping(accessAddress, rconf.chanMap);
     else
