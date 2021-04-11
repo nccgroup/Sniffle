@@ -820,7 +820,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
     // don't react to encrypted control PDUs we can't decipher
     if (ll_encryption)
     {
-        if (datLen == 5)
+        if (datLen == 9) // 1 byte opcode + 4 byte CtrData + 4 byte MIC
         {
             // special case: this must be a LL_PHY_UPDATE_IND due to length
             // usually this means switching to 2M PHY mode
@@ -831,7 +831,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
             next_rconf.phy = PHY_2M;
             next_rconf.slaveLatency = last_rconf->slaveLatency;
-            nextInstant = (connEventCount + 8) & 0xFFFF;
+            nextInstant = (connEventCount + 7) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
         }
         return;
