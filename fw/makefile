@@ -13,7 +13,8 @@ NAME = sniffle
 CC26X2_PLATFORMS = CC2642R1F CC2652R1F
 CC1352_PLATFORMS = CC1352R1F3
 CC2652RB_PLATFORMS = CC2652RB1F
-SUPPORTED_PLATFORMS = $(CC26X2_PLATFORMS) $(CC1352_PLATFORMS) $(CC2652RB_PLATFORMS)
+CC1352P1_PLATFORMS = CC1352P1F3
+SUPPORTED_PLATFORMS = $(CC26X2_PLATFORMS) $(CC1352_PLATFORMS) $(CC2652RB_PLATFORMS) $(CC1352P1_PLATFORMS)
 
 ifeq ($(PLATFORM),)
     PLATFORM = CC2642R1F
@@ -26,7 +27,6 @@ endif
 ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
     CCXML = CC26X2/CC2652R1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
-    CFLAGS += -ICC26X2
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
@@ -35,7 +35,6 @@ endif
 ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
     CCXML = CC1352/CC1352R1F3.ccxml
     CFLAGS += -DDeviceFamily_CC13X2
-    CFLAGS += -ICC1352
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
@@ -44,13 +43,19 @@ endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
     CCXML = CC2652RB/CC2652RB1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
-    CFLAGS += -ICC26X2
     LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
     LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
     LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC2652RB_LAUNCHXL
 endif
-
+ifneq ($(filter $(PLATFORM), $(CC1352P1_PLATFORMS)),)
+    CCXML = CC1352P1/CC1352P1F3.ccxml
+    CFLAGS += -DDeviceFamily_CC13X2
+    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
+    LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
+    LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
+    SYSCFG_BOARD = /ti/boards/CC1352P1_LAUNCHXL
+endif
 
 XDCTARGET = gnu.targets.arm.M4F
 TI_PLTFRM = ti.platforms.simplelink:$(PLATFORM)

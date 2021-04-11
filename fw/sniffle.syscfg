@@ -44,15 +44,27 @@ ble5.ble = ["bt5le1m"];
 ble5.radioConfigbt5le1m.codeExportConfig.symGenMethod = "Legacy";
 ble5.radioConfigbt5le1m.codeExportConfig.appOverride = "sniffle_overrides.h";
 ble5.radioConfigbt5le1m.codeExportConfig.appOverrideMacro = "BLE_APP_OVERRIDES";
-ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
-    "cmdBle5GenericRx",
-    "cmdBle5Master",
-    "cmdBle5RadioSetup",
-    "cmdBle5Slave",
-    "cmdBleAdv",
-    "cmdBle5Initiator",
-    "cmdBle5Scanner",
-    "cmdFs"];
+if (system.deviceData.deviceId.startsWith("CC1352P")) {
+    ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
+        "cmdBle5GenericRx",
+        "cmdBle5Master",
+        "cmdBle5RadioSetupPa",
+        "cmdBle5Slave",
+        "cmdBleAdv",
+        "cmdBle5Initiator",
+        "cmdBle5Scanner",
+        "cmdFs"];
+} else {
+    ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
+        "cmdBle5GenericRx",
+        "cmdBle5Master",
+        "cmdBle5RadioSetup",
+        "cmdBle5Slave",
+        "cmdBleAdv",
+        "cmdBle5Initiator",
+        "cmdBle5Scanner",
+        "cmdFs"];
+}
 
 /* ======== LED Red ======== */
 var GPIO = scripting.addModule("/ti/drivers/GPIO");  // Add a GPIO module for use by LEDs

@@ -23,6 +23,7 @@ Sniffle has a number of useful features, including:
 * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
 * or TI CC2652RB Launchpad Board: <https://www.ti.com/tool/LP-CC2652RB>
 * or TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
+* or TI CC1352P1 Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352P>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
 * TI CC26x2 SDK 4.40.04.04: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
 * TI DSLite Programmer Software: see below
@@ -114,12 +115,11 @@ To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 `make load` within the `fw` directory. You can also flash the compiled
 `sniffle.out` binary using the UniFlash GUI.
 
-If building for or installing on a CC1352R Launchpad instead of a CC26x2R,
-you must specify `PLATFORM=CC1352R1F3`, either as an argument to make, or
-by defining it as an environment variable prior to invoking make. Similarly,
-specify `PLATFORM=CC2652RB1F` when building for CC2652RB Launchpad instead of
-the regular CC26x2R version. Be sure to perform a `make clean` before building
-for a different platform.
+If building for or installing on a some variant of Launchpad orhter than CC26x2R,
+you must specify `PLATFORM=xxx`, either as an argument to make, or by defining
+it as an environment variable prior to invoking make. Supported values for `PLATFORM`
+are `CC2642R1F`, `CC2652R1F`, `CC1352R1F3`, `CC2652RB1F`, and `CC1352P1F3`.
+Be sure to perform a `make clean` before building for a different platform.
 
 ## Sniffer Usage
 
