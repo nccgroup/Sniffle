@@ -43,8 +43,6 @@ def main():
             help="Hop primary advertising channels in extended mode")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
-    aparse.add_argument("-I", "--instahop", action="store_const", default=False, const=True,
-            help="Hop to next channel immediately when no more data in encrypted conns.")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -84,9 +82,6 @@ def main():
 
     # set up whether or not to follow connections
     hw.cmd_follow(not args.advonly)
-
-    # set instahop
-    hw.cmd_instahop(args.instahop)
 
     # configure RSSI filter
     global _rssi_min

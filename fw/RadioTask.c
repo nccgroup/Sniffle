@@ -93,7 +93,7 @@ static uint32_t advInterval[9];
 static uint32_t aiInd = 0;
 static bool postponed = false;
 static bool followConnections = true;
-static bool instaHop = false;
+static bool instaHop = true;
 
 // bit 0 is M->S, bit 1 is S->M
 static uint8_t moreData;
