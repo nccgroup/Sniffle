@@ -494,7 +494,8 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             // Sleep till next event (till anchor offset before next anchor point)
             // 10us per tick for sleep, 0.25 us per radio tick
             uint32_t rticksRemaining = nextHopTime - RF_getCurrentTime();
-            if (rticksRemaining < 0x7FFFFFFF && rticksRemaining > 2000)
+            if (rticksRemaining < 0x7FFFFFFF && rticksRemaining > 2000 &&
+                    !(ll_encryption && instaHop))
                 Task_sleep(rticksRemaining / 40);
 
             afterConnEvent(true);
