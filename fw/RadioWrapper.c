@@ -119,7 +119,8 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     /* set up the receive request */
     RF_cmdBle5GenericRx.channel = chan;
     RF_cmdBle5GenericRx.whitening.init = 0x40 + chan;
-    RF_cmdBle5GenericRx.phyMode.mainMode = phy;
+    RF_cmdBle5GenericRx.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
+    RF_cmdBle5GenericRx.phyMode.coding = 0; // doesn't matter for receiver
     RF_cmdBle5GenericRx.pParams->pRxQ = &dataQueue;
     RF_cmdBle5GenericRx.pParams->accessAddress = accessAddr;
     RF_cmdBle5GenericRx.pParams->crcInit0 = crcInit & 0xFF;
@@ -310,7 +311,8 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     /* set up the send/receive request */
     RF_cmdBle5Master.channel = chan;
     RF_cmdBle5Master.whitening.init = 0x40 + chan;
-    RF_cmdBle5Master.phyMode.mainMode = phy;
+    RF_cmdBle5Master.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
+    RF_cmdBle5Master.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
     RF_cmdBle5Master.pOutput = &output;
     RF_cmdBle5Master.pParams->pRxQ = &dataQueue;
     RF_cmdBle5Master.pParams->pTxQ = txQueue;
@@ -405,7 +407,8 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     /* set up the send/receive request */
     RF_cmdBle5Slave.channel = chan;
     RF_cmdBle5Slave.whitening.init = 0x40 + chan;
-    RF_cmdBle5Slave.phyMode.mainMode = phy;
+    RF_cmdBle5Slave.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
+    RF_cmdBle5Slave.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
     RF_cmdBle5Slave.pOutput = &output;
     RF_cmdBle5Slave.pParams->pRxQ = &dataQueue;
     RF_cmdBle5Slave.pParams->pTxQ = txQueue;
@@ -508,7 +511,7 @@ void RadioWrapper_resetSeqStat()
  *  peerRandom  RxAdd of CONNECT_IND
  *  connReqData LLData of CONNECT_IND
  *  connTime    Time of first connection event is written here
- *  secPhy      PHY used for connection is written here
+ *  connPhy     PHY used for connection is written here
  *
  * Returns:
  *  -3 on misc error
@@ -526,7 +529,8 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     // set up initiator parameters
     RF_cmdBle5Initiator.channel = chan;
     RF_cmdBle5Initiator.whitening.init = 0x40 + chan;
-    RF_cmdBle5Initiator.phyMode.mainMode = phy;
+    RF_cmdBle5Initiator.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
+    RF_cmdBle5Initiator.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
     RF_cmdBle5Initiator.pParams->pRxQ = &dataQueue;
 
     RF_cmdBle5Initiator.pParams->rxConfig.bAutoFlushIgnored = 1;
@@ -593,7 +597,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     else if (RF_cmdBle5Initiator.pParams->rxListenTime == 0) // no aux pkt received
         *connPhy = PHY_1M;
     else
-        *connPhy = (PHY_Mode)RF_cmdBle5Initiator.pParams->channelNo;
+        *connPhy = (PHY_Mode)RF_cmdBle5Initiator.pParams->phyMode;
 
     switch (RF_cmdBle5Initiator.status)
     {

@@ -20,7 +20,8 @@ typedef enum
 {
     PHY_1M = 0,
     PHY_2M,
-    PHY_CODED
+    PHY_CODED_S8,
+    PHY_CODED_S2
 } PHY_Mode;
 
 typedef struct

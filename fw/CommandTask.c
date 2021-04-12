@@ -71,7 +71,7 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_SETCHANAAPHY:
             if (ret != 12) continue;
             if (msgBuf[2] > 39) continue;
-            if (msgBuf[7] > 2) continue;
+            if (msgBuf[7] > 3) continue;
             setChanAAPHYCRCI(msgBuf[2], *(uint32_t *)(msgBuf + 3),
                     (PHY_Mode)msgBuf[7], *(uint32_t *)(msgBuf + 8));
             break;

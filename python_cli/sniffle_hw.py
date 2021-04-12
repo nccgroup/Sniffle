@@ -30,8 +30,8 @@ class SniffleHW:
     def cmd_chan_aa_phy(self, chan=37, aa=0x8E89BED6, phy=0, crci=0x555555):
         if not (0 <= chan <= 39):
             raise ValueError("Channel must be between 0 and 39")
-        if not (0 <= phy <= 2):
-            raise ValueError("PHY must be 0 (1M), 1 (2M), or 2 (coded)")
+        if not (0 <= phy <= 3):
+            raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
         self._send_cmd([0x10, *list(pack("<BLBL", chan, aa, phy, crci))])
 
     def cmd_pause_done(self, pause_when_done=False):
@@ -307,7 +307,7 @@ class PacketMessage:
                 type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy, repr(self.body))
 
     def str_header(self):
-        phy_names = ["1M", "2M", "Coded", "Reserved"]
+        phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
         return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
             self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy])
 

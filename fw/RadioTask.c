@@ -883,7 +883,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.phy = PHY_2M;
             break;
         case 0x4:
-            next_rconf.phy = PHY_CODED;
+            next_rconf.phy = PHY_CODED_S8;
             break;
         default:
             next_rconf.phy = last_rconf->phy;
@@ -1030,7 +1030,7 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
             auxPeriod = (AUX_OFF_TARG_USEC + 3000) * 4;
         else if (phy == PHY_2M)
             auxPeriod = (AUX_OFF_TARG_USEC + 2000) * 4;
-        else // (phy == PHY_CODED)
+        else // (phy == PHY_CODED_S8 || phy == PHY_CODED_S2)
             auxPeriod = (AUX_OFF_TARG_USEC + 20000) * 4;
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, auxPeriod);
 
@@ -1073,7 +1073,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     uint32_t transmitWindowDelay;
     if (!isAuxReq)
         transmitWindowDelay = 5000;
-    else if (phy == PHY_CODED)
+    else if (phy == PHY_CODED_S8 || phy == PHY_CODED_S2)
         transmitWindowDelay = 15000;
     else
         transmitWindowDelay = 10000;
