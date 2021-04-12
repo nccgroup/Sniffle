@@ -28,7 +28,7 @@
 #define DATA_ENTRY_HEADER_SIZE 8    /* Constant header size of a Generic Data Entry */
 #define MAX_LENGTH             257  /* Max 8-bit length + two byte BLE header */
 #define NUM_DATA_ENTRIES       2    /* NOTE: Only two data entries supported at the moment */
-#define NUM_APPENDED_BYTES     6    /* Prepended length byte, appended RSSI, appended 4 byte timestamp*/
+#define NUM_APPENDED_BYTES     7    /* Appended RSSI, appended status word, appended 4 byte timestamp*/
 
 /*********************************************************************
  * LOCAL VARIABLES
@@ -46,16 +46,9 @@ static uint8_t rxDataEntryBuffer [RF_QUEUE_DATA_ENTRY_BUFFER_SIZE(NUM_DATA_ENTRI
             MAX_LENGTH, NUM_APPENDED_BYTES)] __attribute__ ((aligned (4)));
 
 static bool configured = false;
-static uint8_t last_channel = 0xFF;
-static PHY_Mode last_phy = PHY_1M;
+static bool ble4_cmd = false; // indicates one byte status word
 
 static RadioWrapper_Callback userCallback = NULL;
-
-// In radio ticks (4 MHz)
-static uint32_t trigTime = 0;
-static uint32_t delay39 = 0;
-
-static bool trigTimeSet = false;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -68,7 +61,7 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e);
 
 int RadioWrapper_init()
 {
-    if(!configured)
+    if (!configured)
     {
         bleRfHandle = RF_open(&bleRfObject, &RF_prop,
                         (RF_RadioSetup*)&RF_cmdBle5RadioSetup, NULL);
@@ -109,12 +102,11 @@ int RadioWrapper_init()
 int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback)
 {
-    if((!configured) || (chan >= 40))
-    {
+    if ((!configured) || (chan >= 40))
         return -EINVAL;
-    }
 
     userCallback = callback;
+    ble4_cmd = false;
 
     /* set up the receive request */
     RF_cmdBle5GenericRx.channel = chan;
@@ -134,7 +126,7 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeCrc = 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBle5GenericRx.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5GenericRx.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendTimestamp = 1;
 
     /* receive forever if timeout == 0xFFFFFFFF */
@@ -147,9 +139,6 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5GenericRx.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5GenericRx.pParams->endTime = 0;
     }
-
-    last_channel = chan;
-    last_phy = phy;
 
     /* Enter RX mode and stay in RX till timeout */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5GenericRx, RF_PriorityNormal,
@@ -183,6 +172,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
         return -EINVAL;
 
     userCallback = callback;
+    ble4_cmd = false;
 
     // commom parameters for sniffing advertisements
     para37.pRxQ = &dataQueue;
@@ -198,7 +188,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para37.rxConfig.bIncludeLenByte = 1;
     para37.rxConfig.bIncludeCrc = 0;
     para37.rxConfig.bAppendRssi = 1;
-    para37.rxConfig.bAppendStatus = 0;
+    para37.rxConfig.bAppendStatus = 1;
     para37.rxConfig.bAppendTimestamp = 1;
     para37.endTrigger.triggerType = TRIG_NEVER;
     para37.endTrigger.bEnaCmd = 0;
@@ -241,9 +231,6 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para37.endTrigger.triggerType = TRIG_NEVER;
     para37.endTrigger.bEnaCmd = 1;
 
-    trigTimeSet = false;
-    delay39 = delay1;
-
     sniff38.pNextOp = (RF_Op *)&sniff39;
     sniff38.pParams = &para38;
     sniff38.channel = 38;
@@ -256,10 +243,6 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para39.endTrigger.triggerType = TRIG_REL_PREVEND;
     para39.endTime = delay2;
 
-    // special case to figure out which channel we're on
-    last_channel = 40;
-    last_phy = PHY_1M;
-
     // run the command chain
     RF_runCmd(bleRfHandle, (RF_Op*)&sniff37, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
@@ -271,12 +254,6 @@ void RadioWrapper_trigAdv3()
 {
     // trigger switch from chan 37 to 38
     RF_runDirectCmd(bleRfHandle, 0x04040001);
-
-    // helps in keeping track of which channel was sniffed when
-    if (!trigTimeSet) {
-        trigTime = RF_getCurrentTime();
-        trigTimeSet = true;
-    }
 }
 
 /* Transmit/receive in BLE5 Master Mode
@@ -301,12 +278,11 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 {
     rfc_bleMasterSlaveOutput_t output;
 
-    if((!configured) || (chan >= 37))
-    {
+    if ((!configured) || (chan >= 37))
         return -EINVAL;
-    }
 
     userCallback = callback;
+    ble4_cmd = false;
 
     /* set up the send/receive request */
     RF_cmdBle5Master.channel = chan;
@@ -331,7 +307,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Master.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5Master.pParams->rxConfig.bIncludeCrc = 0;
     RF_cmdBle5Master.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBle5Master.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5Master.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBle5Master.pParams->rxConfig.bAppendTimestamp = 1;
 
     // start immediately if startTime = 0
@@ -354,9 +330,6 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5Master.pParams->endTime = 0;
     }
-
-    last_channel = chan;
-    last_phy = phy;
 
     /* Enter master mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
@@ -397,12 +370,11 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 {
     rfc_bleMasterSlaveOutput_t output;
 
-    if((!configured) || (chan >= 37))
-    {
+    if ((!configured) || (chan >= 37))
         return -EINVAL;
-    }
 
     userCallback = callback;
+    ble4_cmd = false;
 
     /* set up the send/receive request */
     RF_cmdBle5Slave.channel = chan;
@@ -427,7 +399,7 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Slave.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5Slave.pParams->rxConfig.bIncludeCrc = 0;
     RF_cmdBle5Slave.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBle5Slave.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5Slave.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBle5Slave.pParams->rxConfig.bAppendTimestamp = 1;
 
     // start immediately if startTime = 0
@@ -457,9 +429,6 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5Slave.pParams->timeoutTime = 0;
     }
-
-    last_channel = chan;
-    last_phy = phy;
 
     /* Enter slave mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
@@ -526,6 +495,12 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     const uint16_t *peerAddr, bool peerRandom, const void *connReqData,
     uint32_t *connTime, PHY_Mode *connPhy)
 {
+    if (!configured)
+        return -EINVAL;
+
+    userCallback = callback;
+    ble4_cmd = false;
+
     // set up initiator parameters
     RF_cmdBle5Initiator.channel = chan;
     RF_cmdBle5Initiator.whitening.init = 0x40 + chan;
@@ -539,7 +514,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_cmdBle5Initiator.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5Initiator.pParams->rxConfig.bIncludeCrc = 0;
     RF_cmdBle5Initiator.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBle5Initiator.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBle5Initiator.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBle5Initiator.pParams->rxConfig.bAppendTimestamp = 1;
 
     RF_cmdBle5Initiator.pParams->initConfig.bUseWhiteList = 0; // specific peer
@@ -577,14 +552,6 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     /* for now, we're not defining a timeout separate from end */
     RF_cmdBle5Initiator.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
     RF_cmdBle5Initiator.pParams->timeoutTime = 0;
-
-    /* Known Issue:
-     * Aux channel packets will have their PHY and channel reported incorrectly
-     * here since the radio core switch channels on its own. For now, I'm not
-     * going to bother dealing with this.
-     */
-    last_channel = chan;
-    last_phy = phy;
 
     /* Enter initiator mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Initiator, RF_PriorityNormal,
@@ -641,6 +608,12 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
     uint8_t scanRspLen)
 {
+    if (!configured)
+        return -EINVAL;
+
+    userCallback = callback;
+    ble4_cmd = true;
+
     RF_cmdBleAdv.whitening.bOverride = 0x0;
 
     RF_cmdBleAdv.pParams->pRxQ = &dataQueue;
@@ -650,7 +623,7 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     RF_cmdBleAdv.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBleAdv.pParams->rxConfig.bIncludeCrc = 0;
     RF_cmdBleAdv.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBleAdv.pParams->rxConfig.bAppendStatus = 0;
+    RF_cmdBleAdv.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBleAdv.pParams->rxConfig.bAppendTimestamp = 1;
 
     RF_cmdBleAdv.pParams->advConfig.advFilterPolicy = 0x0; // no whitelist
@@ -675,8 +648,6 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     RF_cmdBleAdv.pParams->endTime = 4000;
 
     RF_cmdBleAdv.channel = 37;
-    last_channel = 37;
-    last_phy = PHY_1M;
 
     /* Enter advertiser mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
@@ -702,7 +673,6 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     }
 
     RF_cmdBleAdv.channel = 38;
-    last_channel = 38;
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
@@ -726,7 +696,6 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     }
 
     RF_cmdBleAdv.channel = 39;
-    last_channel = 39;
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
@@ -768,34 +737,34 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
         currentDataEntry = RFQueue_getDataEntry();
         packetPointer = (uint8_t *)(&currentDataEntry->data);
 
-
         /* In the current radio configuration:
-         * Byte 0:      Overall length (byte_2 + 2, redundant)
-         * Byte 1:      Advertisement/data PDU header
-         * Byte 2:      PDU body length (advert or data)
-         * Bytes 3-8:   AdvA for legacy advertisements
+         * Byte 0:      Advertisement/data PDU header
+         * Byte 1:      PDU body length (advert or data)
+         * Byte 2...:   PDU body
+         * Byte 2+l:    RSSI
+         * Byte 3+l:    Channel (and bIgnore, bCrcErr)
+         * Byte 4+l:    PHY mode (byte not present if ble4_cmd)
+         * Byte 5+l...: Timestamp (32 bit)
          */
-        frame.length = packetPointer[2] + 2;
-        frame.pData = packetPointer + 1;
+        frame.length = packetPointer[1] + 2;
+        frame.pData = packetPointer;
 
-        frame.rssi = (int8_t)packetPointer[3 + packetPointer[2]];
+        frame.rssi = (int8_t)packetPointer[frame.length];
+        frame.channel = packetPointer[frame.length + 1] & 0x3F;
+
+        if (ble4_cmd)
+        {
+            frame.phy = PHY_1M;
+            memcpy(&frame.timestamp, packetPointer + frame.length + 2, 4);
+        } else {
+            frame.phy = packetPointer[frame.length + 2] & 0x3;
+            memcpy(&frame.timestamp, packetPointer + frame.length + 3, 4);
+        }
 
         /* 4 MHz clock, so divide by 4 to get microseconds */
-        memcpy(&frame.timestamp, packetPointer + 4 + packetPointer[2], 4);
         frame.timestamp >>= 2;
 
-        if (last_channel < 40)
-            frame.channel = last_channel;
-        else if (!trigTimeSet)
-            frame.channel = 37;
-        else if (frame.timestamp*4 < trigTime)
-            frame.channel = 37; // stragglers
-        else if (frame.timestamp*4 < trigTime + delay39)
-            frame.channel = 38;
-        else
-            frame.channel = 39;
-
-        frame.phy = last_phy;
+        /* gets overwritten with actual direction in user callback */
         frame.direction = 0;
 
         if (userCallback) userCallback(&frame);
@@ -806,10 +775,8 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 
 int RadioWrapper_close()
 {
-    if(!configured)
-    {
+    if (!configured)
         return -EINVAL;
-    }
 
     RF_close(bleRfHandle);
 

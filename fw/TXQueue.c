@@ -54,7 +54,7 @@ uint32_t TXQueue_take(dataQueue_t *pRFQueue)
         queue_entries[i].pNextEntry = (uint8_t *)(queue_entries + i + 1);
         queue_entries[i].status = DATA_ENTRY_PENDING;       // Pending - starting state
         queue_entries[i].config.type = DATA_ENTRY_TYPE_PTR; // Pointer Data Entry
-        queue_entries[i].config.lenSz = 0;                  // No length indicator byte in data
+        queue_entries[i].config.lenSz = 0;                  // Length indicator byte in data
 
         uint32_t n = (queue_tail + i) & TX_QUEUE_MASK;
         queue_entries[i].length = packet_lens[n] + 1;       // extra byte for LLID

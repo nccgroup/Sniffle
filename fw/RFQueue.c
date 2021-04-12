@@ -113,7 +113,7 @@ RFQueue_defineQueue(dataQueue_t *dataQueue, uint8_t *buf, uint16_t buf_len, uint
     buf = first_entry + i * (RF_QUEUE_DATA_ENTRY_HEADER_SIZE + length + pad);
     ((rfc_dataEntry_t*)buf)->status        = DATA_ENTRY_PENDING;        // Pending - starting state
     ((rfc_dataEntry_t*)buf)->config.type   = DATA_ENTRY_TYPE_GEN;       // General Data Entry
-    ((rfc_dataEntry_t*)buf)->config.lenSz  = 1;                         // No length indicator byte in data
+    ((rfc_dataEntry_t*)buf)->config.lenSz  = 0;                         // Redudant with bIncludeLenByte
     ((rfc_dataEntry_t*)buf)->length        = length;                    // Total length of data field
 
     ((rfc_dataEntryGeneral_t*)buf)->pNextEntry = &(((rfc_dataEntryGeneral_t*)buf)->data)+length+pad;
