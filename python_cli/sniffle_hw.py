@@ -1,5 +1,5 @@
 # Written by Sultan Qasim Khan
-# Copyright (c) 2019, NCC Group plc
+# Copyright (c) 2019-2021, NCC Group plc
 # Released as open source under GPLv3
 
 from serial import Serial
