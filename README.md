@@ -25,7 +25,7 @@ Sniffle has a number of useful features, including:
 * or TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
 * or TI CC1352P1 Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352P>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
-* TI CC26x2 SDK 4.40.04.04: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
+* TI CC26x2 SDK 5.10.00.48: <https://www.ti.com/tool/download/SIMPLELINK-CC13X2-26X2-SDK>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
@@ -55,7 +55,7 @@ expect this path, so I suggest just going with the default here. The same
 applies for the TI SysConfig tool.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within `~/ti/simplelink_cc13x2_26x2_sdk_4_40_04_04`
+your build environment. Within `~/ti/simplelink_cc13x2_26x2_sdk_5_10_00_48`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
 The only paths that need to be set here to build Sniffle are for GCC, XDC, and
 SysConfig. We don't need the CCS compiler. See the diff below as an example,
@@ -63,7 +63,7 @@ and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index 8ed969e62..ff629c296 100644
+index d815a4e94..731d49419 100644
 --- a/imports.mak
 +++ b/imports.mak
 @@ -18,14 +18,14 @@
@@ -71,25 +71,20 @@ index 8ed969e62..ff629c296 100644
  #
  
 -XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_62_00_08_core
--SYSCONFIG_TOOL         ?= /home/username/ti/ccs1020/ccs/utils/sysconfig_1.7.0/sysconfig_cli.sh
+-SYSCONFIG_TOOL         ?= /home/username/ti/ccs1030/ccs/utils/sysconfig_1.8.0/sysconfig_cli.sh
 +XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_62_00_08_core
-+SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.7.0/sysconfig_cli.sh
++SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.8.0/sysconfig_cli.sh
  
  FREERTOS_INSTALL_DIR   ?= /home/username/FreeRTOSv10.2.1
  
- CCS_ARMCOMPILER        ?= /home/username/ti/ccs1020/ccs/tools/compiler/ti-cgt-arm_20.2.1.LTS
- TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1020/ccs/tools/compiler/1.0.0.STS
--GCC_ARMCOMPILER        ?= /home/username/ti/ccs1020/ccs/tools/compiler/9.2019.q4.major
+ CCS_ARMCOMPILER        ?= /home/username/ti/ccs1030/ccs/tools/compiler/ti-cgt-arm_20.2.4.LTS
+ TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1030/ccs/tools/compiler/1.2.1.STS
+-GCC_ARMCOMPILER        ?= /home/username/ti/ccs1030/ccs/tools/compiler/9.2019.q4.major
 +GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/gcc-arm-none-eabi-9-2019-q4-major
  
  # The IAR compiler is not supported on Linux
  # IAR_ARMCOMPILER      ?=
 ```
-
-Due to a problem in the SysConfig input files as of SDK 4.40.04.04, SysConfig
-will generate improper command parameter structures containing a non-existent
-field named `auxChRes`. To fix this, you will need to apply the patch
-`auxChRes.patch` located in the `fw` directory of Sniffle to the TI SDK.
 
 ### Obtaining DSLite
 

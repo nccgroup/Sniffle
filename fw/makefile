@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_4_40_04_04
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_5_10_00_48
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -27,33 +27,21 @@ endif
 ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
     CCXML = CC26X2/CC2652R1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
-    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
-    LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
-    LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC26X2R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
     CCXML = CC1352/CC1352R1F3.ccxml
     CFLAGS += -DDeviceFamily_CC13X2
-    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
-    LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
-    LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
     CCXML = CC2652RB/CC2652RB1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
-    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc26x2.am4fg
-    LFLAGS += -l:ti/drivers/lib/drivers_cc26x2.am4fg
-    LFLAGS += -l:ti/dpl/lib/dpl_cc26x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC2652RB_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352P1_PLATFORMS)),)
     CCXML = CC1352P1/CC1352P1F3.ccxml
     CFLAGS += -DDeviceFamily_CC13X2
-    LFLAGS += -l:ti/drivers/rf/lib/rf_multiMode_cc13x2.am4fg
-    LFLAGS += -l:ti/drivers/lib/drivers_cc13x2.am4fg
-    LFLAGS += -l:ti/dpl/lib/dpl_cc13x2.am4fg
     SYSCFG_BOARD = /ti/boards/CC1352P1_LAUNCHXL
 endif
 
@@ -73,10 +61,9 @@ LFLAGS += \
     -Wl,-T,cc13x2_cc26x2_tirtos.lds \
     "-Wl,-Map,$(NAME).map" \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
-    -l:ti/display/lib/display.am4fg \
-    -l:ti/grlib/lib/gcc/m4f/grlib.a \
     -l:third_party/spiffs/lib/gcc/m4f/spiffs_cc26xx.a \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
+    ti_utils_build_linker.cmd.genlibs \
     "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
     -l:ti/devices/cc13x2_cc26x2/driverlib/bin/gcc/driverlib.lib \
     -march=armv7e-m \
