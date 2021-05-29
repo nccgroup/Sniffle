@@ -890,6 +890,11 @@ static void reactToDataPDU(const BLE_Frame *frame)
             // usually this means switching to 2M PHY mode
             // usually the switch is 6-10 instants from now
             // thus, we'll make an educated guess
+            //
+            // Note:
+            // On BLE 5.2+, it could also be LL_POWER_CONTROL_RSP or LL_POWER_CHANGE_IND.
+            // I'll deal with that possibility another day, since hardly anything uses
+            // BLE 5.2 power control currently.
             next_rconf.chanMap = last_rconf->chanMap;
             next_rconf.chanMapCertain = last_rconf->chanMapCertain;
             next_rconf.offset = 0;
