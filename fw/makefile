@@ -37,7 +37,7 @@ endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
     CCXML = CC2652RB/CC2652RB1F.ccxml
     CFLAGS += -DDeviceFamily_CC26X2
-    SYSCFG_BOARD = /ti/boards/CC2652RB_LAUNCHXL
+    SYSCFG_BOARD = /ti/boards/LP_CC2652RB
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352P1_PLATFORMS)),)
     CCXML = CC1352P1/CC1352P1F3.ccxml
