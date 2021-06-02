@@ -6,7 +6,7 @@
 
 import argparse, sys
 from pcap import PcapBleWriter
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage
+from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
         ConnectIndMessage, DataMessage)
 from binascii import unhexlify
@@ -130,7 +130,8 @@ def main():
 def print_message(msg, quiet):
     if isinstance(msg, PacketMessage):
         print_packet(msg, quiet)
-    elif isinstance(msg, DebugMessage) or isinstance(msg, StateMessage):
+    elif isinstance(msg, DebugMessage) or isinstance(msg, StateMessage) or \
+            isinstance(msg, MeasurementMessage):
         print(msg, end='\n\n')
 
 def print_packet(pkt, quiet):

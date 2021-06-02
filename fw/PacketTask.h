@@ -11,6 +11,11 @@
 #include <stdbool.h>
 #include "RadioWrapper.h"
 
+#define MSGCHAN_DEBUG   40
+#define MSGCHAN_MARKER  41
+#define MSGCHAN_STATE   42
+#define MSGCHAN_MEASURE 43
+
 /* Create the PacketTask and creates all TI-RTOS objects */
 void PacketTask_init(void);
 

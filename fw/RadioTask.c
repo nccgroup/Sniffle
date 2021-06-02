@@ -201,13 +201,67 @@ static void stateTransition(SnifferState newState)
     buf = (uint8_t)newState;
     frame.timestamp = 0;
     frame.rssi = 0;
-    frame.channel = 42; // indicates state message
+    frame.channel = MSGCHAN_STATE;
     frame.phy = PHY_1M;
     frame.pData = &buf;
     frame.length = 1;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
+}
+
+static void reportMeasurement(uint8_t *buf, uint8_t len)
+{
+    BLE_Frame frame;
+
+    frame.timestamp = 0;
+    frame.rssi = 0;
+    frame.channel = MSGCHAN_MEASURE;
+    frame.phy = PHY_1M;
+    frame.pData = buf;
+    frame.length = len;
+
+    // Does thread safe copying into queue
+    indicatePacket(&frame);
+}
+
+enum MeasurementTypes
+{
+    MEASTYPE_INTERVAL,
+    MEASTYPE_CHANMAP,
+    MEASTYPE_ADVHOP
+};
+
+static void reportMeasInterval(uint16_t interval)
+{
+    uint8_t buf[3];
+
+    buf[0] = MEASTYPE_INTERVAL;
+    buf[1] = interval & 0xFF;
+    buf[2] = interval >> 8;
+
+    reportMeasurement(buf, sizeof(buf));
+}
+
+static void reportMeasChanMap(uint64_t map)
+{
+    uint8_t buf[6];
+
+    // map should be between 0 and 0x1FFFFFFFFF (37 data channels)
+    buf[0] = MEASTYPE_CHANMAP;
+    memcpy(buf + 1, &map, 5);
+
+    reportMeasurement(buf, sizeof(buf));
+}
+
+static void reportMeasAdvHop(uint32_t hop_us)
+{
+    uint8_t buf[5];
+
+    buf[0] = MEASTYPE_ADVHOP;
+    memcpy(buf + 1, &hop_us, sizeof(uint32_t));
+
+    reportMeasurement(buf, sizeof(buf));
 }
 
 // no side effects
@@ -244,8 +298,7 @@ static void afterConnEvent(bool slave)
         if (chanMapTestMask == 0x1FFFFFFFFFULL)
         {
             rconf.chanMapCertain = true;
-            dprintf("meas chan map: 0x%02x%08x",
-                    (uint32_t)(rconf.chanMap>>32), (uint32_t)(rconf.chanMap & 0xFFFFFFFF));
+            reportMeasChanMap(rconf.chanMap);
         }
     }
 
@@ -283,7 +336,7 @@ static void afterConnEvent(bool slave)
         uint32_t interval = (medIntervalTicks + 2500) / 5000; // snap to nearest multiple of 1.25 ms
         rconf.hopIntervalTicks = interval * 5000;
         rconf.intervalCertain = true;
-        dprintf("meas conn interval: %u", interval);
+        reportMeasInterval((uint16_t)interval);
 
         // clock drift compensator only works correctly when interval is correct
         // reset its state, and make sure we don't time out prematurely
@@ -374,8 +427,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     continue;
                 }
 
-                // DEBUG
-                dprintf("hop us %lu", rconf.hopIntervalTicks >> 2);
+                reportMeasAdvHop(rconf.hopIntervalTicks >> 2);
 
                 connEventCount = 0;
                 stateTransition(ADVERT_HOP);
@@ -1300,7 +1352,7 @@ void sendMarker()
 
     frame.timestamp = RF_getCurrentTime() >> 2;
     frame.rssi = 0;
-    frame.channel = 41; // indicates marker message
+    frame.channel = MSGCHAN_MARKER;
     frame.phy = PHY_1M;
     frame.pData = NULL;
     frame.length = 0;

@@ -153,6 +153,8 @@ class SniffleHW:
                 return MarkerMessage(mbody, self.decoder_state)
             elif mtype == 0x13:
                 return StateMessage(mbody, self.decoder_state)
+            elif mtype == 0x14:
+                return MeasurementMessage.from_raw(mbody)
             elif mtype == -1:
                 return None # receive cancelled
             else:
@@ -357,3 +359,58 @@ class StateMessage:
     def __str__(self):
         return "TRANSITION: %s from %s" % (str(self.new_state),
                 str(self.last_state))
+
+class MeasurementType(Enum):
+    INTERVAL = 0
+    CHANMAP = 1
+    ADVHOP = 2
+
+class MeasurementMessage:
+    def __init__(self, raw_msg):
+        self.value = raw_msg
+
+    def __repr__(self):
+        return "%s(value=%s)" % (type(self).__name__, str(self.value))
+
+    @staticmethod
+    def from_raw(raw_msg):
+        if len(raw_msg) < 2 or raw_msg[1] > MeasurementType.ADVHOP.value:
+            return MeasurementMessage(raw_msg)
+
+        if len(raw_msg) - 1 != raw_msg[0]:
+            raise SniffleHWPacketError("Incorrect length field!")
+
+        mtype = MeasurementType(raw_msg[1])
+        if mtype == MeasurementType.INTERVAL:
+            return IntervalMeasurement(raw_msg[2:])
+        elif mtype == MeasurementType.CHANMAP:
+            return ChanMapMeasurement(raw_msg[2:])
+        elif mtype == MeasurementType.ADVHOP:
+            return AdvHopMeasurement(raw_msg[2:])
+
+        # should never be reached
+        return None
+
+class IntervalMeasurement(MeasurementMessage):
+    def __init__(self, raw_val):
+        self.value = unpack("<H", raw_val)
+
+    def __str__(self):
+        return "Measured Connection Interval: %d" % self.value
+
+def chan_map_to_hex(cmap: bytes) -> str:
+    return "0x" + "%02X%02X%02X%02X%02X" % tuple(reversed(cmap))
+
+class ChanMapMeasurement(MeasurementMessage):
+    def __init__(self, raw_val):
+        self.value = raw_val
+
+    def __str__(self):
+        return "Measured Channel Map: " + chan_map_to_hex(self.value)
+
+class AdvHopMeasurement(MeasurementMessage):
+    def __init__(self, raw_val):
+        self.value = unpack("<L", raw_val)
+
+    def __str__(self):
+        return "Measured Advertising Hop: %d us" % self.value

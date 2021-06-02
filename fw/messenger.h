@@ -15,6 +15,7 @@
 #define MESSAGE_DEBUG 0x11
 #define MESSAGE_MARKER 0x12
 #define MESSAGE_STATE 0x13
+#define MESSAGE_MEASURE 0x14
 
 int messenger_init();
 int messenger_recv(uint8_t *dst_buf);

@@ -5,7 +5,7 @@
 # Released as open source under GPLv3
 
 import argparse, sys
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage
+from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import DPacketMessage, ConnectIndMessage
 
 # global variable to access hardware
@@ -65,9 +65,9 @@ def main():
 def print_message(msg):
     if isinstance(msg, PacketMessage):
         print_packet(msg)
-    elif isinstance(msg, DebugMessage):
-        print(msg)
-    elif isinstance(msg, StateMessage):
+    elif isinstance(msg, DebugMessage) or \
+            isinstance(msg, StateMessage) or \
+            isinstance(msg, MeasurementMessage):
         print(msg)
     print()
 

@@ -17,7 +17,7 @@ void dprintf(const char *fmt, ...)
 
     frame.timestamp = 0;
     frame.rssi = 0;
-    frame.channel = 40; // indicates debug message
+    frame.channel = MSGCHAN_DEBUG;
     frame.phy = PHY_1M;
     frame.direction = 0;
     frame.pData = (uint8_t *)buf;

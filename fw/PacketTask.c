@@ -12,6 +12,7 @@
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
+#include <PacketTask.h>
 #include <RadioTask.h>
 #include <RadioWrapper.h>
 #include <messenger.h>
@@ -119,7 +120,7 @@ static void sendPacket(BLE_Frame *frame)
         return;
 
     // special case: debug prints
-    if (frame->channel == 40)
+    if (frame->channel == MSGCHAN_DEBUG)
     {
         // Byte 0 is message type
         *msg_ptr++ = MESSAGE_DEBUG;
@@ -127,19 +128,29 @@ static void sendPacket(BLE_Frame *frame)
         // Bytes 1 and up are debug print string
         memcpy(msg_ptr, frame->pData, frame->length);
         msg_ptr += frame->length;
-    } else if (frame->channel == 41) {
+    } else if (frame->channel == MSGCHAN_MARKER) {
         // Byte 0 is message type
         *msg_ptr++ = MESSAGE_MARKER;
 
         // bytes 1-4 are timestamp (little endian)
         memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
         msg_ptr += sizeof(frame->timestamp);
-    } else if (frame->channel == 42) {
+    } else if (frame->channel == MSGCHAN_STATE) {
         // byte 0 is message type
         *msg_ptr++ = MESSAGE_STATE;
 
         // byte 1 is the new state
         *msg_ptr++ = frame->pData[0];
+    } else if (frame->channel == MSGCHAN_MEASURE) {
+        // byte 0 is message type
+        *msg_ptr++ = MESSAGE_MEASURE;
+
+        // byte 1 is length
+        *msg_ptr++ = (uint8_t)frame->length;
+
+        // bytes 2+ are message body
+        memcpy(msg_ptr, frame->pData, frame->length);
+        msg_ptr += frame->length;
     } else {
         // byte 0 is message type
         *msg_ptr++ = MESSAGE_BLEFRAME;
