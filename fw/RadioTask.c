@@ -84,6 +84,8 @@ static bool ll_encryption;
 
 static volatile bool gotLegacy;
 static volatile bool firstPacket;
+static uint32_t legacyLen;
+static uint32_t expectedLegacyLen;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 
@@ -93,10 +95,6 @@ static uint32_t itInd;
 
 static uint64_t chanMapTestMask;
 
-static uint32_t timestamp37 = 0;
-static uint32_t lastAdvTicks = 0;
-static uint32_t advInterval[9];
-static uint32_t aiInd = 0;
 static bool postponed = false;
 static bool followConnections = true;
 static bool instaHop = true;
@@ -164,29 +162,6 @@ static uint32_t median(uint32_t *arr, size_t sz)
 {
     qsort(arr, sz, sizeof(uint32_t), _compare);
     return arr[sz >> 1];
-}
-
-static uint32_t percentile25(uint32_t *arr, size_t sz)
-{
-    qsort(arr, sz, sizeof(uint32_t), _compare);
-    return arr[sz >> 2];
-}
-
-static bool enoughTimeForAdvHopCheck()
-{
-    uint8_t chan;
-    PHY_Mode phy;
-    uint32_t cur_t = RF_getCurrentTime();
-    uint32_t etime = AuxAdvScheduler_next(cur_t, &chan, &phy);
-
-    if (chan != 0xFF)
-        return false; // aux PDU time!
-
-    // upcoming aux pkt, no time for check
-    if (etime - LISTEN_TICKS_MIN - cur_t - (rconf.hopIntervalTicks * 8) >= 0x80000000)
-        return false;
-
-    return true;
 }
 
 static void stateTransition(SnifferState newState)
@@ -396,115 +371,63 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             if (auxAdvEnabled)
                 DelayStopTrigger_trig(3 * 1000000);
 
-            firstPacket = true;
-            RadioWrapper_recvAdv3(200, 22*4000, indicatePacket);
-            firstPacket = false;
+            RadioWrapper_recvFrames(PHY_1M, 37, BLE_ADV_AA, 0x555555,
+                    RF_getCurrentTime() + 3*4000000, indicatePacket);
 
             // break out early if we cancelled
             if (snifferState != ADVERT_SEEK) continue;
 
             // Timeout case
             if (!gotLegacy && auxAdvEnabled) {
-                // assume 700 us hop interval
-                rconf.hopIntervalTicks = 700 * 4;
-                connEventCount = 0;
+                // assume 688 us hop interval
+                rconf.hopIntervalTicks = 688 * 4;
+                expectedLegacyLen = 32;
                 dprintf("No legacy ads, jumping to ADVERT_HOP");
                 stateTransition(ADVERT_HOP);
                 continue;
             }
 
-            if (aiInd == ARR_SZ(advInterval))
+            // based on my experiments, for connectable or scannable legacy advertisements,
+            // the advertising hop interval (without scan requests) is always:
+            //      ad_len*8 + 432 us
+            // thus, no need for measurements and medians, just figure it out based on ad len
+            if (gotLegacy)
             {
-                // two hops from 37 -> 39, four ticks per microsecond, 4 / 2 = 2
-                rconf.hopIntervalTicks = percentile25(advInterval, ARR_SZ(advInterval)) * 2;
-
-                // If hop interval is over 11 ms (* 4000 ticks/ms), something is wrong
-                // Hop interval under 400 us is also wrong
-                if ((rconf.hopIntervalTicks > 11*4000) || (rconf.hopIntervalTicks < 400*4))
-                {
-                    // try again
-                    advHopSeekMode();
-                    continue;
-                }
-
+                rconf.hopIntervalTicks = legacyLen*32 + 432*4;
                 reportMeasAdvHop(rconf.hopIntervalTicks >> 2);
+                expectedLegacyLen = legacyLen;
 
-                connEventCount = 0;
                 stateTransition(ADVERT_HOP);
             }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
-            gotLegacy = false; // used to avoid spurious increments of connEventCount
+            gotLegacy = false;
             postponed = false;
-            if ((connEventCount & 0x1F) == 0x1F && enoughTimeForAdvHopCheck())
+
+            if (auxAdvEnabled)
             {
-                bool interval_changed = false;
-
-                // occasionally check that hopIntervalTicks is correct
-                // do this by sniffing for an ad on 39 after 37
-                firstPacket = true;
-                aiInd = 0;
-                RadioWrapper_recvAdv3(200, rconf.hopIntervalTicks * 4, indicatePacket);
-
-                // break out early if we cancelled
-                if (snifferState != ADVERT_HOP) continue;
-
-                if (!gotLegacy)
-                    continue; // wrong advertising set, try again
-
-                // make sure hop interval didn't change too much (more than 5 us change)
-                if (!firstPacket)
+                uint8_t chan;
+                PHY_Mode phy;
+                uint32_t cur_t = RF_getCurrentTime();
+                uint32_t etime = AuxAdvScheduler_next(cur_t, &chan, &phy);
+                if (etime - LISTEN_TICKS_MIN - cur_t >= 0x80000000)
+                    continue; // pointless to listen for tiny period, may stall radio with etime in past
+                if (chan != 0xFF)
                 {
-                    int32_t delta_interval = rconf.hopIntervalTicks - (advInterval[0] * 2);
-                    if (delta_interval < 0) delta_interval = -delta_interval;
-                    if (delta_interval > 20) interval_changed = true;
-                }
-
-                // return to ADVERT_SEEK if we got lost
-                if (!firstPacket && !interval_changed) {
-                    empty_hops = 0;
-
-                    // DEBUG
-                    dprintf("hop confirmed");
+                    RadioWrapper_recvFrames(phy, chan, BLE_ADV_AA, 0x555555, etime,
+                            indicatePacket);
                 } else {
-                    empty_hops++;
-                }
-
-                firstPacket = false;
-                if (empty_hops >= 3) {
-                    dprintf("adv hop interval changed, retrying");
-                    advHopSeekMode();
-                    continue;
-                }
-
-            } else {
-                if (auxAdvEnabled)
-                {
-                    uint8_t chan;
-                    PHY_Mode phy;
-                    uint32_t cur_t = RF_getCurrentTime();
-                    uint32_t etime = AuxAdvScheduler_next(cur_t, &chan, &phy);
-                    if (etime - LISTEN_TICKS_MIN - cur_t >= 0x80000000)
-                        continue; // pointless to listen for tiny period, may stall radio with etime in past
-                    if (chan != 0xFF)
-                    {
-                        RadioWrapper_recvFrames(phy, chan, BLE_ADV_AA, 0x555555, etime,
-                                indicatePacket);
-                        continue; // don't touch connEventCount
-                    } else {
-                        // we need to force cancel recvAdv3 eventually
-                        DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
-                        RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
-                    }
-                } else {
+                    // we need to force cancel recvAdv3 eventually
+                    DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
                     RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
                 }
+            } else {
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
             }
 
-            // state might have changed to DATA, in which case we must not mess with
-            // connEventCount
-            if (snifferState == ADVERT_HOP && gotLegacy)
-                connEventCount++;
+            // state could have changed, so check again
+            if (snifferState == ADVERT_HOP && gotLegacy && legacyLen != expectedLegacyLen)
+                advHopSeekMode(); // interval changed
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
         } else if (snifferState == DATA) {
@@ -700,19 +623,6 @@ void reactToPDU(const BLE_Frame *frame)
             pduType == ADV_NONCONN_IND ||
             pduType == ADV_SCAN_IND)
         {
-            // advertisement interval tracking
-            if (firstPacket)
-            {
-                if (frame->channel == 37)
-                    timestamp37 = frame->timestamp;
-                else if ((frame->channel == 39))
-                {
-                    // microseconds from 37 to 39 advertisement
-                    advInterval[aiInd++] = (frame->timestamp*4 - timestamp37*4) >> 2;
-                    firstPacket = false;
-                }
-            }
-
             // Hop to 38 (with a delay) after we get an anchor advertisement on 37
             if ( (frame->channel == 37) &&
                 ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
@@ -782,8 +692,9 @@ void reactToPDU(const BLE_Frame *frame)
                         timeRemaining >>= 2; // convert to microseconds from radio ticks
                 }
 
-                // Let them no we got a legacy adv on 37 (to increment connEventCount)
+                // Let main loop know we got a legacy adv on 37
                 gotLegacy = true;
+                legacyLen = frame->length;
 
                 DelayHopTrigger_trig(timeRemaining);
             }
@@ -1321,9 +1232,6 @@ void setFollowConnections(bool follow)
 // the CONNECT_IND request. This only works when MAC filtering is active.
 void advHopSeekMode()
 {
-    lastAdvTicks = 0;
-    aiInd = 0;
-    connEventCount = 0;
     stateTransition(ADVERT_SEEK);
     advHopEnabled = true;
     RadioWrapper_stop();
