@@ -120,8 +120,8 @@ Be sure to perform a `make clean` before building for a different platform.
 
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
-usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI]
-                         [-m MAC] [-a] [-e] [-H] [-l] [-o OUTPUT]
+usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC]
+                         [-i IRK] [-a] [-e] [-H] [-l] [-q] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -139,9 +139,9 @@ optional arguments:
   -e, --extadv          Capture BT5 extended (auxiliary) advertising
   -H, --hop             Hop primary advertising channels in extended mode
   -l, --longrange       Use long range (coded) PHY for primary advertising
+  -q, --quiet           Don't display empty packets
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
-  -q, --quiet           Don't display empty packets
 ```
 
 The XDS110 debugger on the Launchpad boards creates two serial ports. On
@@ -206,6 +206,10 @@ in long range mode, since all long range advertising uses the BT5 extended
 mechanism. Under the extended mechanism, auxiliary pointers on all three
 primary channels point to the same auxiliary packet, so hopping between
 primary channels is unnecessary.
+
+To not print empty data packets on screen while following a connection, use
+the `-q` flag. This makes it easier to observe meaningful communications in
+real time, but may obscure when connection following is flaky or lost.
 
 If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On

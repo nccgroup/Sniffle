@@ -43,9 +43,9 @@ def main():
             help="Hop primary advertising channels in extended mode")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
-    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
             help="Don't display empty packets")
+    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
     # Sanity check argument combinations
