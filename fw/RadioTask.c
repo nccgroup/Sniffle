@@ -134,6 +134,7 @@ uint8_t g_pkt_dir = 0;
 
 /***** Prototypes *****/
 static void radioTaskFunction(UArg arg0, UArg arg1);
+static void computeMaps();
 static void computeMap1(uint64_t map);
 static void handleConnFinished(void);
 static void reactToDataPDU(const BLE_Frame *frame);
@@ -262,12 +263,7 @@ static void afterConnEvent(bool slave)
         if (firstPacket)
         {
             rconf.chanMap &= ~chanBit;
-
-            // need to recompute whenever map changes
-            if (use_csa2)
-                csa2_computeMapping(accessAddress, rconf.chanMap);
-            else
-                computeMap1(rconf.chanMap);
+            computeMaps();
         }
         chanMapTestMask |= chanBit;
         if (chanMapTestMask == 0x1FFFFFFFFFULL)
@@ -283,10 +279,7 @@ static void afterConnEvent(bool slave)
     {
         nextHopTime += rconf.offset * 5000;
 
-        if (use_csa2)
-            csa2_computeMapping(accessAddress, rconf.chanMap);
-        else
-            computeMap1(rconf.chanMap);
+        computeMaps();
 
         if (instaHop && !rconf.intervalCertain)
             itInd = 0xFFFFFFFF;
@@ -537,6 +530,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
         }
     }
+}
+
+static void computeMaps()
+{
+    if (use_csa2)
+        csa2_computeMapping(accessAddress, rconf.chanMap);
+    else
+        computeMap1(rconf.chanMap);
 }
 
 // Channel Selection Algorithm #1
@@ -1131,10 +1132,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     rconf.chanMap = 0;
     memcpy(&rconf.chanMap, llData + 16, 5);
     rconf.chanMapCertain = true;
-    if (use_csa2)
-        csa2_computeMapping(accessAddress, rconf.chanMap);
-    else
-        computeMap1(rconf.chanMap);
+    computeMaps();
 
     /* see pg 2983 of BT5.2 core spec:
      *  transmitWindowDelay = 1.25 ms for CONNECT_IND
