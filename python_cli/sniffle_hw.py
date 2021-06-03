@@ -123,6 +123,11 @@ class SniffleHW:
         else:
             self._send_cmd([0x1F, 0x00])
 
+    def cmd_setmap(self, chmap=b'\xFF\xFF\xFF\xFF\x1F'):
+        if len(chmap) != 5:
+            raise ValueError("Invalid channel map length!")
+        self._send_cmd([0x20] + list(chmap))
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

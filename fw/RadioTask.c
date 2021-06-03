@@ -1308,3 +1308,31 @@ void setInstaHop(bool enable)
 {
     instaHop = enable;
 }
+
+/* Manually override the channel map for the current connection */
+void setChanMap(uint64_t map)
+{
+    const struct RadioConfig *last_rconf;
+    struct RadioConfig next_rconf;
+    uint16_t nextInstant;
+
+    // setting a channel map doesn't make sense in advertising state
+    if (!isDataState(snifferState))
+        return;
+
+    last_rconf = rconf_latest();
+    if (!last_rconf)
+        last_rconf = &rconf;
+
+    next_rconf.chanMap = 0;
+    map &= 0x1FFFFFFFFF;
+    memcpy(&next_rconf.chanMap, &map, 5);
+    next_rconf.chanMapCertain = true;
+    next_rconf.offset = 0;
+    next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
+    next_rconf.intervalCertain = last_rconf->intervalCertain;
+    next_rconf.phy = last_rconf->phy;
+    next_rconf.slaveLatency = last_rconf->slaveLatency;
+    nextInstant = (connEventCount + 1) & 0xFFFF;
+    rconf_enqueue(nextInstant, &next_rconf);
+}

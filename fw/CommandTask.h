@@ -26,5 +26,6 @@ void CommandTask_init(void);
 #define COMMAND_ADVINTRVL       0x1D
 #define COMMAND_SETIRK          0x1E
 #define COMMAND_INSTAHOP        0x1F
+#define COMMAND_SETMAP          0x20
 
 #endif /* COMMANDTASK_H */

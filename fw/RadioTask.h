@@ -53,6 +53,9 @@ void setAdvInterval(uint32_t intervalMs);
 /* Enable hopping to next channel immediately for encrypted conns */
 void setInstaHop(bool enable);
 
+/* Manually override the channel map for the current connection */
+void setChanMap(uint64_t map);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,

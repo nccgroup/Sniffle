@@ -151,6 +151,14 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != 3) continue;
             setInstaHop(msgBuf[2] ? true : false);
             break;
+        case COMMAND_SETMAP:
+        {
+            uint64_t map = 0;
+            if (ret != 7) continue;
+            memcpy(&map, msgBuf + 2, 5);
+            setChanMap(map);
+            break;
+        }
         default:
             break;
         }
