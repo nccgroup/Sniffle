@@ -7,7 +7,7 @@
 import argparse, sys
 from threading import Thread
 
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage
+from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
 from relay_protocol import connect_relay, MessageType
 
@@ -116,9 +116,9 @@ def network_thread_loop(conn):
 def print_message(msg, quiet=False):
     if isinstance(msg, PacketMessage):
         print_packet(msg, quiet)
-    elif isinstance(msg, DebugMessage):
-        print(msg, end='\n\n')
-    elif isinstance(msg, StateMessage):
+    elif isinstance(msg, DebugMessage) or \
+            isinstance(msg, StateMessage) or \
+            isinstance(msg, MeasurementMessage):
         print(msg, end='\n\n')
 
 def print_packet(pkt, quiet=False):
