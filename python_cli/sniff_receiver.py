@@ -45,6 +45,8 @@ def main():
             help="Use long range (coded) PHY for primary advertising")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
             help="Don't display empty packets")
+    aparse.add_argument("-P", "--preload", default=None, help="Preload expected encrypted "
+            "connection parameter changes")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -85,8 +87,17 @@ def main():
     # set up whether or not to follow connections
     hw.cmd_follow(not args.advonly)
 
-    # reset preloaded encrypted connection interval changes
-    hw.cmd_interval_preload()
+    if args.preload:
+        # expect colon separated triplets, separated by commas
+        triplets = []
+        for tstr in args.preload.split(','):
+            tsplit = tstr.split(':')
+            tup = (int(tsplit[0]), int(tsplit[1]), int(tsplit[2]))
+            triplets.append(tup)
+        hw.cmd_interval_preload(triplets)
+    else:
+        # reset preloaded encrypted connection interval changes
+        hw.cmd_interval_preload()
 
     # configure RSSI filter
     global _rssi_min
