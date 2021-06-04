@@ -128,6 +128,18 @@ class SniffleHW:
             raise ValueError("Invalid channel map length!")
         self._send_cmd([0x20] + list(chmap))
 
+    # triplets should be a list of 3-tuples of integers
+    # each 3-tuple is (WinOffset, Interval, delta_Instant)
+    def cmd_interval_preload(self, triplets=[]):
+        if len(triplets) > 4:
+            raise ValueError("Too many preload triplets")
+        cmd_bytes = [0x21]
+        for t in triplets:
+            if len(t) != 3:
+                raise ValueError("Not a triplet")
+            cmd_bytes.extend(list(pack("<HHH", *t)))
+        self._send_cmd(cmd_bytes)
+
     def recv_msg(self):
         got_msg = False
         while not got_msg:

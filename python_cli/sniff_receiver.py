@@ -85,6 +85,9 @@ def main():
     # set up whether or not to follow connections
     hw.cmd_follow(not args.advonly)
 
+    # reset preloaded encrypted connection interval changes
+    hw.cmd_interval_preload()
+
     # configure RSSI filter
     global _rssi_min
     _rssi_min = args.rssi

@@ -71,6 +71,9 @@ def main():
     # initiator needs a MAC address
     hw.random_addr()
 
+    # reset preloaded encrypted connection interval changes
+    hw.cmd_interval_preload()
+
     if args.irk:
         macBytes = get_mac_from_irk()
 

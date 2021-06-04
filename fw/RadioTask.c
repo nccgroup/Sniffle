@@ -95,6 +95,11 @@ static uint32_t itInd;
 
 static uint64_t chanMapTestMask;
 
+#define MAX_PARAM_TRIPLETS 4
+static uint32_t numParamTriplets;
+static uint32_t preloadedParamIndex;
+static uint16_t connParamTriplets[MAX_PARAM_TRIPLETS * 3];
+
 static bool postponed = false;
 static bool followConnections = true;
 static bool instaHop = true;
@@ -887,19 +892,38 @@ static void reactToDataPDU(const BLE_Frame *frame)
         } else if (datLen == 16 && snifferState != MASTER && instaHop) {
             // must be a LL_CONNECTION_UPDATE_IND due to length
             // 1 byte opcode + 11 byte CtrData + 4 byte MIC
-            // usually this means switching to a different connection interval, or slave latency
-            // usually the switch is 6-10 instants from now
-            // with instahop, setting an inaccurately long interval temporarily is OK
-            // we'll figure out the correct interval and update accordingly
-            next_rconf.chanMap = last_rconf->chanMap;
-            next_rconf.chanMapCertain = true; // chan map test would conflict
-            next_rconf.offset = 0;
-            next_rconf.hopIntervalTicks = 240 * 5000;
-            next_rconf.intervalCertain = false;
-            next_rconf.phy = last_rconf->phy;
-            next_rconf.slaveLatency = last_rconf->slaveLatency;
-            nextInstant = (connEventCount + 6) & 0xFFFF;
-            rconf_enqueue(nextInstant, &next_rconf);
+            if (numParamTriplets) {
+                uint32_t plInd = preloadedParamIndex;
+                if (plInd >= numParamTriplets - 1)
+                    plInd = numParamTriplets - 1;
+                else
+                    preloadedParamIndex++;
+
+                next_rconf.chanMap = last_rconf->chanMap;
+                next_rconf.chanMapCertain = true; // chan map test would conflict
+                next_rconf.offset = connParamTriplets[plInd*3];
+                next_rconf.hopIntervalTicks = connParamTriplets[plInd*3 + 1] * 5000;
+                next_rconf.intervalCertain = true;
+                next_rconf.phy = last_rconf->phy;
+                next_rconf.slaveLatency = last_rconf->slaveLatency;
+                nextInstant = (connEventCount + connParamTriplets[plInd*3 + 2]) & 0xFFFF;
+                rconf_enqueue(nextInstant, &next_rconf);
+            } else if (snifferState != MASTER && instaHop) {
+                // slave or sniffer devices can measure new connection interval
+                // usually this means switching to a different connection interval, or slave latency
+                // usually the switch is 6-10 instants from now
+                // with instahop, setting an inaccurately long interval temporarily is OK
+                // we'll figure out the correct interval and update accordingly
+                next_rconf.chanMap = last_rconf->chanMap;
+                next_rconf.chanMapCertain = true; // chan map test would conflict
+                next_rconf.offset = 0;
+                next_rconf.hopIntervalTicks = 240 * 5000;
+                next_rconf.intervalCertain = false;
+                next_rconf.phy = last_rconf->phy;
+                next_rconf.slaveLatency = last_rconf->slaveLatency;
+                nextInstant = (connEventCount + 6) & 0xFFFF;
+                rconf_enqueue(nextInstant, &next_rconf);
+            }
         }
         return;
     }
@@ -1157,6 +1181,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     rconf.phy = phy;
     rconf.slaveLatency = *(uint16_t *)(llData + 12);
     connEventCount = 0;
+    preloadedParamIndex = 0;
     rconf_reset();
 }
 
@@ -1335,4 +1360,32 @@ void setChanMap(uint64_t map)
     next_rconf.slaveLatency = last_rconf->slaveLatency;
     nextInstant = (connEventCount + 1) & 0xFFFF;
     rconf_enqueue(nextInstant, &next_rconf);
+}
+
+/* Preload encrypted (unknwown key) connection parameter updates,
+ * with triplets of: WinOffset, Interval, delta_Instant */
+int preloadConnParamUpdates(const uint16_t *triplets, uint32_t numTriplets)
+{
+    if (numTriplets > MAX_PARAM_TRIPLETS)
+        return -1;
+
+    // validate all the triplets
+    for (uint32_t i = 0; i < numTriplets; i++)
+    {
+        // WinOffset validation
+        if (triplets[i*3] > triplets[i*3 + 1])
+            return -2;
+        // Interval validation
+        if (triplets[i*3 + 1] < 6 || triplets[i*3 + 1] > 3200)
+            return -3;
+        // Instant validation
+        if (triplets[i*3 + 2] < 6 || triplets[i*3 +2] > 0x7FFF)
+            return -4;
+    }
+
+    memcpy(connParamTriplets, triplets, numTriplets * 3 * sizeof(uint16_t));
+    preloadedParamIndex = 0;
+    numParamTriplets = numTriplets;
+
+    return 0;
 }

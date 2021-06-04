@@ -43,6 +43,9 @@ def main():
     # advertise roughly every 200 ms
     hw.cmd_adv_interval(200)
 
+    # reset preloaded encrypted connection interval changes
+    hw.cmd_interval_preload()
+
     # zero timestamps and flush old packets
     hw.mark_and_flush()
 
