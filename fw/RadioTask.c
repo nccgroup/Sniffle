@@ -884,7 +884,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.slaveLatency = 10; // tolerate sparse channel map
             nextInstant = (connEventCount + 9) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
-        } else if (datLen == 16 && instaHop) {
+        } else if (datLen == 16 && snifferState != MASTER && instaHop) {
             // must be a LL_CONNECTION_UPDATE_IND due to length
             // 1 byte opcode + 11 byte CtrData + 4 byte MIC
             // usually this means switching to a different connection interval, or slave latency
