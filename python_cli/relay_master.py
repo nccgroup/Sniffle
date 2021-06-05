@@ -85,6 +85,8 @@ def main():
             help="Supplied MAC address is public")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
             help="Don't show empty packets")
+    aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
+            "connection parameter changes")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -115,6 +117,13 @@ def main():
     if mtype != MessageType.PING or body != b'latency_test':
         raise ValueError("Unexpected message type in latency test")
     print("Round trip latency: %.1f ms" % ((etime - stime) * 1000))
+
+
+    # give the relay slave the preloads if any
+    if args.preload:
+        conn.send_msg(MessageType.PRELOAD, bytes(args.preload, encoding='utf-8'))
+    else:
+        conn.send_msg(MessageType.PRELOAD, b'')
 
     if args.irk:
         macBytes = get_mac_from_irk(unhexlify(args.irk), args.advchan)
@@ -161,9 +170,18 @@ def main():
         pcwriter.write_packet(int(time() * 1000000), conn_req.aa, conn_req.chan,
                 conn_req.rssi, conn_req.body, conn_req.phy)
 
+    preloads = []
+    if args.preload:
+        # expect colon separated pairs, separated by commas
+        preloads = []
+        for tstr in args.preload.split(','):
+            tsplit = tstr.split(':')
+            tup = (int(tsplit[0]), int(tsplit[1]))
+            preloads.append(tup)
+
     # connect to real target, impersonating who connected to relay slave
     connect_target(macBytes, args.advchan, not args.public, connector_addr,
-            connector_random, connector_interval, connector_latency)
+            connector_random, connector_interval, connector_latency, preloads)
 
     # wait for transition to master state
     while True:
@@ -294,13 +312,14 @@ def scan_target(mac):
     return advPkt, scanRspPkt
 
 def connect_target(targ_mac, chan=37, targ_random=True, initiator_mac=None, initiator_random=True,
-        interval=24, latency=1):
+        interval=24, latency=1, preloads=[]):
     hw.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
     hw.cmd_pause_done(True)
     hw.cmd_follow(False)
     hw.cmd_rssi(-128)
     hw.cmd_mac(targ_mac, False)
     hw.cmd_auxadv(False)
+    hw.cmd_interval_preload(preloads)
     if initiator_mac is None:
         hw.random_addr()
     else:

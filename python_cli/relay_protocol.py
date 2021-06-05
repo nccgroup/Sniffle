@@ -47,6 +47,7 @@ class MessageType(enum.Enum):
     SCAN_RSP = 2    # scan response data (master -> slave)
     CONN_REQ = 3    # CONNECT_IND (slave->master)
     PING = 4        # network latency test
+    PRELOAD = 5     # preloaded encrypted conn param changes
 
 class RelaySocketWrapper:
     def __init__(self, sock, peer_addr):

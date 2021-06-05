@@ -42,6 +42,21 @@ def main():
     hw.cmd_mac()
     hw.cmd_auxadv(False)
 
+    # fetch, decode, and apply preloaded conn params from master (if any)
+    mtype, body = conn.recv_msg()
+    if mtype != MessageType.PRELOAD:
+        raise ValueError("Expected preloads")
+    plstr = str(body, encoding='utf-8')
+    preloads = []
+    if len(plstr):
+        # expect colon separated pairs, separated by commas
+        preloads = []
+        for tstr in plstr.split(','):
+            tsplit = tstr.split(':')
+            tup = (int(tsplit[0]), int(tsplit[1]))
+            preloads.append(tup)
+    hw.cmd_interval_preload(preloads)
+
     # obtain the target's advertisement and scan response from the master
     print("Waiting for advertisement and scan response...")
     mtype, advert_body = conn.recv_msg()
