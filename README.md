@@ -121,7 +121,7 @@ Be sure to perform a `make clean` before building for a different platform.
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
 usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC]
-                         [-i IRK] [-a] [-e] [-H] [-l] [-q] [-P PRELOAD] [-o OUTPUT]
+                         [-i IRK] [-a] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -140,7 +140,7 @@ optional arguments:
   -H, --hop             Hop primary advertising channels in extended mode
   -l, --longrange       Use long range (coded) PHY for primary advertising
   -q, --quiet           Don't display empty packets
-  -P PRELOAD, --preload PRELOAD
+  -Q PRELOAD, --preload PRELOAD
                         Preload expected encrypted connection parameter changes
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
@@ -217,7 +217,7 @@ For encrypted connections, Sniffle supports detecting connection parameter
 updates even when the encryption key is unknown, and it attempts to measure
 the new parameters. However, if you know the new connection interval, WinOffset,
 and Instant delta to expect in encrypted connection parameter updates, you can
-specify them with the `--preload`/`-P` option to improve performance/reliability.
+specify them with the `--preload`/`-Q` option to improve performance/reliability.
 The expected WinOffset:Interval:DeltaInstant triplet should be provided as colon
 separated integers. WinOffset and Interval are integers representing multiples
 of 1.25 ms (as defined in LL\_CONNECTION\_UPDATE\_IND). DeltaInstant is the number
@@ -292,7 +292,7 @@ is observed by the sniffer. The second expected encrypted connection update has
 a WinOffset of 27, Interval of 39, and DeltaInstant of 6 too.
 
 ```
-./sniff_receiver.py -i 4E0BEA5355866BE38EF0AC2E3F0EBC22 -P 3:6:6,27:39:6
+./sniff_receiver.py -i 4E0BEA5355866BE38EF0AC2E3F0EBC22 -Q 3:6:6,27:39:6
 ```
 
 Sniff BT5 extended advertisements and connections from nearby (RSSI >= -55) devices.

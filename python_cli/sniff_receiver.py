@@ -45,7 +45,7 @@ def main():
             help="Use long range (coded) PHY for primary advertising")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
             help="Don't display empty packets")
-    aparse.add_argument("-P", "--preload", default=None, help="Preload expected encrypted "
+    aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
             "connection parameter changes")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
