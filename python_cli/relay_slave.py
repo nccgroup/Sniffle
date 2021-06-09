@@ -5,7 +5,8 @@
 # Released as open source under GPLv3
 
 import argparse, sys
-from threading import Thread
+from threading import Thread, Lock
+from time import time
 
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
@@ -14,6 +15,8 @@ from relay_protocol import connect_relay, MessageType
 # global variable to access hardware
 hw = None
 _aa = 0
+
+printlock = Lock()
 
 def main():
     aparse = argparse.ArgumentParser(description="Relay slave script for Sniffle BLE5 sniffer")
@@ -104,7 +107,8 @@ def main():
     # main receive loop
     while True:
         msg = hw.recv_and_decode()
-        print_message(msg, args.quiet)
+        with printlock:
+            print_message(msg, args.quiet)
 
         # only forward packets
         if not isinstance(msg, PacketMessage):
@@ -127,6 +131,11 @@ def network_thread_loop(conn):
         llid = body[0] & 3
         pdu = body[2:]
         hw.cmd_transmit(llid, pdu)
+        pkt = DPacketMessage.from_body(body, True, True)
+        pkt.ts_epoch = time()
+        pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
+        with printlock:
+            print(pkt, end='\n\n')
 
 def print_message(msg, quiet=False):
     if isinstance(msg, PacketMessage):
