@@ -140,27 +140,51 @@ class SniffleHW:
             cmd_bytes.extend(list(pack("<HHH", *t)))
         self._send_cmd(cmd_bytes)
 
-    def recv_msg(self):
+    def _recv_msg(self):
         got_msg = False
         while not got_msg:
-            pkt = self.ser.readline()
+            # minimum packet is 4 bytes base64 + 2 bytes CRLF
+            pkt = self.ser.read(6)
+
+            # decode header to get length byte
             try:
-                data = b64decode(pkt.rstrip())
+                data = b64decode(pkt[:4])
             except BAError as e:
                 print(str(pkt, encoding='ascii').rstrip())
                 print("Ignoring message:", e, file=stderr)
+                self.ser.readline() # eat CRLF
                 continue
+
+            # now read the rest of the packet (if there is anything)
+            word_cnt = data[0]
+            if word_cnt:
+                pkt += self.ser.read((word_cnt - 1) * 4)
+
+            # make sure CRLF is present
+            if pkt[-2:] != b'\r\n':
+                print("Ignoring message due to missing CRLF", file=stderr)
+                self.ser.readline() # eat CRLF
+                continue
+
+            try:
+                data = b64decode(pkt[:-2])
+            except BAError as e:
+                print(str(pkt, encoding='ascii').rstrip())
+                print("Ignoring message:", e, file=stderr)
+                self.ser.readline() # eat CRLF
+                continue
+
             got_msg = True
 
         if self.recv_cancelled:
             self.recv_cancelled = False
             return -1, None, b''
 
-        # msg type, msg body
-        return data[0], data[1:], pkt
+        # msg type, msg body, raw
+        return data[1], data[2:], pkt
 
     def recv_and_decode(self):
-        mtype, mbody, pkt = self.recv_msg()
+        mtype, mbody, pkt = self._recv_msg()
         try:
             if mtype == 0x10:
                 return PacketMessage(mbody, self.decoder_state)

@@ -113,7 +113,7 @@ static void sendPacket(BLE_Frame *frame)
     // static to avoid making stack huge
     // this is not reentrant!
     static uint8_t msg_buf[MESSAGE_MAX];
-    uint8_t *msg_ptr = msg_buf;
+    uint8_t *msg_ptr = msg_buf + 1;
 
     // should never happen
     if (frame->length > PACKET_SIZE)
@@ -175,6 +175,9 @@ static void sendPacket(BLE_Frame *frame)
         memcpy(msg_ptr, frame->pData, frame->length);
         msg_ptr += frame->length;
     }
+
+    // first byte of b64 decoded data indicates number of 4 byte chunks
+    msg_buf[0] = (msg_ptr - msg_buf + 2) / 3;
 
     messenger_send(msg_buf, msg_ptr - msg_buf);
 }
