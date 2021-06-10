@@ -140,39 +140,51 @@ class SniffleHW:
             cmd_bytes.extend(list(pack("<HHH", *t)))
         self._send_cmd(cmd_bytes)
 
-    def _recv_msg(self):
+    def _recv_msg(self, desync=False):
         got_msg = False
         while not got_msg:
-            # minimum packet is 4 bytes base64 + 2 bytes CRLF
-            pkt = self.ser.read(6)
+            if desync:
+                # readline is inefficient, but a good way to synchronize
+                pkt = self.ser.readline()
+                try:
+                    data = b64decode(pkt.rstrip())
+                except BAError as e:
+                    print(str(pkt, encoding='ascii').rstrip())
+                    print("Ignoring message:", e, file=stderr)
+                    continue
+                if len(data) < 2:
+                    continue
+            else:
+                # minimum packet is 4 bytes base64 + 2 bytes CRLF
+                pkt = self.ser.read(6)
 
-            # decode header to get length byte
-            try:
-                data = b64decode(pkt[:4])
-            except BAError as e:
-                print(str(pkt, encoding='ascii').rstrip())
-                print("Ignoring message:", e, file=stderr)
-                self.ser.readline() # eat CRLF
-                continue
+                # decode header to get length byte
+                try:
+                    data = b64decode(pkt[:4])
+                except BAError as e:
+                    print(str(pkt, encoding='ascii').rstrip())
+                    print("Ignoring message:", e, file=stderr)
+                    self.ser.readline() # eat CRLF
+                    continue
 
-            # now read the rest of the packet (if there is anything)
-            word_cnt = data[0]
-            if word_cnt:
-                pkt += self.ser.read((word_cnt - 1) * 4)
+                # now read the rest of the packet (if there is anything)
+                word_cnt = data[0]
+                if word_cnt:
+                    pkt += self.ser.read((word_cnt - 1) * 4)
 
-            # make sure CRLF is present
-            if pkt[-2:] != b'\r\n':
-                print("Ignoring message due to missing CRLF", file=stderr)
-                self.ser.readline() # eat CRLF
-                continue
+                # make sure CRLF is present
+                if pkt[-2:] != b'\r\n':
+                    print("Ignoring message due to missing CRLF", file=stderr)
+                    self.ser.readline() # eat CRLF
+                    continue
 
-            try:
-                data = b64decode(pkt[:-2])
-            except BAError as e:
-                print(str(pkt, encoding='ascii').rstrip())
-                print("Ignoring message:", e, file=stderr)
-                self.ser.readline() # eat CRLF
-                continue
+                try:
+                    data = b64decode(pkt[:-2])
+                except BAError as e:
+                    print(str(pkt, encoding='ascii').rstrip())
+                    print("Ignoring message:", e, file=stderr)
+                    self.ser.readline() # eat CRLF
+                    continue
 
             got_msg = True
 
@@ -215,12 +227,8 @@ class SniffleHW:
         # also tolerate errors from incomplete lines in UART buffer
         self.cmd_marker()
         while True:
-            try:
-                msg = self.recv_and_decode()
-            except SniffleHWPacketError:
-                print("WARNING: invalid message during flush, ignoring...")
-                continue
-            if isinstance(msg, MarkerMessage):
+            mtype, _, _ = self._recv_msg(True)
+            if mtype == 0x12: # MarkerMessage
                 break
 
     def random_addr(self):
