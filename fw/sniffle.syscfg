@@ -87,6 +87,7 @@ var UART = scripting.addModule("/ti/drivers/UART");
 var uart = UART.addInstance();
 uart.$hardware = system.deviceData.board.components.XDS110UART;
 uart.$name = "CONFIG_UART_0";
+uart.ringBufferSize = 512;
 
 /* ======== Device ======== */
 var device = scripting.addModule("ti/devices/CCFG");
