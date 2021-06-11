@@ -5,8 +5,8 @@
 # Released as open source under GPLv3
 
 import argparse, sys
-from threading import Thread, Lock
 from time import time
+from select import select
 
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
@@ -15,8 +15,6 @@ from relay_protocol import connect_relay, MessageType
 # global variable to access hardware
 hw = None
 _aa = 0
-
-printlock = Lock()
 
 def main():
     aparse = argparse.ArgumentParser(description="Relay slave script for Sniffle BLE5 sniffer")
@@ -100,42 +98,42 @@ def main():
     # notify relay master of the connection
     conn.send_msg(MessageType.CONN_REQ, conn_pkt.body)
 
-    # fire up a thead to forward traffic from relay master
-    master_thread = Thread(target=network_thread_loop, args=(conn,), daemon=True)
-    master_thread.start()
-
     # main receive loop
     while True:
-        msg = hw.recv_and_decode()
-        with printlock:
-            print_message(msg, args.quiet)
+        ready, _, _ = select([hw.ser.fd, conn.sock], [], [])
 
-        # only forward packets
-        if not isinstance(msg, PacketMessage):
-            continue
-        msg = DPacketMessage.decode(msg)
+        if conn.sock in ready:
+            sock_recv_print_forward(conn)
+        if hw.ser.fd in ready:
+            ser_recv_print_forward(conn, args.quiet)
 
-        # ignore empty packets
-        if isinstance(msg, LlDataContMessage) and msg.data_length == 0:
-            continue
+def sock_recv_print_forward(conn):
+    mtype, body = conn.recv_msg()
+    if mtype != MessageType.PACKET:
+        return
+    llid = body[0] & 3
+    pdu = body[2:]
+    hw.cmd_transmit(llid, pdu)
+    pkt = DPacketMessage.from_body(body, True, True)
+    pkt.ts_epoch = time()
+    pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
+    print(pkt, end='\n\n')
 
+def ser_recv_print_forward(conn, quiet):
+    msg = hw.recv_and_decode()
+    print_message(msg, quiet)
+
+    # only forward packets
+    if not isinstance(msg, PacketMessage):
+        return
+
+    msg = DPacketMessage.decode(msg)
+
+    # don't forward empty packets
+    is_empty = isinstance(msg, LlDataContMessage) and msg.data_length == 0
+    if not is_empty:
         # forward received packets to relay master
         conn.send_msg(MessageType.PACKET, msg.body)
-
-def network_thread_loop(conn):
-    # receive packets from relay master and retransmit them here
-    while True:
-        mtype, body = conn.recv_msg()
-        if mtype != MessageType.PACKET:
-            continue
-        llid = body[0] & 3
-        pdu = body[2:]
-        hw.cmd_transmit(llid, pdu)
-        pkt = DPacketMessage.from_body(body, True, True)
-        pkt.ts_epoch = time()
-        pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
-        with printlock:
-            print(pkt, end='\n\n')
 
 def print_message(msg, quiet=False):
     if isinstance(msg, PacketMessage):
