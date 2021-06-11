@@ -6,10 +6,9 @@
 
 import argparse, sys
 from binascii import unhexlify
-from threading import Thread
 from queue import Queue
 from time import time
-from signal import SIGINT, signal
+from select import select
 
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
@@ -72,7 +71,6 @@ hw = None
 
 # global variable for pcap writer
 pcwriter = None
-pktq = Queue()
 
 def main():
     aparse = argparse.ArgumentParser(description="Relay master script for Sniffle BLE5 sniffer")
@@ -191,69 +189,51 @@ def main():
             break
     print("Connected to target.", end='\n\n')
 
-    # spawn another thread to receive and forward packets from relay slave
-    # it's safe to call hardware commands from a separate thread since
-    # recv_and_decode in this main thread only reads, not writes
-    slave_thread = Thread(target=network_thread_loop, args=(conn,), daemon=True)
-    slave_thread.start()
-
-    # spawn another thread to display packets and record PCAP
-    signal(SIGINT, sigint_handler)
-    display_thread = Thread(target=display_thread_loop, args=(args.quiet,))
-    display_thread.start()
-
     while True:
-        msg = hw.recv_and_decode()
+        ready, _, _ = select([hw.ser.fd, conn.sock], [], [])
 
-        if isinstance(msg, PacketMessage):
-            msg = DPacketMessage.decode(msg)
-            # only forward non-empty data
-            if not (isinstance(msg, LlDataContMessage) and msg.data_length == 0):
-                # TODO: filter/edit messages as needed
+        if conn.sock in ready:
+            sock_recv_print_forward(conn, args.quiet)
+        if hw.ser.fd in ready:
+            ser_recv_print_forward(conn, args.quiet)
 
-                # Forward packets to the relay slave
-                conn.send_msg(MessageType.PACKET, msg.body)
-
-        pktq.put(msg)
-
-def sigint_handler(sig, frame):
-    # shut down display thread
-    pktq.put(None)
-    sys.exit(0)
-
-def network_thread_loop(conn):
+def sock_recv_print_forward(conn, quiet):
     # receive packets from relay slave and retransmit them here
-    while True:
-        mtype, body = conn.recv_msg()
-        if mtype != MessageType.PACKET:
-            continue
-        llid = body[0] & 3
-        pdu = body[2:]
+    mtype, body = conn.recv_msg()
+    if mtype != MessageType.PACKET:
+        return
+    llid = body[0] & 3
+    pdu = body[2:]
 
-        # TODO: filter/edit messages as needed
+    # construct packet object for display and PCAP
+    pkt = DPacketMessage.from_body(body, True)
+    pkt.ts_epoch = time()
+    pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
+    pkt.aa = hw.decoder_state.cur_aa
 
-        hw.cmd_transmit(llid, pdu)
+    hw.cmd_transmit(llid, pdu)
+    print_message(pkt, quiet)
 
-        # construct packet object for display and PCAP
-        pkt = DPacketMessage.from_body(body, True)
-        pkt.ts_epoch = time()
-        pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
-        pkt.aa = hw.decoder_state.cur_aa
-        pktq.put(pkt)
+def ser_recv_print_forward(conn, quiet):
+    msg = hw.recv_and_decode()
 
-def display_thread_loop(quiet):
-    while True:
-        msg = pktq.get()
-        if isinstance(msg, DPacketMessage):
-            print_packet(msg, quiet)
-        elif isinstance(msg, DebugMessage):
-            print(msg, end='\n\n')
-        elif isinstance(msg, StateMessage):
-            print(msg, end='\n\n')
-        elif not msg:
-            break
-    if pcwriter:
-        pcwriter.close()
+    if isinstance(msg, PacketMessage):
+        msg = DPacketMessage.decode(msg)
+        # only forward non-empty data
+        empty = isinstance(msg, LlDataContMessage) and msg.data_length == 0
+        if not empty:
+            # Forward packets to the relay slave
+            conn.send_msg(MessageType.PACKET, msg.body)
+
+    print_message(msg, quiet)
+
+def print_message(msg, quiet=False):
+    if isinstance(msg, DPacketMessage):
+        print_packet(msg, quiet)
+    elif isinstance(msg, DebugMessage):
+        print(msg, end='\n\n')
+    elif isinstance(msg, StateMessage):
+        print(msg, end='\n\n')
 
 # assumes sniffer is already configured to receive ads with IRK filter
 def get_mac_from_irk(irk, chan=37):
