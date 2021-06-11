@@ -7,7 +7,7 @@ from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from sys import stderr
-from time import time, sleep
+from time import time
 from enum import Enum
 from random import randint
 from traceback import print_exc
@@ -18,13 +18,11 @@ class SniffleHW:
         self.ser = Serial(serport, 2000000)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
-        self.rate_limiter = RateLimiter()
 
     def _send_cmd(self, cmd_byte_list):
         b0 = (len(cmd_byte_list) + 3) // 3
         cmd = bytes([b0, *cmd_byte_list])
         msg = b64encode(cmd) + b'\r\n'
-        self.rate_limiter.do_cmd()
         self.ser.write(msg)
 
     def cmd_chan_aa_phy(self, chan=37, aa=0x8E89BED6, phy=0, crci=0x555555):
@@ -269,25 +267,6 @@ class SniffleHW:
 # this is not for malformed Bluetooth traffic
 class SniffleHWPacketError(ValueError):
     pass
-
-class RateLimiter:
-    def __init__(self, max_depth=4, time_per_cmd=0.01):
-        self.cmdq = []
-        self.max_depth = max_depth
-        self.tpcmd = time_per_cmd
-
-    def do_cmd(self):
-        t_cur = time()
-        qlen = len(self.cmdq)
-        if qlen:
-            t_diff = t_cur - self.cmdq[-1]
-            targ_diff = qlen * self.tpcmd
-            if qlen >= self.max_depth and t_diff < targ_diff:
-                sleep(targ_diff - t_diff)
-                self.cmdq = []
-            elif t_diff >= targ_diff:
-                self.cmdq = []
-        self.cmdq.append(t_cur)
 
 BLE_ADV_AA = 0x8E89BED6
 
