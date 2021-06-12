@@ -15,7 +15,8 @@ from traceback import print_exc
 class SniffleHW:
     def __init__(self, serport):
         self.decoder_state = SniffleDecoderState()
-        self.ser = Serial(serport, 2000000)
+        # 230399 instead of 230400 to avoid XDS110 USB UART latency bug
+        self.ser = Serial(serport, 230399)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
 
