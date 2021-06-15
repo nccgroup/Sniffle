@@ -12,7 +12,8 @@ from select import select
 from struct import pack, unpack
 
 from pcap import PcapBleWriter
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
+from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, \
+        MeasurementMessage, SnifferState
 from packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, AdvIndMessage, \
         AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, str_mac
 from relay_protocol import RelayServer, MessageType
@@ -233,9 +234,9 @@ def ser_recv_print_forward(conn, quiet):
 def print_message(msg, quiet=False):
     if isinstance(msg, DPacketMessage):
         print_packet(msg, quiet)
-    elif isinstance(msg, DebugMessage):
-        print(msg, end='\n\n')
-    elif isinstance(msg, StateMessage):
+    elif isinstance(msg, DebugMessage) or \
+            isinstance(msg, StateMessage) or \
+            isinstance(msg, MeasurementMessage):
         print(msg, end='\n\n')
 
 # assumes sniffer is already configured to receive ads with IRK filter
