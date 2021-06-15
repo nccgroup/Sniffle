@@ -392,6 +392,8 @@ class MeasurementType(Enum):
     INTERVAL = 0
     CHANMAP = 1
     ADVHOP = 2
+    WINOFFSET = 3
+    DELTAINSTANT = 4
 
 class MeasurementMessage:
     def __init__(self, raw_msg):
@@ -402,7 +404,7 @@ class MeasurementMessage:
 
     @staticmethod
     def from_raw(raw_msg):
-        if len(raw_msg) < 2 or raw_msg[1] > MeasurementType.ADVHOP.value:
+        if len(raw_msg) < 2 or raw_msg[1] > MeasurementType.DELTAINSTANT.value:
             return MeasurementMessage(raw_msg)
 
         if len(raw_msg) - 1 != raw_msg[0]:
@@ -415,6 +417,10 @@ class MeasurementMessage:
             return ChanMapMeasurement(raw_msg[2:])
         elif mtype == MeasurementType.ADVHOP:
             return AdvHopMeasurement(raw_msg[2:])
+        elif mtype == MeasurementType.WINOFFSET:
+            return WinOffsetMeasurement(raw_msg[2:])
+        elif mtype == MeasurementType.DELTAINSTANT:
+            return DeltaInstantMeasurement(raw_msg[2:])
 
         # should never be reached
         return None
@@ -442,3 +448,17 @@ class AdvHopMeasurement(MeasurementMessage):
 
     def __str__(self):
         return "Measured Advertising Hop: %d us" % self.value
+
+class WinOffsetMeasurement(MeasurementMessage):
+    def __init__(self, raw_val):
+        self.value = unpack("<H", raw_val)
+
+    def __str__(self):
+        return "Measured WinOffset: %d" % self.value
+
+class DeltaInstantMeasurement(MeasurementMessage):
+    def __init__(self, raw_val):
+        self.value = unpack("<H", raw_val)
+
+    def __str__(self):
+        return "Measured Delta Instant for Connection Update: %d" % self.value

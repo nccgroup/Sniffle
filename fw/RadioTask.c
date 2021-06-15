@@ -214,7 +214,9 @@ enum MeasurementTypes
 {
     MEASTYPE_INTERVAL,
     MEASTYPE_CHANMAP,
-    MEASTYPE_ADVHOP
+    MEASTYPE_ADVHOP,
+    MEASTYPE_WINOFFSET,
+    MEASTYPE_DELTAINSTANT
 };
 
 static void reportMeasInterval(uint16_t interval)
@@ -245,6 +247,29 @@ static void reportMeasAdvHop(uint32_t hop_us)
 
     buf[0] = MEASTYPE_ADVHOP;
     memcpy(buf + 1, &hop_us, sizeof(uint32_t));
+
+    reportMeasurement(buf, sizeof(buf));
+}
+
+static void reportMeasWinOffset(uint16_t offset)
+{
+    uint8_t buf[3];
+
+    buf[0] = MEASTYPE_WINOFFSET;
+    buf[1] = offset & 0xFF;
+    buf[2] = offset >> 8;
+
+    reportMeasurement(buf, sizeof(buf));
+}
+
+// for LL_CONNECTION_UPDATE_IND specifically
+static void reportMeasDeltaInstant(uint16_t delta)
+{
+    uint8_t buf[3];
+
+    buf[0] = MEASTYPE_DELTAINSTANT;
+    buf[1] = delta & 0xFF;
+    buf[2] = delta >> 8;
 
     reportMeasurement(buf, sizeof(buf));
 }
@@ -292,23 +317,24 @@ static void afterConnEvent(bool slave)
                 uint16_t WinOffset = timeDelta - prevInterval;
                 nextHopTime += WinOffset * 5000;
                 rconf.winOffsetCertain = true;
-                // TODO: report measured WinOffset
+                reportMeasWinOffset(WinOffset);
             } else {
                 uint16_t DeltaInstant = (connEventCount - connUpdateInstant) & 0xFFFF;
                 if (timeDelta != prevInterval) {
-                    // uint16_t WinOffset = timeDelta - prevInterval;
+                    uint16_t WinOffset = timeDelta - prevInterval;
                     rconf.winOffsetCertain = true;
                     // no point messing with nextHopTime since interval unknown
-                    // TODO: report measured WinOffset
-                    // TODO: report measured DeltaInstant
+                    reportMeasWinOffset(WinOffset);
+                    reportMeasDeltaInstant(DeltaInstant);
                 } else if (DeltaInstant > DELTA_INSTANT_TIMEOUT) {
                     // took too long to observe a change, assume no change
                     rconf.winOffsetCertain = true;
                     rconf.intervalCertain = true;
                     rconf.hopIntervalTicks = prevInterval * 5000;
                     nextHopTime = lastAnchorTicks + rconf.hopIntervalTicks;
-                    // TODO: report assumed WinOffset of 0
-                    // TODO: report assumed DeltaInstant of 6
+                    reportMeasWinOffset(0);
+                    reportMeasDeltaInstant(0);
+                    reportMeasInterval(prevInterval);
                 }
             }
         }
