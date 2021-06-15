@@ -225,11 +225,15 @@ class SniffleHW:
     def mark_and_flush(self):
         # use marker to zero time, flush every packet before marker
         # also tolerate errors from incomplete lines in UART buffer
-        self.cmd_marker()
-        while True:
-            mtype, _, _ = self._recv_msg(True)
-            if mtype == 0x12: # MarkerMessage
-                break
+        recvd_mark = False
+        while not recvd_mark:
+            self.cmd_marker()
+            timeout = time() + 0.5
+            while time() < timeout:
+                mtype, _, _ = self._recv_msg(True)
+                if mtype == 0x12: # MarkerMessage
+                    recvd_mark = True
+                    break
 
     def random_addr(self):
         # generate a random static address, set it
