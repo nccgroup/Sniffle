@@ -116,10 +116,11 @@ def sock_recv_print_forward(conn):
     body = body[2:]
     llid = body[0] & 3
     pdu = body[2:]
-    hw.cmd_transmit(llid, pdu)
+    hw.cmd_transmit(llid, pdu, event)
     pkt = DPacketMessage.from_body(body, True, True)
     pkt.ts_epoch = time()
     pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
+    pkt.event = event
     print(pkt, end='\n\n')
 
 def ser_recv_print_forward(conn, quiet):

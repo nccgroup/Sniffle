@@ -215,7 +215,7 @@ def sock_recv_print_forward(conn, quiet):
     pkt.aa = hw.decoder_state.cur_aa
     pkt.event = event
 
-    hw.cmd_transmit(llid, pdu)
+    hw.cmd_transmit(llid, pdu, event)
     print_message(pkt, quiet)
 
 def ser_recv_print_forward(conn, quiet):
