@@ -527,6 +527,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             dataQueue_t txq, txq2;
             uint32_t numSent;
             uint8_t chan = getCurrChan();
+            int status;
             TXQueue_take(&txq);
             txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = false; // no need for anchor offset calcs, since we're master
@@ -534,8 +535,36 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
 
-            int status = RadioWrapper_master(rconf.phy, chan, accessAddress,
-                    crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
+            if (rconf.winOffsetCertain)
+            {
+                status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                        crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
+
+            } else {
+                // perform a sweep of WinOffset values without transmitting any non-empty PDUs
+                // to have the slave tell us what the real WinOffset is
+                uint16_t WinOffset;
+                uint16_t MaxOffset = rconf.hopIntervalTicks / 5000;
+                txq.pCurrEntry = NULL;
+                txq.pLastEntry = NULL;
+
+                for (WinOffset = 0; WinOffset <= MaxOffset && snifferState == MASTER; WinOffset++)
+                {
+                    status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                            crcInit, nextHopTime + WinOffset*5000, indicatePacket,
+                            &txq, curHopTime + WinOffset*5000, &numSent);
+                    if (status == 0)
+                    {
+                        rconf.winOffsetCertain = true;
+                        reportMeasWinOffset(WinOffset);
+                        nextHopTime += WinOffset*5000;
+                        break;
+                    }
+                }
+
+                if (WinOffset > MaxOffset)
+                    dprintf("Master failed to measure WinOffset");
+            }
 
             if (snifferState != MASTER)
             {
@@ -962,7 +991,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.slaveLatency = 10; // tolerate sparse channel map
             nextInstant = (connEventCount + 9) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
-        } else if (datLen == 16 && snifferState != MASTER && instaHop) {
+        } else if (datLen == 16) {
             // must be a LL_CONNECTION_UPDATE_IND due to length
             // 1 byte opcode + 11 byte CtrData + 4 byte MIC
             if (numParamPairs) {
