@@ -289,8 +289,8 @@ TS_WRAP_PERIOD = 0x100000000 / 4E6
 
 class PacketMessage:
     def __init__(self, raw_msg, dstate):
-        ts, l, rssi, chan = unpack("<LHbB", raw_msg[:8])
-        body = raw_msg[8:]
+        ts, l, event, rssi, chan = unpack("<LHHbB", raw_msg[:10])
+        body = raw_msg[10:]
 
         # MSB of length is actually packet direction
         pkt_dir = l >> 15
@@ -325,16 +325,18 @@ class PacketMessage:
         self.phy = phy
         self.body = body
         self.data_dir = pkt_dir
+        self.event = event
 
     @classmethod
     def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
-        fake_hdr = pack("<LHbB", 0, len(body) | (0x8000 if slave_send else 0), 0,
+        fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
                 0 if is_data or is_aux_adv else 37)
         return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
 
     def __repr__(self):
-        return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, body=%s)" % (
-                type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy, repr(self.body))
+        return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, event=%d, body=%s)" % (
+                type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy,
+                self.event, repr(self.body))
 
     def str_header(self):
         phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]

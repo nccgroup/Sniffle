@@ -41,6 +41,7 @@ class DPacketMessage(PacketMessage):
         self.phy = pkt.phy
         self.body = pkt.body
         self.data_dir = pkt.data_dir
+        self.event = pkt.event
 
     def hexdump(self):
         hexstr = " ".join(["%02X" % b for b in self.body])
@@ -125,6 +126,11 @@ class DataMessage(DPacketMessage):
         dtstr += "MD: %i " % self.MD
         dtstr += "Data Length: %i" % self.data_length
         return dtstr
+
+    def str_header(self):
+        phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
+        return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s\tEvent: %d" % (
+            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy], self.event)
 
     def __str__(self):
         return "\n".join([self.str_header(), self.str_datatype(), self.hexdump()])

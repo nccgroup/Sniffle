@@ -77,7 +77,7 @@ static uint8_t curUnmapped;
 static uint8_t hopIncrement;
 static uint32_t crcInit;
 static uint32_t nextHopTime;
-static uint32_t connEventCount;
+uint32_t connEventCount; // global
 static uint32_t empty_hops = 0;
 static bool use_csa2;
 static bool ll_encryption;

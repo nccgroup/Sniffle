@@ -165,13 +165,17 @@ static void sendPacket(BLE_Frame *frame)
         memcpy(msg_ptr, &len_dir, sizeof(len_dir));
         msg_ptr += sizeof(len_dir);
 
-        // byte 7 is rssi
+        // bytes 7-8 are connEventCount
+        memcpy(msg_ptr, &frame->eventCtr, sizeof(frame->eventCtr));
+        msg_ptr += sizeof(frame->eventCtr);
+
+        // byte 9 is rssi
         *msg_ptr++ = (uint8_t)frame->rssi;
 
-        // byte 8 is channel and PHY
+        // byte 10 is channel and PHY
         *msg_ptr++ = frame->channel | (frame->phy << 6);
 
-        // bytes 9+ are message body
+        // bytes 11+ are message body
         memcpy(msg_ptr, frame->pData, frame->length);
         msg_ptr += frame->length;
     }
@@ -222,6 +226,7 @@ void indicatePacket(BLE_Frame *frame)
                 return;
         } else {
             frame->direction = g_pkt_dir;
+            frame->eventCtr = connEventCount;
         }
 
         // always process PDU regardless of queue state
@@ -241,6 +246,7 @@ void indicatePacket(BLE_Frame *frame)
     memcpy(s_frames[queue_head_].pData, frame->pData, frame->length);
     s_frames[queue_head_].length = frame->length;
     s_frames[queue_head_].direction = frame->direction;
+    s_frames[queue_head_].eventCtr = frame->eventCtr;
     s_frames[queue_head_].rssi = frame->rssi;
     s_frames[queue_head_].timestamp = frame->timestamp;
     s_frames[queue_head_].channel = frame->channel;
