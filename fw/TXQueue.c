@@ -11,7 +11,7 @@
 #define TX_QUEUE_SIZE 8u
 #define TX_QUEUE_MASK (TX_QUEUE_SIZE - 1)
 
-#define PACKET_SIZE 256 // 255 bytes + one header byte for LLID
+#define PACKET_SIZE 258 // 255 bytes + one header byte for LLID + 2 byte eventCtr
 
 static uint8_t packet_buf[PACKET_SIZE*TX_QUEUE_SIZE];
 static uint8_t packet_lens[TX_QUEUE_SIZE];
@@ -23,7 +23,7 @@ static volatile uint32_t queue_tail; // take out item from here
 
 // only call this from a single thread (ie. CommandTask)
 // return true for success
-bool TXQueue_insert(uint8_t len, uint8_t llid, void *data)
+bool TXQueue_insert(uint8_t len, uint8_t llid, void *data, uint16_t eventCtr)
 {
     // bail if we're full
     if ( ((queue_head - queue_tail) & TX_QUEUE_MASK) == TX_QUEUE_MASK )
@@ -35,6 +35,9 @@ bool TXQueue_insert(uint8_t len, uint8_t llid, void *data)
     uint8_t *pData = packet_buf + (queue_head_ * PACKET_SIZE);
     *pData = llid & 0x3; // mask out header bits radio core will handle
     memcpy(pData + 1, data, len);
+
+    // stuff in eventCtr after the PDU body, radio will ignore
+    memcpy(pData + len + 1, &eventCtr, sizeof(eventCtr));
 
     // only increment once entry is complete and ready
     // wraparound is safe due to our masking

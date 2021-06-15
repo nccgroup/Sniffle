@@ -972,7 +972,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
             next_rconf.phy = PHY_2M;
             next_rconf.slaveLatency = last_rconf->slaveLatency;
-            nextInstant = (connEventCount + 7) & 0xFFFF;
+            nextInstant = (frame->eventCtr + 7) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
         } else if (datLen == 12 && snifferState != MASTER && last_rconf->intervalCertain) {
             // must be a LL_CHANNEL_MAP_IND due to length
@@ -989,7 +989,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.winOffsetCertain = true; // ditto
             next_rconf.phy = last_rconf->phy;
             next_rconf.slaveLatency = 10; // tolerate sparse channel map
-            nextInstant = (connEventCount + 9) & 0xFFFF;
+            nextInstant = (frame->eventCtr + 9) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
         } else if (datLen == 16) {
             // must be a LL_CONNECTION_UPDATE_IND due to length
@@ -1009,7 +1009,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
                 next_rconf.winOffsetCertain = false; // still need to measure this
                 next_rconf.phy = last_rconf->phy;
                 next_rconf.slaveLatency = last_rconf->slaveLatency;
-                nextInstant = (connEventCount + connParamPairs[plInd*2 + 1]) & 0xFFFF;
+                nextInstant = (frame->eventCtr + connParamPairs[plInd*2 + 1]) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
             } else if (snifferState != MASTER && instaHop) {
                 // slave or sniffer devices can measure new connection interval
@@ -1025,10 +1025,10 @@ static void reactToDataPDU(const BLE_Frame *frame)
                 next_rconf.winOffsetCertain = false;
                 next_rconf.phy = last_rconf->phy;
                 next_rconf.slaveLatency = last_rconf->slaveLatency;
-                nextInstant = (connEventCount + 6) & 0xFFFF;
+                nextInstant = (frame->eventCtr + 6) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
             }
-            connUpdateInstant = connEventCount;
+            connUpdateInstant = frame->eventCtr;
             prevInterval = (last_rconf->hopIntervalTicks + 2500) / 5000;
         }
         return;
@@ -1326,7 +1326,15 @@ static void reactToTransmitted(dataQueue_t *pTXQ, uint32_t numEntries)
         if (entry->length < 1) goto next;
         if ((entry->pData[0] & 0x3) != 0x3) goto next; // ignore non-control PDUs
 
-        // prepare the BLE_Frame for waht we transmitted
+        // TXQueue stuffs eventCtr after data in queue entries
+        uint16_t txEvent;
+        memcpy(&txEvent, entry->pData + entry->length, sizeof(uint16_t));
+        if (txEvent != 0)
+            f.eventCtr = txEvent;
+        else
+            f.eventCtr = connEventCount;
+
+        // prepare the BLE_Frame for what we transmitted
         f.length = entry->length + 1; // add length byte
         f.pData[0] = entry->pData[0];
         f.pData[1] = entry->length - 1;

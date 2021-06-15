@@ -72,12 +72,14 @@ class SniffleHW:
         self._send_cmd([0x18])
 
     # for master or slave modes
-    def cmd_transmit(self, llid, pdu):
+    def cmd_transmit(self, llid, pdu, event=0):
         if not (0 <= llid <= 3):
             raise ValueError("Out of bounds LLID")
         if len(pdu) > 255:
             raise ValueError("Too long PDU")
-        self._send_cmd([0x19, llid, len(pdu), *pdu])
+        if not (0 <= event <= 0xFFFF):
+            raise ValueError("Out of bounds event counter")
+        self._send_cmd([0x19, event & 0xFF, event >> 8, llid, len(pdu), *pdu])
 
     def cmd_connect(self, peerAddr, llData, is_random=True):
         if len(peerAddr) != 6:

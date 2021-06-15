@@ -111,10 +111,11 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             sendMarker();
             break;
         case COMMAND_TRANSMIT:
-            if (ret < 4) continue;
-            // msgBuf[2] is LLID, msgBuf[3] is length of data
-            if (ret != msgBuf[3] + 4) continue;
-            TXQueue_insert(msgBuf[3], msgBuf[2], msgBuf + 4);
+            if (ret < 6) continue;
+            // msgBuf[2] and msgBuf[3] are 16-bit eventCtr
+            // msgBuf[4] is LLID, msgBuf[5] is length of data
+            if (ret != msgBuf[5] + 6) continue;
+            TXQueue_insert(msgBuf[5], msgBuf[4], msgBuf + 6, msgBuf[2] | (msgBuf[3] << 8));
             break;
         case COMMAND_CONNECT:
             // 1 byte len, 1 byte opcode, 1 byte RxAdd, 6 byte peer addr, 22 byte LLData
