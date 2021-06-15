@@ -154,7 +154,6 @@ def main():
     connector_interval = conn_req.Interval
     connector_latency = conn_req.Latency
     print("Relay slave notified us of connection request. Connecting to real target...")
-    print(body)
     print(conn_req)
 
     global pcwriter
