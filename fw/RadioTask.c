@@ -309,8 +309,14 @@ static void afterConnEvent(bool slave)
 
     if (slave && instaHop)
     {
+        if (firstPacket && rconf.intervalCertain)
+        {
+            // we didn't get an anchor packet, but don't let lastAnchorTicks fall behind
+            // otherwise, it'll mess up timeDelta calculation for next connection event
+            lastAnchorTicks += rconf.hopIntervalTicks;
+        }
         // note: timeDelta is valid if !firstPacket and !rconf.winOffsetCertain (and slave and instaHop)
-        if (!firstPacket && !rconf.winOffsetCertain)
+        else if (!firstPacket && !rconf.winOffsetCertain)
         {
             if (rconf.intervalCertain) {
                 // one shot calculation of WinOffset
