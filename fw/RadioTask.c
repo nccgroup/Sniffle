@@ -90,7 +90,7 @@ static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 
 static uint32_t lastAnchorTicks;
-static uint32_t intervalTicks[7];
+static uint32_t intervalTicks[3];
 static uint32_t itInd;
 
 static uint64_t chanMapTestMask;
