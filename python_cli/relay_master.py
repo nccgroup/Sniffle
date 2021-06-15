@@ -9,6 +9,7 @@ from binascii import unhexlify
 from queue import Queue
 from time import time
 from select import select
+from struct import pack, unpack
 
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
@@ -201,6 +202,8 @@ def sock_recv_print_forward(conn, quiet):
     mtype, body = conn.recv_msg()
     if mtype != MessageType.PACKET:
         return
+    event, = unpack('<H', body[:2])
+    body = body[2:]
     llid = body[0] & 3
     pdu = body[2:]
 
@@ -209,6 +212,7 @@ def sock_recv_print_forward(conn, quiet):
     pkt.ts_epoch = time()
     pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
     pkt.aa = hw.decoder_state.cur_aa
+    pkt.event = event
 
     hw.cmd_transmit(llid, pdu)
     print_message(pkt, quiet)
@@ -222,7 +226,7 @@ def ser_recv_print_forward(conn, quiet):
         empty = isinstance(msg, LlDataContMessage) and msg.data_length == 0
         if not empty:
             # Forward packets to the relay slave
-            conn.send_msg(MessageType.PACKET, msg.body)
+            conn.send_msg(MessageType.PACKET, pack('<H', msg.event) + msg.body)
 
     print_message(msg, quiet)
 

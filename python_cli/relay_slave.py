@@ -7,6 +7,7 @@
 import argparse, sys
 from time import time
 from select import select
+from struct import pack, unpack
 
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
@@ -111,6 +112,8 @@ def sock_recv_print_forward(conn):
     mtype, body = conn.recv_msg()
     if mtype != MessageType.PACKET:
         return
+    event, = unpack('<H', body[:2])
+    body = body[2:]
     llid = body[0] & 3
     pdu = body[2:]
     hw.cmd_transmit(llid, pdu)
@@ -133,7 +136,7 @@ def ser_recv_print_forward(conn, quiet):
     is_empty = isinstance(msg, LlDataContMessage) and msg.data_length == 0
     if not is_empty:
         # forward received packets to relay master
-        conn.send_msg(MessageType.PACKET, msg.body)
+        conn.send_msg(MessageType.PACKET, pack('<H', msg.event) + msg.body)
 
 def print_message(msg, quiet=False):
     if isinstance(msg, PacketMessage):
