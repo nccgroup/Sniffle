@@ -88,13 +88,13 @@ def main():
     hw.cmd_follow(not args.advonly)
 
     if args.preload:
-        # expect colon separated triplets, separated by commas
-        triplets = []
+        # expect colon separated pairs, separated by commas
+        pairs = []
         for tstr in args.preload.split(','):
             tsplit = tstr.split(':')
-            tup = (int(tsplit[0]), int(tsplit[1]), int(tsplit[2]))
-            triplets.append(tup)
-        hw.cmd_interval_preload(triplets)
+            tup = (int(tsplit[0]), int(tsplit[1]))
+            pairs.append(tup)
+        hw.cmd_interval_preload(pairs)
     else:
         # reset preloaded encrypted connection interval changes
         hw.cmd_interval_preload()

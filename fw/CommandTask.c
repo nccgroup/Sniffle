@@ -162,11 +162,11 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         }
         case COMMAND_INTVL_PRELOAD:
         {
-            // payload is 0-4 triplets of 16 bit integers
+            // payload is 0-4 pairs of 16 bit integers
             // specifies what encrypted connection parameter updates mean
-            // each triplet is: WinOffset, Interval, delta_Instant
-            if (ret < 2 || ret > 26) continue;
-            int status = preloadConnParamUpdates((uint16_t *)(msgBuf + 2), (ret - 2) / 6);
+            // each pair is: Interval, DeltaInstant
+            if (ret < 2 || ret > 18) continue;
+            int status = preloadConnParamUpdates((uint16_t *)(msgBuf + 2), (ret - 2) >> 2);
             if (status < 0)
                 dprintf("Invalid preload params: %d", status);
             break;

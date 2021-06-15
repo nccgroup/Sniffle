@@ -95,10 +95,14 @@ static uint32_t itInd;
 
 static uint64_t chanMapTestMask;
 
-#define MAX_PARAM_TRIPLETS 4
-static uint32_t numParamTriplets;
+#define MAX_PARAM_PAIRS 4
+#define DELTA_INSTANT_TIMEOUT 12
+static uint32_t numParamPairs;
 static uint32_t preloadedParamIndex;
-static uint16_t connParamTriplets[MAX_PARAM_TRIPLETS * 3];
+static uint16_t connParamPairs[MAX_PARAM_PAIRS * 2];
+static uint16_t connUpdateInstant;
+static uint16_t prevInterval;
+static uint16_t timeDelta;
 
 static bool postponed = false;
 static bool followConnections = true;
@@ -278,6 +282,55 @@ static void afterConnEvent(bool slave)
         }
     }
 
+    if (slave && instaHop)
+    {
+        // note: timeDelta is valid if !firstPacket and !rconf.winOffsetCertain (and slave and instaHop)
+        if (!firstPacket && !rconf.winOffsetCertain)
+        {
+            if (rconf.intervalCertain) {
+                // one shot calculation of WinOffset
+                uint16_t WinOffset = timeDelta - prevInterval;
+                nextHopTime += WinOffset * 5000;
+                rconf.winOffsetCertain = true;
+                // TODO: report measured WinOffset
+            } else {
+                uint16_t DeltaInstant = (connEventCount - connUpdateInstant) & 0xFFFF;
+                if (timeDelta != prevInterval) {
+                    // uint16_t WinOffset = timeDelta - prevInterval;
+                    rconf.winOffsetCertain = true;
+                    // no point messing with nextHopTime since interval unknown
+                    // TODO: report measured WinOffset
+                    // TODO: report measured DeltaInstant
+                } else if (DeltaInstant > DELTA_INSTANT_TIMEOUT) {
+                    // took too long to observe a change, assume no change
+                    rconf.winOffsetCertain = true;
+                    rconf.intervalCertain = true;
+                    rconf.hopIntervalTicks = prevInterval * 5000;
+                    nextHopTime = lastAnchorTicks + rconf.hopIntervalTicks;
+                    // TODO: report assumed WinOffset of 0
+                    // TODO: report assumed DeltaInstant of 6
+                }
+            }
+        }
+        // we can calculate median hop interval based on our measurements
+        else if (!rconf.intervalCertain && rconf.winOffsetCertain &&
+            itInd >= ARR_SZ(intervalTicks) && itInd != 0xFFFFFFFF)
+        {
+            uint32_t medIntervalTicks = median(intervalTicks, ARR_SZ(intervalTicks));
+            uint32_t interval = (medIntervalTicks + 2500) / 5000; // snap to nearest multiple of 1.25 ms
+            rconf.hopIntervalTicks = interval * 5000;
+            rconf.intervalCertain = true;
+            reportMeasInterval((uint16_t)interval);
+
+            // clock drift compensator only works correctly when interval is correct
+            // reset its state, and make sure we don't time out prematurely
+            for (uint32_t i = 0; i < ARR_SZ(anchorOffset); i++)
+                anchorOffset[i] = AO_TARG;
+            nextHopTime = lastAnchorTicks + rconf.hopIntervalTicks;
+        }
+    }
+
+    // last connection event is now "done"
     curUnmapped = (curUnmapped + hopIncrement) % 37;
     connEventCount++;
     if (rconf_dequeue(connEventCount & 0xFFFF, &rconf))
@@ -299,22 +352,6 @@ static void afterConnEvent(bool slave)
     {
         uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
         nextHopTime += medAnchorOffset - AO_TARG;
-    }
-
-    // we can calculate median hop interval based on our measurements
-    if (slave && instaHop && !rconf.intervalCertain &&
-            itInd >= ARR_SZ(intervalTicks) && itInd != 0xFFFFFFFF)
-    {
-        uint32_t medIntervalTicks = median(intervalTicks, ARR_SZ(intervalTicks));
-        uint32_t interval = (medIntervalTicks + 2500) / 5000; // snap to nearest multiple of 1.25 ms
-        rconf.hopIntervalTicks = interval * 5000;
-        rconf.intervalCertain = true;
-        reportMeasInterval((uint16_t)interval);
-
-        // clock drift compensator only works correctly when interval is correct
-        // reset its state, and make sure we don't time out prematurely
-        for (uint32_t i = 0; i < ARR_SZ(anchorOffset); i++)
-            anchorOffset[i] = AO_TARG;
     }
 
     nextHopTime += rconf.hopIntervalTicks;
@@ -430,10 +467,11 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             Task_sleep(100);
         } else if (snifferState == DATA) {
             uint8_t chan = getCurrChan();
+            uint32_t timeExtension = rconf.winOffsetCertain ? 0 : rconf.hopIntervalTicks;
             firstPacket = true;
             moreData = 0x3;
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
-                    nextHopTime, indicatePacket);
+                    nextHopTime + timeExtension, indicatePacket);
 
             if (!firstPacket) empty_hops = 0;
             else empty_hops++;
@@ -496,13 +534,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == SLAVE) {
             dataQueue_t txq, txq2;
             uint32_t numSent;
+            uint32_t timeExtension = rconf.winOffsetCertain ? 0 : rconf.hopIntervalTicks;
             uint8_t chan = getCurrChan();
             TXQueue_take(&txq);
             txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = true; // for anchor offset calculations
 
             int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
-                    crcInit, nextHopTime, indicatePacket, &txq, 0, &numSent);
+                    crcInit, nextHopTime + timeExtension, indicatePacket, &txq, 0, &numSent);
 
             if (snifferState != SLAVE)
             {
@@ -796,7 +835,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
 
     /* clock synchronization
      * first packet on each channel is anchor point
-     * this is only used in DATA and SLAVE states
+     * this is only used in DATA and SLAVE states, ie. first packet is always from master
      */
     if (firstPacket)
     {
@@ -807,13 +846,19 @@ static void reactToDataPDU(const BLE_Frame *frame)
         aoInd = (aoInd + 1) & (ARR_SZ(anchorOffset) - 1);
         firstPacket = false;
 
-        if (instaHop && !rconf.intervalCertain)
+        if (instaHop)
         {
-            if (itInd < ARR_SZ(intervalTicks))
-                intervalTicks[itInd] = curTicks - lastAnchorTicks;
-            lastAnchorTicks = curTicks;
-            itInd++;
+            uint32_t timeDeltaTicks = curTicks - lastAnchorTicks;
+            if (!rconf.winOffsetCertain)
+                timeDelta = (timeDeltaTicks + 2500) / 5000;
+            else if (!rconf.intervalCertain && rconf.winOffsetCertain)
+            {
+                if (itInd < ARR_SZ(intervalTicks))
+                    intervalTicks[itInd] = timeDeltaTicks;
+                itInd++;
+            }
         }
+        lastAnchorTicks = curTicks;
     }
 
     if (snifferState == DATA)
@@ -869,6 +914,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
             next_rconf.intervalCertain = last_rconf->intervalCertain;
+            next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
             next_rconf.phy = PHY_2M;
             next_rconf.slaveLatency = last_rconf->slaveLatency;
             nextInstant = (connEventCount + 7) & 0xFFFF;
@@ -885,6 +931,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
             next_rconf.intervalCertain = true; // interval test would conflict
+            next_rconf.winOffsetCertain = true; // ditto
             next_rconf.phy = last_rconf->phy;
             next_rconf.slaveLatency = 10; // tolerate sparse channel map
             nextInstant = (connEventCount + 9) & 0xFFFF;
@@ -892,21 +939,22 @@ static void reactToDataPDU(const BLE_Frame *frame)
         } else if (datLen == 16 && snifferState != MASTER && instaHop) {
             // must be a LL_CONNECTION_UPDATE_IND due to length
             // 1 byte opcode + 11 byte CtrData + 4 byte MIC
-            if (numParamTriplets) {
+            if (numParamPairs) {
                 uint32_t plInd = preloadedParamIndex;
-                if (plInd >= numParamTriplets - 1)
-                    plInd = numParamTriplets - 1;
+                if (plInd >= numParamPairs - 1)
+                    plInd = numParamPairs - 1;
                 else
                     preloadedParamIndex++;
 
                 next_rconf.chanMap = last_rconf->chanMap;
                 next_rconf.chanMapCertain = true; // chan map test would conflict
-                next_rconf.offset = connParamTriplets[plInd*3];
-                next_rconf.hopIntervalTicks = connParamTriplets[plInd*3 + 1] * 5000;
+                next_rconf.offset = 0;
+                next_rconf.hopIntervalTicks = connParamPairs[plInd*2] * 5000;
                 next_rconf.intervalCertain = true;
+                next_rconf.winOffsetCertain = false; // still need to measure this
                 next_rconf.phy = last_rconf->phy;
                 next_rconf.slaveLatency = last_rconf->slaveLatency;
-                nextInstant = (connEventCount + connParamTriplets[plInd*3 + 2]) & 0xFFFF;
+                nextInstant = (connEventCount + connParamPairs[plInd*2 + 1]) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
             } else if (snifferState != MASTER && instaHop) {
                 // slave or sniffer devices can measure new connection interval
@@ -919,11 +967,14 @@ static void reactToDataPDU(const BLE_Frame *frame)
                 next_rconf.offset = 0;
                 next_rconf.hopIntervalTicks = 240 * 5000;
                 next_rconf.intervalCertain = false;
+                next_rconf.winOffsetCertain = false;
                 next_rconf.phy = last_rconf->phy;
                 next_rconf.slaveLatency = last_rconf->slaveLatency;
                 nextInstant = (connEventCount + 6) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
             }
+            connUpdateInstant = connEventCount;
+            prevInterval = (last_rconf->hopIntervalTicks + 2500) / 5000;
         }
         return;
     }
@@ -936,7 +987,8 @@ static void reactToDataPDU(const BLE_Frame *frame)
         next_rconf.chanMapCertain = last_rconf->chanMapCertain;
         next_rconf.offset = *(uint16_t *)(frame->pData + 4);
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
-        next_rconf.intervalCertain = last_rconf->intervalCertain;
+        next_rconf.intervalCertain = true;
+        next_rconf.winOffsetCertain = true;
         next_rconf.phy = last_rconf->phy;
         next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
         nextInstant = *(uint16_t *)(frame->pData + 12);
@@ -950,6 +1002,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
         next_rconf.intervalCertain = last_rconf->intervalCertain;
+        next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
         next_rconf.phy = last_rconf->phy;
         next_rconf.slaveLatency = last_rconf->slaveLatency;
         nextInstant = *(uint16_t *)(frame->pData + 8);
@@ -969,6 +1022,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
         next_rconf.offset = 0;
         next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
         next_rconf.intervalCertain = last_rconf->intervalCertain;
+        next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
         // we don't handle different M->S and S->M PHYs, assume both match
         switch (frame->pData[3] & 0x7)
         {
@@ -1178,6 +1232,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     rconf.hopIntervalTicks = Interval * 5000; // 4 MHz clock, 1.25 ms per unit
     nextHopTime += rconf.hopIntervalTicks;
     rconf.intervalCertain = true;
+    rconf.winOffsetCertain = true;
     rconf.phy = phy;
     rconf.slaveLatency = *(uint16_t *)(llData + 12);
     connEventCount = 0;
@@ -1356,36 +1411,34 @@ void setChanMap(uint64_t map)
     next_rconf.offset = 0;
     next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
     next_rconf.intervalCertain = last_rconf->intervalCertain;
+    next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
     next_rconf.phy = last_rconf->phy;
     next_rconf.slaveLatency = last_rconf->slaveLatency;
     nextInstant = (connEventCount + 1) & 0xFFFF;
     rconf_enqueue(nextInstant, &next_rconf);
 }
 
-/* Preload encrypted (unknwown key) connection parameter updates,
- * with triplets of: WinOffset, Interval, delta_Instant */
-int preloadConnParamUpdates(const uint16_t *triplets, uint32_t numTriplets)
+/* Preload encrypted (unknown key) connection parameter updates,
+ * with pairs of: Interval, DeltaInstant */
+int preloadConnParamUpdates(const uint16_t *pairs, uint32_t numPairs)
 {
-    if (numTriplets > MAX_PARAM_TRIPLETS)
+    if (numPairs > MAX_PARAM_PAIRS)
         return -1;
 
-    // validate all the triplets
-    for (uint32_t i = 0; i < numTriplets; i++)
+    // validate all the parameters
+    for (uint32_t i = 0; i < numPairs; i++)
     {
-        // WinOffset validation
-        if (triplets[i*3] > triplets[i*3 + 1])
-            return -2;
         // Interval validation
-        if (triplets[i*3 + 1] < 6 || triplets[i*3 + 1] > 3200)
+        if (pairs[i*2] < 6 || pairs[i*2] > 3200)
+            return -2;
+        // DeltaInstant validation
+        if (pairs[i*2 + 1] < 6 || pairs[i*2 + 1] > 0x7FFF)
             return -3;
-        // Instant validation
-        if (triplets[i*3 + 2] < 6 || triplets[i*3 +2] > 0x7FFF)
-            return -4;
     }
 
-    memcpy(connParamTriplets, triplets, numTriplets * 3 * sizeof(uint16_t));
+    memcpy(connParamPairs, pairs, numPairs * 2 * sizeof(uint16_t));
     preloadedParamIndex = 0;
-    numParamTriplets = numTriplets;
+    numParamPairs = numPairs;
 
     return 0;
 }

@@ -56,9 +56,9 @@ void setInstaHop(bool enable);
 /* Manually override the channel map for the current connection */
 void setChanMap(uint64_t map);
 
-/* Preload encrypted (unknwown key) connection parameter updates,
- * with triplets of: WinOffset, Interval, delta_Instant */
-int preloadConnParamUpdates(const uint16_t *triplets, uint32_t numTriplets);
+/* Preload encrypted (unknown key) connection parameter updates,
+ * with pairs of: Interval, DeltaInstant */
+int preloadConnParamUpdates(const uint16_t *pairs, uint32_t numPairs);
 
 typedef enum {
     ADV_IND,
@@ -79,6 +79,7 @@ struct RadioConfig {
     PHY_Mode phy;
     bool intervalCertain:1;
     bool chanMapCertain:1;
+    bool winOffsetCertain:1;
 };
 
 // 0 for M->S, 1 for S->M

@@ -215,17 +215,17 @@ real time, but may obscure when connection following is flaky or lost.
 
 For encrypted connections, Sniffle supports detecting connection parameter
 updates even when the encryption key is unknown, and it attempts to measure
-the new parameters. However, if you know the new connection interval, WinOffset,
-and Instant delta to expect in encrypted connection parameter updates, you can
-specify them with the `--preload`/`-Q` option to improve performance/reliability.
-The expected WinOffset:Interval:DeltaInstant triplet should be provided as colon
-separated integers. WinOffset and Interval are integers representing multiples
-of 1.25 ms (as defined in LL\_CONNECTION\_UPDATE\_IND). DeltaInstant is the number
-of connection events between when the connection update packet is transmitted and
-when the new parameters are applied. DeltaInstant must be greater than or equal
-to 6, as per the Bluetooth specification's requirements for master devices.
-If multiple encrypted parameter updates are expected, you can provide multiple
-parameter triplets, separated by commas (eg. `2:6:7,0:39:8`).
+the new parameters. However, if you know the new connection interval and Instant
+delta to expect in encrypted connection parameter updates, you can specify them
+with the `--preload`/`-Q` option to improve performance/reliability.
+The expected Interval:DeltaInstant pair should be provided as colon separated
+integers. Interval is an integer representing multiples of 1.25 ms (as defined
+in LL\_CONNECTION\_UPDATE\_IND). DeltaInstant is the number of connection events
+between when the connection update packet is transmitted and when the new
+parameters are applied. DeltaInstant must be greater than or equal to 6, as per
+the Bluetooth specification's requirements for master devices. If multiple
+encrypted parameter updates are expected, you can provide multiple parameter
+pairs, separated by commas (eg. `6:7,39:8`).
 
 If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On
@@ -286,13 +286,13 @@ has been locked onto. Save captured data to `data2.pcap`.
 
 Sniff advertisements and connections from the peripheral with big endian IRK
 4E0BEA5355866BE38EF0AC2E3F0EBC22. Preload two expected encrypted connection
-parameter updates; the first with a WinOffset of 3 and Interval of 6, occuring
-at an instant 6 connection events after an encrypted LL\_CONNECTION\_UPDATE\_IND
-is observed by the sniffer. The second expected encrypted connection update has
-a WinOffset of 27, Interval of 39, and DeltaInstant of 6 too.
+parameter updates; the first with an Interval of 6, occuring at an instant 6
+connection events after an encrypted LL\_CONNECTION\_UPDATE\_IND is observed
+by the sniffer. The second expected encrypted connection update has an Interval
+of 39, and DeltaInstant of 6 too.
 
 ```
-./sniff_receiver.py -i 4E0BEA5355866BE38EF0AC2E3F0EBC22 -Q 3:6:6,27:39:6
+./sniff_receiver.py -i 4E0BEA5355866BE38EF0AC2E3F0EBC22 -Q 6:6,39:6
 ```
 
 Sniff BT5 extended advertisements and connections from nearby (RSSI >= -55) devices.
