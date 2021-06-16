@@ -158,6 +158,10 @@ class SniffleHW:
                 # minimum packet is 4 bytes base64 + 2 bytes CRLF
                 pkt = self.ser.read(6)
 
+                # avoid error in case read was aborted
+                if len(pkt) < 6:
+                    continue
+
                 # decode header to get length byte
                 try:
                     data = b64decode(pkt[:4])
