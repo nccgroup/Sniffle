@@ -146,7 +146,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1);
 static void computeMaps();
 static void computeMap1(uint64_t map);
 static void handleConnFinished(void);
-static void reactToDataPDU(const BLE_Frame *frame);
+static void reactToDataPDU(const BLE_Frame *frame, bool transmit);
 static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen);
 static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
         bool isAuxReq);
@@ -879,11 +879,11 @@ void reactToPDU(const BLE_Frame *frame)
             RadioWrapper_stop();
         }
     } else {
-        reactToDataPDU(frame);
+        reactToDataPDU(frame, false);
     }
 }
 
-static void reactToDataPDU(const BLE_Frame *frame)
+static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
 {
     uint8_t LLID;
     //uint8_t NESN, SN;
@@ -898,7 +898,7 @@ static void reactToDataPDU(const BLE_Frame *frame)
      * first packet on each channel is anchor point
      * this is only used in DATA and SLAVE states, ie. first packet is always from master
      */
-    if (firstPacket)
+    if (firstPacket && !transmit)
     {
         uint32_t curTicks = frame->timestamp << 2;
 
@@ -1320,9 +1320,6 @@ static void reactToTransmitted(dataQueue_t *pTXQ, uint32_t numEntries)
     f.phy = rconf.phy;
     f.pData = pduBody;
 
-    // don't trip up anchor offset calculations
-    firstPacket = false;
-
     rfc_dataEntryPointer_t *entry = (rfc_dataEntryPointer_t *)pTXQ->pCurrEntry;
     if (entry == NULL) return;
 
@@ -1347,7 +1344,7 @@ static void reactToTransmitted(dataQueue_t *pTXQ, uint32_t numEntries)
         memcpy(f.pData + 2, entry->pData + 1, f.pData[1]);
 
         // now process the frame
-        reactToDataPDU(&f);
+        reactToDataPDU(&f, true);
 
 next:
         if (entry->pNextEntry == NULL) break;
