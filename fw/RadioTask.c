@@ -1054,6 +1054,11 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
         nextInstant = *(uint16_t *)(frame->pData + 12);
         rconf_enqueue(nextInstant, &next_rconf);
+
+        // preloaded connection update expected with encryption might come
+        // before encryption is started, so increment to next preload
+        if (numParamPairs && preloadedParamIndex < numParamPairs - 1)
+            preloadedParamIndex++;
         break;
     case 0x01: // LL_CHANNEL_MAP_IND
         if (datLen != 8) break;
