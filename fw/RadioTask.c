@@ -779,13 +779,17 @@ void reactToPDU(const BLE_Frame *frame)
                  * us after the advert end, we set it at 530 us to give us some time to postpone
                  * the radio trigger.
                  */
-                uint32_t timeRemaining;
+
+                // Let main loop know we got a legacy adv on 37
+                gotLegacy = true;
+                legacyLen = frame->length;
 
                 if (snifferState == ADVERT_SEEK) {
-                    timeRemaining = 0;
+                    // we can switch to ADVERT_HOP mode immediately
+                    RadioWrapper_stop();
                 } else {
                     // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
-                    uint32_t targHopTime;
+                    uint32_t targHopTime, timeRemaining;
 
                     // we should hop around 530 us (2120 radio ticks) after frame end
                     // this should give us enough time to postpone hop if necessary
@@ -796,13 +800,9 @@ void reactToPDU(const BLE_Frame *frame)
                         timeRemaining = 0; // should not happen given typical latency
                     else
                         timeRemaining >>= 2; // convert to microseconds from radio ticks
+
+                    DelayHopTrigger_trig(timeRemaining);
                 }
-
-                // Let main loop know we got a legacy adv on 37
-                gotLegacy = true;
-                legacyLen = frame->length;
-
-                DelayHopTrigger_trig(timeRemaining);
             }
         }
 
