@@ -140,6 +140,9 @@ class SniffleHW:
             cmd_bytes.extend(list(pack("<HH", *p)))
         self._send_cmd(cmd_bytes)
 
+    def cmd_scan(self):
+        self._send_cmd([0x22])
+
     def _recv_msg(self, desync=False):
         got_msg = False
         while not (got_msg or self.recv_cancelled):

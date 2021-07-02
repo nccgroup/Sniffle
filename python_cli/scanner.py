@@ -32,16 +32,9 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-r", "--rssi", default=-80, type=int,
             help="Filter packets by minimum RSSI")
-    aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
-            help="Capture BT5 extended (auxiliary) advertising")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
     args = aparse.parse_args()
-
-    # Sanity check argument combinations
-    if args.longrange and not args.extadv:
-        print("Long-range PHY only supported in extended advertising!", file=sys.stderr)
-        return
 
     global hw
     hw = SniffleHW(args.serport)
@@ -58,8 +51,11 @@ def main():
     # turn off MAC address filtering
     hw.cmd_mac()
 
-    # configure BT5 extended (aux/secondary) advertising
-    hw.cmd_auxadv(args.extadv)
+    # set a MAC address for ourselves
+    hw.random_addr()
+
+    # switch to active scanner mode
+    hw.cmd_scan()
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()

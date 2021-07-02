@@ -172,6 +172,11 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
                 dprintf("Invalid preload params: %d", status);
             break;
         }
+        case COMMAND_SCAN:
+            // no parameters for this command
+            if (ret != 2) continue;
+            scan();
+            break;
         default:
             break;
         }

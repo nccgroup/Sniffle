@@ -28,5 +28,6 @@ void CommandTask_init(void);
 #define COMMAND_INSTAHOP        0x1F
 #define COMMAND_SETMAP          0x20
 #define COMMAND_INTVL_PRELOAD   0x21
+#define COMMAND_SCAN            0x22
 
 #endif /* COMMANDTASK_H */

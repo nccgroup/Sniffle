@@ -65,6 +65,10 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
 // Send trigger for recvAdv3 function to go from 37 to 38
 void RadioWrapper_trigAdv3();
 
+// Perform active scanning
+int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback);
+
 // Transmit and receive in master mode
 int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,

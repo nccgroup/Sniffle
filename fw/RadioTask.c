@@ -633,6 +633,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             // don't sleep if we had a connection established
             if (snifferState == ADVERTISING)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
+        } else if (snifferState == SCANNING) {
+            /* scan forever (until stopped) */
+            RadioWrapper_scan(statPHY, statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
+                    indicatePacket);
         }
     }
 }
@@ -1445,6 +1449,13 @@ void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRsp
     memcpy(s_advData, advData, advLen);
     memcpy(s_scanRspData, scanRspData, scanRspLen);
     stateTransition(ADVERTISING);
+    RadioWrapper_stop();
+}
+
+/* Enter active scanning state */
+void scan()
+{
+    stateTransition(SCANNING);
     RadioWrapper_stop();
 }
 

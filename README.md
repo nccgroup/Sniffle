@@ -234,8 +234,7 @@ Launchpad boards, the reset button is located beside the micro USB port.
 ## Scanner Usage
 
 ```
-sultan@sultan-neon-vm:~/sniffle/python_cli$ ./scanner.py --help
-usage: scanner.py [-h] [-s SERPORT] [-c {37,38,39}] [-r RSSI] [-e] [-l]
+usage: scanner.py [-h] [-s SERPORT] [-c {37,38,39}] [-r RSSI] [-l]
 
 Scanner utility for Sniffle BLE5 sniffer
 
@@ -246,19 +245,20 @@ optional arguments:
   -c {37,38,39}, --advchan {37,38,39}
                         Advertising channel to listen on
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
-  -e, --extadv          Capture BT5 extended (auxiliary) advertising
   -l, --longrange       Use long range (coded) PHY for primary advertising
 ```
 
 The scanner command line arguments work the same as the sniffer. The purpose of
-the scanner utility is to passively gather a list of nearby devices advertising,
-without having the deluge of fast scrolling data you get with the sniffer
-utility. The hardware/firmware works exactly the same, but the scanner utility
-will record and report observed MAC addresses only once without spamming the
-display. Once you're done capturing advertisements, press Ctrl-C to stop
-scanning and report the results. The scanner will show the last advertisement
-and scan response from each target. Scan results will be sorted by RSSI in
-descending order.
+the scanner utility is to gather a list of nearby devices advertising, and
+actively issue scan requests for observed devices, without having the deluge
+of fast scrolling data you get with the sniffer utility. The hardware/firmware
+will enter an active scanning mode where it will report received advertisements,
+issue scan requests for scannable ones, and report received scan responses.
+The scanner utility will record and report observed MAC addresses only once
+without spamming the display. Once you're done capturing advertisements, press
+Ctrl-C to stop scanning and report the results. The scanner will show the last
+advertisement and scan response from each target. Scan results will be sorted
+by RSSI in descending order.
 
 ## Usage Examples
 
@@ -315,11 +315,10 @@ channel 38.
 ./sniff_receiver.py -le -c 38
 ```
 
-Passively scan on channel 39 for advertisements with RSSI greater than -50, and
-enable capture of extended advertising.
+Actively scan on channel 39 for advertisements with RSSI greater than -50.
 
 ```
-./scanner.py -c 39 -e -r -50
+./scanner.py -c 39 -r -50
 ```
 
 ## Obtaining the IRK
