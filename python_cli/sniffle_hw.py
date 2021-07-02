@@ -142,7 +142,7 @@ class SniffleHW:
 
     def _recv_msg(self, desync=False):
         got_msg = False
-        while not got_msg:
+        while not (got_msg or self.recv_cancelled):
             if desync:
                 # readline is inefficient, but a good way to synchronize
                 pkt = self.ser.readline()
