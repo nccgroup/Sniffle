@@ -259,7 +259,6 @@ def get_mac_from_irk(irk, chan=37):
             print("Found target MAC: %s" % str_mac(dpkt.AdvA))
             return dpkt.AdvA
 
-# TODO: implement active scanning some day
 def scan_target(mac):
     advPkt = None
     scanRspPkt = None
@@ -268,8 +267,10 @@ def scan_target(mac):
     hw.cmd_pause_done(True)
     hw.cmd_follow(False)
     hw.cmd_rssi(-128)
-    hw.cmd_mac(mac) # hop with target for better scan detection
+    hw.cmd_mac(mac, False)
     hw.cmd_auxadv(False) # we only support impersonating legacy advertisers for now
+    hw.random_addr()
+    hw.cmd_scan()
     hw.mark_and_flush()
 
     while (advPkt is None) or (scanRspPkt is None):
