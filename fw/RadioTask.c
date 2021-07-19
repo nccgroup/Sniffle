@@ -1226,7 +1226,7 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
      */
 
     // Add AUX_ADV_INDs to the schedule
-    if (pAuxPtr)
+    if (pAuxPtr && snifferState != SCANNING)
     {
         uint8_t chan = pAuxPtr[0] & 0x3F;
         PHY_Mode phy = pAuxPtr[2] >> 5 < 3 ? pAuxPtr[2] >> 5 : PHY_2M;
