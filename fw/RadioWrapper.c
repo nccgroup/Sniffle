@@ -686,9 +686,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  *  scanRspLen  Scan response data length
  *
  * Returns:
- *  -3 on misc error
- *  -2 on advertiser being stopped
- *  -1 on timeout (didn't get connection request)
+ *  -1 if no connection request or error
  *  0 on legacy connection success with ChSel0
  *  1 on legacy connection success with ChSel1
  */
@@ -696,115 +694,76 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
     uint8_t scanRspLen)
 {
+    rfc_bleAdvPar_t params;
+    rfc_CMD_BLE_ADV_t adv37;
+    rfc_CMD_BLE_ADV_t adv38;
+    rfc_CMD_BLE_ADV_t adv39;
+
     if (!configured)
         return -EINVAL;
 
     userCallback = callback;
     ble4_cmd = true;
 
-    RF_cmdBleAdv.whitening.bOverride = 0x0;
+    memset(&adv37, 0, sizeof(adv37));
+    adv37.commandNo = 0x1803;
+    adv37.condition.rule = COND_STOP_ON_FALSE;
+    adv37.pParams = &params;
 
-    RF_cmdBleAdv.pParams->pRxQ = &dataQueue;
-    RF_cmdBleAdv.pParams->rxConfig.bAutoFlushIgnored = 1;
-    RF_cmdBleAdv.pParams->rxConfig.bAutoFlushCrcErr = 1;
-    RF_cmdBleAdv.pParams->rxConfig.bAutoFlushEmpty = 0;
-    RF_cmdBleAdv.pParams->rxConfig.bIncludeLenByte = 1;
-    RF_cmdBleAdv.pParams->rxConfig.bIncludeCrc = 0;
-    RF_cmdBleAdv.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBleAdv.pParams->rxConfig.bAppendStatus = 1;
-    RF_cmdBleAdv.pParams->rxConfig.bAppendTimestamp = 1;
+    memset(&params, 0, sizeof(params));
+    params.pRxQ = &dataQueue;
+    params.rxConfig.bAutoFlushIgnored = 1;
+    params.rxConfig.bAutoFlushCrcErr = 1;
+    params.rxConfig.bAutoFlushEmpty = 0;
+    params.rxConfig.bIncludeLenByte = 1;
+    params.rxConfig.bIncludeCrc = 0;
+    params.rxConfig.bAppendRssi = 1;
+    params.rxConfig.bAppendStatus = 1;
+    params.rxConfig.bAppendTimestamp = 1;
 
-    RF_cmdBleAdv.pParams->advConfig.advFilterPolicy = 0x0; // no whitelist
-    RF_cmdBleAdv.pParams->advConfig.deviceAddrType = advRandom ? 1 : 0;
-    RF_cmdBleAdv.pParams->advConfig.peerAddrType = 0; // not applicable
-    RF_cmdBleAdv.pParams->advConfig.bStrictLenFilter = 0;
-    RF_cmdBleAdv.pParams->advConfig.chSel = 1; // allow CSA 2
-    RF_cmdBleAdv.pParams->advConfig.privIgnMode = 0; // ???
-    RF_cmdBleAdv.pParams->advConfig.rpaMode = 0;
+    params.advConfig.advFilterPolicy = 0x0; // no whitelist
+    params.advConfig.deviceAddrType = advRandom ? 1 : 0;
+    params.advConfig.peerAddrType = 0; // not applicable
+    params.advConfig.bStrictLenFilter = 0;
+    params.advConfig.chSel = 1; // allow CSA 2
+    params.advConfig.privIgnMode = 0; // ???
+    params.advConfig.rpaMode = 0;
 
-    RF_cmdBleAdv.pParams->advLen = advLen;
-    RF_cmdBleAdv.pParams->scanRspLen = scanRspLen;
-    RF_cmdBleAdv.pParams->pAdvData = (void *)advData;
-    RF_cmdBleAdv.pParams->pScanRspData = (void *)scanRspData;
-    RF_cmdBleAdv.pParams->pDeviceAddress = (uint16_t *)advAddr;
+    params.advLen = advLen;
+    params.scanRspLen = scanRspLen;
+    params.pAdvData = (void *)advData;
+    params.pScanRspData = (void *)scanRspData;
+    params.pDeviceAddress = (uint16_t *)advAddr;
 
-    // 1 ms per channel
-    RF_cmdBleAdv.pParams->endTrigger.triggerType = TRIG_REL_START;
-    RF_cmdBleAdv.pParams->endTrigger.bEnaCmd = 0;
-    RF_cmdBleAdv.pParams->endTrigger.triggerNo = 0;
-    RF_cmdBleAdv.pParams->endTrigger.pastTrig = 1;
-    RF_cmdBleAdv.pParams->endTime = 4000;
+    // will end automatically when done, no need for timed trigger
+    params.endTrigger.triggerType = TRIG_NEVER;
 
-    RF_cmdBleAdv.channel = 37;
+    // duplicate the common settings
+    adv38 = adv37;
+    adv39 = adv37;
+
+    // set up chain of advertising on 37, 38, 39
+    adv37.pNextOp = (RF_Op *)&adv38;
+    adv37.channel = 37;
+    adv38.pNextOp = (RF_Op *)&adv39;
+    adv38.channel = 38;
+    adv39.channel = 39;
+    adv39.condition.rule = COND_NEVER;
 
     /* Enter advertiser mode, and stay till we're done */
-    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
+    RF_runCmd(bleRfHandle, (RF_Op*)&adv37, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
-    switch (RF_cmdBleAdv.status)
-    {
-    case BLE_DONE_CONNECT:
+    if (adv37.status == BLE_DONE_CONNECT ||
+            adv38.status == BLE_DONE_CONNECT ||
+            adv39.status == BLE_DONE_CONNECT)
         return 1;
-    case BLE_DONE_CONNECT_CHSEL0:
+    else if (adv37.status == BLE_DONE_CONNECT_CHSEL0 ||
+            adv38.status == BLE_DONE_CONNECT_CHSEL0 ||
+            adv39.status == BLE_DONE_CONNECT_CHSEL0)
         return 0;
-    case BLE_DONE_ENDED:
-    case BLE_DONE_NOSYNC:
-    case BLE_DONE_RXERR:
-        // move on to next channel
-        break;
-    case BLE_DONE_STOPPED:
-        // end immediately
-        return -2;
-    default:
-        // unhandled error
-        return -3;
-    }
-
-    RF_cmdBleAdv.channel = 38;
-    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
-            &rx_int_callback, IRQ_RX_ENTRY_DONE);
-
-    switch (RF_cmdBleAdv.status)
-    {
-    case BLE_DONE_CONNECT:
-        return 1;
-    case BLE_DONE_CONNECT_CHSEL0:
-        return 0;
-    case BLE_DONE_ENDED:
-    case BLE_DONE_NOSYNC:
-    case BLE_DONE_RXERR:
-        // move on to next channel
-        break;
-    case BLE_DONE_STOPPED:
-        // end immediately
-        return -2;
-    default:
-        // unhandled error
-        return -3;
-    }
-
-    RF_cmdBleAdv.channel = 39;
-    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleAdv, RF_PriorityNormal,
-            &rx_int_callback, IRQ_RX_ENTRY_DONE);
-
-    switch (RF_cmdBleAdv.status)
-    {
-    case BLE_DONE_CONNECT:
-        return 1;
-    case BLE_DONE_CONNECT_CHSEL0:
-        return 0;
-    case BLE_DONE_ENDED:
-    case BLE_DONE_NOSYNC:
-    case BLE_DONE_RXERR:
-        // no connection attempts made
+    else
         return -1;
-    case BLE_DONE_STOPPED:
-        // end immediately
-        return -2;
-    default:
-        // unhandled error
-        return -3;
-    }
 }
 
 void RadioWrapper_stop()
