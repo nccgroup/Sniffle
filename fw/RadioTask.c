@@ -293,7 +293,7 @@ static void afterConnEvent(bool slave)
     if (!rconf.chanMapCertain && slave)
     {
         uint64_t chanBit = 1ULL << getCurrChan();
-        if (firstPacket)
+        if (firstPacket && !(chanMapTestMask & chanBit))
         {
             rconf.chanMap &= ~chanBit;
             computeMaps();
