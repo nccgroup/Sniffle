@@ -195,7 +195,7 @@ class SniffleExtcapPlugin():
                         pass
                 raise UsageError('Invalid value specified for preload option: %s' % (self.args.preload))
             if len(preload) > SniffleHW.max_interval_preload_pairs:
-                raise UsageError('Please specify no more than %d interval preload pairs: %s' % (SniffleHW.max_interval_preload_pairs))
+                raise UsageError('Please specify no more than %d interval preload pairs' % (SniffleHW.max_interval_preload_pairs))
             self.args.preload = preload
 
         # Sanity check argument combinations
