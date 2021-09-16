@@ -13,6 +13,9 @@ from random import randint
 from traceback import print_exc
 
 class SniffleHW:
+
+    max_interval_preload_pairs = 4
+
     def __init__(self, serport):
         self.decoder_state = SniffleDecoderState()
         self.ser = Serial(serport, 2000000)
@@ -131,7 +134,7 @@ class SniffleHW:
     # pairs should be a list of 2-tuples of integers
     # each 2-tuple is (Interval, delta_Instant)
     def cmd_interval_preload(self, pairs=[]):
-        if len(pairs) > 4:
+        if len(pairs) > SniffleHW.max_interval_preload_pairs:
             raise ValueError("Too many preload pairs")
         cmd_bytes = [0x21]
         for p in pairs:

@@ -17,6 +17,7 @@ Sniffle has a number of useful features, including:
   channel.**
 * Easy to extend host-side software written in Python
 * PCAP export compatible with the Ubertooth
+* Wireshark compatible plugin
 
 ## Prerequisites
 
@@ -332,3 +333,31 @@ device's IRK. Be aware that keys stored in this file are little endian, so
 the little endian IRK 22BC0E3F2EACF08EE36B865553EA0B4E needs to be changed to
 4E0BEA5355866BE38EF0AC2E3F0EBC22 (big endian) when being passed to Sniffle with
 the `-i` option.
+
+
+## Wireshark Plugin
+
+Sniffle includes Wireshark plugin that makes it possible to launch Sniffle automatically
+from the Wireshark GUI by selecting the 'Sniffle' capture interface.
+
+To install the Sniffle plugin, first find the location of your Personal Extcap folder in the
+'About Wireshark' dialog (*Help* > *About Wireshark* > *Folders* > *Personal Extcap path*).
+On many systems, this folder is located at ~/.config/wireshark/extcap.
+
+Copy the plugin and associated python modules from the python_cli directory into your Personal
+Extcap folder, ensuring that the main plugin script is marked executable:
+
+```
+cp python_cli/sniffle_extcap.py python_cli/packet_decoder.py python_cli/pcap.py python_cli/sniffle_hw.py ~/.config/wireshark/extcap
+chmod u+rx ~/.config/wireshark/extcap/sniffle_extcap.py
+```
+
+Alternatively, you can place a single symbolic link in your Personal Extcap folder pointing to
+a copy of the plugin script stored elsewhere:
+
+```
+ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
+```
+
+Once the plugin has been installed, restart Wireshark or choose *Capture* > *Refresh Interfaces*
+to enable the Sniffle interface.
