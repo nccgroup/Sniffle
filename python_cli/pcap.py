@@ -28,6 +28,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import os.path
 from io import BytesIO
 from struct import pack
 
@@ -41,8 +42,10 @@ class PcapBleWriter(object):
         # open stream
         if output is None:
             self.output = BytesIO()
-        else:
+        elif os.path.isfile(output):
             self.output = open(output,'wb')
+        else:
+            self.output = open(output,'wb', buffering=0)
 
         # write headers
         self.write_header()
