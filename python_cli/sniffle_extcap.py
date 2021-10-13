@@ -23,13 +23,18 @@
 #
 #  @file
 #       A Wireshark extcap plug-in for real time packet capture using Sniffle.
-# 
+#
 
 import sys
 import os
 import os.path
 import argparse
 import re
+import threading
+import struct
+import logging
+import time
+import signal
 import traceback
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage
 from packet_decoder import DPacketMessage, DataMessage, ConnectIndMessage
@@ -38,22 +43,60 @@ from serial.tools.list_ports import comports
 
 scriptName = os.path.basename(sys.argv[0])
 
+CTRL_NUM_LOGGER = 0
+
+CTRL_CMD_INITIALIZED = 0
+CTRL_CMD_SET         = 1
+CTRL_CMD_ADD         = 2
+CTRL_CMD_REMOVE      = 3
+CTRL_CMD_ENABLE      = 4
+CTRL_CMD_DISABLE     = 5
+CTRL_CMD_STATUSBAR   = 6
+CTRL_CMD_INFORMATION = 7
+CTRL_CMD_WARNING     = 8
+CTRL_CMD_ERROR       = 9
+
 class SniffleExtcapPlugin():
 
     def __init__(self) -> None:
         self.args = None
-        self.fifoOpened = False
+        self.logger = None
+        self.hw = None
+        self.captureStream = None
+        self.controlReadStream = None
+        self.controlWriteStream = None
+        self.controlThread = None
+        self.captureStopped = False
+        self.controlsInitialized = False
 
     def main(self, args=None):
 
+        # initialize logging
+        #
+        # add a log handler to pass internal log messages back to Wireshark
+        # via the control-out FIFO
+        #
+        # if SNIFFLE_LOG_FILE env variable is set, also write log messages to
+        # the named file
+        #
+        # if SNIFFLE_LOG_LEVEL is set, set the default log level accordingly
+        #
+        logHandlers = [ SniffleExtcapLogHandler(self) ]
+        logFile = os.environ.get('SNIFFLE_LOG_FILE', None)
+        if logFile:
+            logHandlers.append(logging.FileHandler(logFile))
+        logLevel = os.environ.get('SNIFFLE_LOG_LEVEL', 'DEBUG' if logFile else 'WARNING').upper()
+        logging.basicConfig(handlers=logHandlers, level=logLevel)
+
+        self.logger = logging.getLogger('sniffle_extcap')
+
         try:
+
             # Parse the given arguments
             self.parseArgs(args)
 
             # Perform the requested operation
-            if self.args.op == 'extcap-version':
-                print(self.extcap_version())
-            elif self.args.op == 'extcap-interfaces':
+            if self.args.op == 'extcap-interfaces':
                 print(self.extcap_interfaces())
             elif self.args.op == 'extcap-dlts':
                 print(self.extcap_dlts())
@@ -81,7 +124,7 @@ class SniffleExtcapPlugin():
             return ex.code
 
         except:
-            traceback.print_exc()
+            self.logger.exception('INTERNAL ERROR')
             return 1
 
         finally:
@@ -89,7 +132,7 @@ class SniffleExtcapPlugin():
             # gets opened and subsequently closed at least once.  In cases where an
             # error occurs before we get to actually capturing packets this ensures
             # that Wireshark knows that the plugin has exited.
-            if not self.fifoOpened and self.args is not None and self.args.fifo is not None:
+            if not self.captureStream and self.args is not None and self.args.fifo is not None:
                 try:
                     open(self.args.fifo, 'wb').close()
                 except:
@@ -97,8 +140,6 @@ class SniffleExtcapPlugin():
 
     def parseArgs(self, args=None):
         argParser = ArgumentParser(prog=scriptName)
-        argParser.add_argument("--extcap-version", dest='op', action="append_const", const='extcap-version', 
-                               help="Show version")
         argParser.add_argument("--extcap-interfaces", dest='op', action="append_const", const='extcap-interfaces',
                                help="List available capture interfaces")
         argParser.add_argument("--extcap-dlts", dest='op', action="append_const", const='extcap-dlts',
@@ -109,6 +150,8 @@ class SniffleExtcapPlugin():
                                help="Start capture")
         argParser.add_argument("--extcap-interface",
                                help="Target capture interface")
+        argParser.add_argument("--extcap-version",
+                               help="Wireshark version")
         argParser.add_argument("--extcap-reload-option",
                                help="Reload elements for option")
         argParser.add_argument("--fifo",
@@ -218,12 +261,12 @@ class SniffleExtcapPlugin():
 
     def extcap_version(self):
         return 'extcap {version=1.0}{display=Sniffle BLE sniffer}{help=https://github.com/nccgroup/Sniffle}'
-        
+
     def extcap_interfaces(self):
         lines = []
         lines.append(self.extcap_version())
         lines.append("interface {value=sniffle}{display=Sniffle BLE sniffer}")
-        # TODO: possibly setup some toolbar controls?
+        lines.append("control {number=%d}{type=button}{role=logger}{display=Log}{tooltip=Show capture log}" % CTRL_NUM_LOGGER)
         return '\n'.join(lines)
 
     def extcap_dlts(self):
@@ -265,13 +308,17 @@ class SniffleExtcapPlugin():
                             '{display=Long range}'
                             '{tooltip=Use long range (coded) PHY for primary advertising}')
         for port in comports():
+            if sys.platform == 'win32':
+                device = f'//./{port.device}'
+            else:
+                device = port.device
             if port.manufacturer is not None:
-                displayName = '%s - %s' % (port.device,port.manufacturer)
+                displayName = '%s - %s' % (port.device, port.manufacturer)
             elif port.vid is not None and port.pid is not None:
                 displayName = '%s - USB VID:PID %04x:%04x' % (port.device, port.vid, port.pid)
             else:
                 displayName = port.device
-            lines.append('value {arg=0}{value=%s}{display=%s}' % (port.device,displayName))
+            lines.append('value {arg=0}{value=%s}{display=%s}' % (device, displayName))
         lines.append('value {arg=1}{value=all}{display=all}')
         lines.append('value {arg=1}{value=37}{display=37}')
         lines.append('value {arg=1}{value=38}{display=38}')
@@ -279,70 +326,211 @@ class SniffleExtcapPlugin():
         return '\n'.join(lines)
 
     def capture(self):
-        hw = SniffleHW(self.args.serport)
+        try:
+            # open the capture output FIFO and initialize the PCAP writer to write to it
+            self.logger.info('Opening capture output FIFO')
+            self.captureStream = open(self.args.fifo, 'wb', buffering=0)
+            pcapWriter = PcapBleWriter(self.captureStream)
 
-        # if a channel was explicitly specified, don't hop
-        if self.args.advchan == 'all':
-            self.args.advchan = 37
-            hop3 = True
+            # if a control-out FIFO has been given, open it for writing
+            if self.args.extcap_control_out is not None:
+                self.logger.info('Opening control-out FIFO')
+                self.controlWriteStream = open(self.args.extcap_control_out, 'wb', 0)
+
+                # Clear the logger control in preparation for writing new messages
+                self.writeControlMessage(CTRL_CMD_SET, CTRL_NUM_LOGGER, '')
+
+            # if a control-in FIFO has been given, open it for reading
+            if self.args.extcap_control_in is not None:
+                self.logger.info('Opening control-in FIFO')
+                self.controlReadStream = open(self.args.extcap_control_in, 'rb', 0)
+
+                # start a thread to read control messages
+                self.logger.info('Staring control thread')
+                self.controlThread = threading.Thread(target=self.controlThreadMain)
+                self.controlThread.start()
+
+            # Wait for the INITIALIZED message from Wireshark
+            #    NOTE that Wireshark on Windows will delay sending the INITIALIZED message
+            #    until after it receives the PCAP header.  Thus this loop must happen
+            #    *after* the PcapBleWriter has been initialized to avoid a deadlock.
+            if self.controlReadStream:
+                self.logger.info('Waiting for INITIALIZED message from Wireshark')
+                while not self.controlsInitialized:
+                    time.sleep(0.1)
+
+            self.logger.info('Initializing Sniffle hardware interface')
+
+            # initialize the Sniffle hardware interface
+            self.hw = SniffleHW(self.args.serport, logger=logging.getLogger('sniffle_hw'))
+
+            # if a channel was explicitly specified, don't hop
+            if self.args.advchan == 'all':
+                self.args.advchan = 37
+                hop3 = True
+            else:
+                hop3 = False
+
+            # set the advertising channel (and return to ad-sniffing mode)
+            self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
+
+            # set up whether or not to follow connections
+            self.hw.cmd_follow(not self.args.advonly)
+
+            # set preloaded encrypted connection interval changes
+            self.hw.cmd_interval_preload(self.args.preload if self.args.preload is not None else [])
+
+            # configure RSSI filter
+            self.hw.cmd_rssi(self.args.rssi)
+
+            # disable 37/38/39 hop in extended mode unless overridden
+            if self.args.extadv and not self.args.hop:
+                hop3 = False
+
+            # configure MAC or IRK filter
+            if self.args.mac is None and self.args.irk is None:
+                self.hw.cmd_mac()
+            elif self.args.irk:
+                self.hw.cmd_irk(self.args.irk, hop3)
+            else:
+                self.hw.cmd_mac(self.args.mac, hop3)
+
+            # configure BT5 extended (aux/secondary) advertising
+            self.hw.cmd_auxadv(self.args.extadv)
+
+            # zero timestamps and flush old packets
+            self.hw.mark_and_flush()
+
+            self.logger.info('Starting capture')
+
+            # Arrange to exit gracefully on a signal from Wireshark. NOTE that this
+            # has no effect under Windows.
+            signal.signal(signal.SIGINT, lambda sig, frame : self.stopCapture())
+            signal.signal(signal.SIGTERM, lambda sig, frame : self.stopCapture())
+
+            # capture packets and write to the capture output until signaled to stop
+            while not self.captureStopped:
+
+                # wait for a capture packet
+                pkt = self.hw.recv_and_decode()
+                if isinstance(pkt, PacketMessage):
+
+                    # decode the packet
+                    dpkt = DPacketMessage.decode(pkt)
+
+                    # write the packet to the PCAP writer
+                    if isinstance(dpkt, DataMessage):
+                        pdu_type = 3 if dpkt.data_dir else 2
+                    else:
+                        pdu_type = 0
+                    try:
+                        pcapWriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
+                                                    pkt.body, pkt.phy, pdu_type)
+                    except IOError: # Windows will raise this when the other end of the FIFO is closed
+                        self.captureStopped = True
+                        break
+
+                    # update cur_aa
+                    if isinstance(dpkt, ConnectIndMessage):
+                        self.hw.decoder_state.cur_aa = dpkt.aa_conn
+                        self.hw.decoder_state.last_chan = -1
+
+            self.logger.info('Capture stopped')
+
+            # wait for the control thread to exit
+            if self.controlThread:
+                self.controlThread.join()
+
+        finally:
+            if self.captureStream is not None:
+                self.captureStream.close()
+            if self.controlReadStream is not None:
+                self.controlReadStream.close()
+            if self.controlWriteStream is not None:
+                self.controlWriteStream.close()
+
+    def controlThreadMain(self):
+        self.logger.info('Control thread started')
+        try:
+            while True:
+                (cmd, controlNum, payload) = self.readControlMessage()
+                self.logger.info('Control message received: %d %d' % (cmd, controlNum))
+                if cmd == CTRL_CMD_INITIALIZED:
+                    self.controlsInitialized = True
+                # no interactive controls implemented, so simply discard any other control packets
+        except EOFError:
+            # Wireshark closed the control FIFO, indicating it is done capturing
+            pass
+        except:
+            self.logger.exception('INTERNAL ERROR')
+        finally:
+            self.stopCapture()
+            self.logger.info('Control thread exiting')
+
+    def readControlMessage(self):
+        try:
+            header = self.controlReadStream.read(6)
+        except IOError: # Windows will raise this when the other end of the FIFO is closed
+            raise EOFError()
+        if len(header) < 6:
+            raise EOFError()
+        (sp, msgLenH, msgLenL, controlNum, cmd) = struct.unpack('!bBHBB', header)
+        if sp != ord('T'):
+            raise ValueError('Bad control message received')
+        msgLen = (msgLenH << 16) | msgLenL
+        payloadLen = msgLen - 2
+        if payloadLen < 0 or payloadLen > 65535:
+            raise ValueError('Bad control message received')
+        if payloadLen > 0:
+            payload = self.controlReadStream.read(payloadLen)
+            if len(payload) < payloadLen:
+                raise EOFError()
         else:
-            hop3 = False
+            payload = None
+        return (cmd, controlNum, payload)
 
-        # set the advertising channel (and return to ad-sniffing mode)
-        hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
+    def writeControlMessage(self, cmd, controlNum, payload):
+        if not self.controlWriteStream:
+            return
+        if cmd < 0 or cmd > 255:
+            raise ValueError('Invalid control message command')
+        if controlNum < 0 or controlNum > 255:
+            raise ValueError('Invalid control message control number')
+        if payload is None:
+            payload = b''
+        elif isinstance(payload, str):
+            payload = payload.encode('utf-8')
+        if len(payload) > 65535:
+            raise ValueError('Control message payload too long')
+        msgLen = len(payload) + 2
+        msg = bytearray()
+        msg += struct.pack('!bBHBB', ord('T'), msgLen >> 16, msgLen & 0xFFFF, controlNum, cmd)
+        msg += payload
+        self.controlWriteStream.write(msg)
 
-        # set up whether or not to follow connections
-        hw.cmd_follow(not self.args.advonly)
+    def stopCapture(self):
+        # interrupt the main thread if it is in the middle of receiving data
+        # from the capture hardware.
+        if self.hw:
+            self.hw.cancel_recv()
 
-        # set preloaded encrypted connection interval changes
-        hw.cmd_interval_preload(self.args.preload if self.args.preload is not None else [])
+        # signal the main thread that capturing has been stopped
+        self.captureStopped = True
 
-        # configure RSSI filter
-        hw.cmd_rssi(self.args.rssi)
+class SniffleExtcapLogHandler(logging.Handler):
+    def __init__(self, plugin):
+        logging.Handler.__init__(self)
+        self.plugin = plugin
 
-        # disable 37/38/39 hop in extended mode unless overridden
-        if self.args.extadv and not self.args.hop:
-            hop3 = False
-
-        # configure MAC or IRK filter
-        if self.args.mac is None and self.args.irk is None:
-            hw.cmd_mac()
-        elif self.args.irk:
-            hw.cmd_irk(self.args.irk, hop3)
-        else:
-            hw.cmd_mac(self.args.mac, hop3)
-
-        # configure BT5 extended (aux/secondary) advertising
-        hw.cmd_auxadv(self.args.extadv)
-
-        # zero timestamps and flush old packets
-        hw.mark_and_flush()
-
-        # initialize the PCAP writer
-        pcapWriter = PcapBleWriter(self.args.fifo)
-        self.fifoOpened = True
-
-        # capture packets and write to the PCAP fifo until interrupted
-        while True:
-            pkt = hw.recv_and_decode()
-            if isinstance(pkt, PacketMessage):
-
-                # decode the packet
-                dpkt = DPacketMessage.decode(pkt)
-
-                # write the packet to the PCAP writer
-                if isinstance(dpkt, DataMessage):
-                    pdu_type = 3 if dpkt.data_dir else 2
-                else:
-                    pdu_type = 0
-                pcapWriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
-                                            pkt.body, pkt.phy, pdu_type)
-
-                # update cur_aa
-                if isinstance(dpkt, ConnectIndMessage):
-                    hw.decoder_state.cur_aa = dpkt.aa_conn
-                    hw.decoder_state.last_chan = -1
-
+    def emit(self, record):
+        try:
+            logMsg = self.format(record) + '\n'
+        except:
+            logMsg = traceback.format_exc() + '\n'
+        try:
+            self.plugin.writeControlMessage(CTRL_CMD_ADD, CTRL_NUM_LOGGER, logMsg)
+        except:
+            pass
 
 class UsageError(Exception):
     pass

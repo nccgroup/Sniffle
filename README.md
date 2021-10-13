@@ -339,30 +339,46 @@ the little endian IRK 22BC0E3F2EACF08EE36B865553EA0B4E needs to be changed to
 4E0BEA5355866BE38EF0AC2E3F0EBC22 (big endian) when being passed to Sniffle with
 the `-i` option.
 
-
 ## Wireshark Plugin
 
-Sniffle includes Wireshark plugin that makes it possible to launch Sniffle automatically
+Sniffle includes a Wireshark plugin that makes it possible to launch Sniffle automatically
 from the Wireshark GUI by selecting the 'Sniffle' capture interface.
 
 To install the Sniffle plugin, first find the location of your Personal Extcap folder in the
 'About Wireshark' dialog (*Help* > *About Wireshark* > *Folders* > *Personal Extcap path*).
-On many systems, this folder is located at ~/.config/wireshark/extcap.
+On Unix systems, this folder is typically located at `~/.config/wireshark/extcap`. Under
+Windows, it can be found at `%USERPROFILE%\AppData\Roaming\Wireshark\extcap`.
 
-Copy the plugin and associated python modules from the python_cli directory into your Personal
-Extcap folder, ensuring that the main plugin script is marked executable:
+Copy the following files from the python_cli directory into your Personal Extcap folder:
 
 ```
-cp python_cli/sniffle_extcap.py python_cli/packet_decoder.py python_cli/pcap.py python_cli/sniffle_hw.py ~/.config/wireshark/extcap
-chmod u+rx ~/.config/wireshark/extcap/sniffle_extcap.py
+python_cli/pcap.py
+python_cli/packet_decoder.py
+python_cli/sniffle_hw.py
+python_cli/sniffle_extcap.py
+python_cli/sniffle_extcap.bat (Windows only)
+```
+On Unix systems, ensure that the main plugin script is marked executable:
+
+```
+chmod +x ~/.config/wireshark/extcap/sniffle_extcap.py
 ```
 
-Alternatively, you can place a single symbolic link in your Personal Extcap folder pointing to
-a copy of the plugin script stored elsewhere:
+On Windows, it may be necessary to edit sniffle_extcap.bat to specify the location of
+the python interpreter if the installation directory is not included in the PATH, e.g.:
+
+```
+@echo off
+C:\my_python_install\python.exe "%~dp0sniffle_extcap.py" %*
+```
+
+Once the plugin has been installed, restart Wireshark or choose *Capture* > *Refresh Interfaces*
+to enable the Sniffle interface.
+
+As an alternative to copying files into the extcap folder, on Unix systems you can place a single
+symbolic link in the extcap folder pointing to a copy of the plugin script stored elsewhere:
 
 ```
 ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
 ```
 
-Once the plugin has been installed, restart Wireshark or choose *Capture* > *Refresh Interfaces*
-to enable the Sniffle interface.
