@@ -2,25 +2,45 @@
 # Copyright (c) 2019-2021, NCC Group plc
 # Released as open source under GPLv3
 
+import sys
 from serial import Serial
 from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
-from sys import stderr
 from time import time
 from enum import Enum
 from random import randint
-from traceback import print_exc
+from traceback import format_exception
+
+class _TrivialLogger:
+    def _log(self, msg, *args, exc_info=None, **kwargs):
+        msg = msg % args
+        print(msg, file=sys.stderr)
+        if exc_info:
+            if isinstance(exc_info, BaseException):
+                exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
+            elif not isinstance(exc_info, tuple):
+                exc_info = sys.exc_info()
+            exc_str = ''.join(format_exception(*exc_info))
+            print(exc_str, file=sys.stderr)
+
+    debug = _log
+    info = _log
+    warning = _log
+    error = _log
+    critical = _log
+    exception = _log
 
 class SniffleHW:
 
     max_interval_preload_pairs = 4
 
-    def __init__(self, serport):
+    def __init__(self, serport, logger=None):
         self.decoder_state = SniffleDecoderState()
         self.ser = Serial(serport, 2000000)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
+        self.logger = logger if logger else _TrivialLogger()
 
     def _send_cmd(self, cmd_byte_list):
         b0 = (len(cmd_byte_list) + 3) // 3
@@ -155,8 +175,8 @@ class SniffleHW:
                 try:
                     data = b64decode(pkt.rstrip())
                 except BAError as e:
-                    print(str(pkt, encoding='ascii').rstrip())
-                    print("Ignoring message:", e, file=stderr)
+                    self.logger.warning("Ignoring message due to decode error: %s", e)
+                    self.logger.warning("Message: %s", pkt)
                     continue
                 if len(data) < 2:
                     continue
@@ -172,8 +192,8 @@ class SniffleHW:
                 try:
                     data = b64decode(pkt[:4])
                 except BAError as e:
-                    print(str(pkt, encoding='ascii').rstrip())
-                    print("Ignoring message:", e, file=stderr)
+                    self.logger.warning("Ignoring message due to decode error: %s", e)
+                    self.logger.warning("Message: %s", pkt)
                     self.ser.readline() # eat CRLF
                     continue
 
@@ -184,15 +204,16 @@ class SniffleHW:
 
                 # make sure CRLF is present
                 if pkt[-2:] != b'\r\n':
-                    print("Ignoring message due to missing CRLF", file=stderr)
+                    self.logger.warning("Ignoring message due to missing CRLF")
+                    self.logger.warning("Message: %s", pkt)
                     self.ser.readline() # eat CRLF
                     continue
 
                 try:
                     data = b64decode(pkt[:-2])
                 except BAError as e:
-                    print(str(pkt, encoding='ascii').rstrip())
-                    print("Ignoring message:", e, file=stderr)
+                    self.logger.warning("Ignoring message due to decode error: %s", e)
+                    self.logger.warning("Message: %s", pkt)
                     self.ser.readline() # eat CRLF
                     continue
 
@@ -223,9 +244,8 @@ class SniffleHW:
             else:
                 raise SniffleHWPacketError("Unknown message type 0x%02X!" % mtype)
         except BaseException as e:
-            print(str(pkt, encoding='ascii').rstrip())
-            print("Ignoring message:", e, file=stderr)
-            print_exc()
+            self.logger.warning("Ignoring message due to exception: %s", e, exc_info=e)
+            self.logger.warning("Message: %s", pkt)
             return None
 
     def cancel_recv(self):

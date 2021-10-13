@@ -29,7 +29,7 @@ SOFTWARE.
 """
 
 import os.path
-from io import BytesIO
+from io import BytesIO, BufferedIOBase, RawIOBase
 from struct import pack
 
 class PcapBleWriter(object):
@@ -42,6 +42,8 @@ class PcapBleWriter(object):
         # open stream
         if output is None:
             self.output = BytesIO()
+        elif isinstance(output, (BufferedIOBase, RawIOBase)):
+            self.output = output
         elif os.path.isfile(output):
             self.output = open(output,'wb')
         else:
