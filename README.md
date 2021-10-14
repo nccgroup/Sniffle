@@ -371,10 +371,17 @@ C:\my_python_install\python.exe "%~dp0sniffle_extcap.py" %*
 Once the plugin has been installed, restart Wireshark or choose *Capture* > *Refresh Interfaces*
 to enable the Sniffle interface.
 
-As an alternative to copying files into the extcap folder, on Unix systems you can place a single symbolic link in the extcap folder pointing to
+As an alternative to copying files into the extcap folder, on Unix systems you can place
+a single symbolic link in the extcap folder pointing to
 a copy of the plugin script stored elsewhere:
 
 ```
 ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
 ```
+### _A Note about Wireshark Crashes on Windows_
 
+Recent versions of Wireshark for Windows (as of at least version 3.4.9, c. Oct 2021)
+will crash whenever capturing is stopped while there are multiple extcap plugins
+installed.  This bug is unrelated Sniffle and the Sniffle extcap plugin.  Until this is
+fixed by the Wireshark team, users of Sniffle are recommended to uninstall any other
+extcap plugins they may have on their systems.
