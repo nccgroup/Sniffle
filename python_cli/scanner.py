@@ -30,7 +30,7 @@ def main():
     aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
     aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
-    aparse.add_argument("-r", "--rssi", default=-80, type=int,
+    aparse.add_argument("-r", "--rssi", default=-128, type=int,
             help="Filter packets by minimum RSSI")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")

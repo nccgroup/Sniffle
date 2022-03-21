@@ -29,7 +29,7 @@ def main():
     hw.cmd_follow(True)
 
     # turn off RSSI filter
-    hw.cmd_rssi(-128)
+    hw.cmd_rssi()
 
     # Turn off MAC filter
     hw.cmd_mac()

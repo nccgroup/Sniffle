@@ -31,7 +31,7 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-p", "--pause", action="store_const", default=False, const=True,
             help="Pause sniffer after disconnect")
-    aparse.add_argument("-r", "--rssi", default=-80, type=int,
+    aparse.add_argument("-r", "--rssi", default=-128, type=int,
             help="Filter packets by minimum RSSI")
     aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
     aparse.add_argument("-i", "--irk", default=None, help="Filter packets by advertiser IRK")

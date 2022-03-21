@@ -18,8 +18,6 @@ def main():
     aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
     aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
-    aparse.add_argument("-r", "--rssi", default=-80, type=int,
-            help="Filter packets by minimum RSSI")
     aparse.add_argument("-m", "--mac", default=None, help="Specify target MAC address")
     aparse.add_argument("-i", "--irk", default=None, help="Specify target IRK")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
@@ -50,8 +48,8 @@ def main():
     # capture advertisements only
     hw.cmd_follow(False)
 
-    # configure RSSI filter
-    hw.cmd_rssi(args.rssi)
+    # turn off RSSI filter
+    hw.cmd_rssi()
 
     if args.mac:
         try:

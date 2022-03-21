@@ -38,7 +38,7 @@ class SniffleHW:
         else:
             self._send_cmd([0x11, 0x00])
 
-    def cmd_rssi(self, rssi=-80):
+    def cmd_rssi(self, rssi=-128):
         self._send_cmd([0x12, rssi & 0xFF])
 
     def cmd_mac(self, mac_byte_list=None, hop3=True):
