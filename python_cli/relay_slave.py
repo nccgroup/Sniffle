@@ -19,7 +19,7 @@ _aa = 0
 
 def main():
     aparse = argparse.ArgumentParser(description="Relay slave script for Sniffle BLE5 sniffer")
-    aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
+    aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
     aparse.add_argument("-M", "--masteraddr", default="127.0.0.1", help="IP address of relay master")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
             help="Don't show empty packets")
