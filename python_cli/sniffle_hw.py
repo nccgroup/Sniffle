@@ -11,9 +11,20 @@ from time import time
 from enum import Enum
 from random import randint
 from traceback import print_exc
+from serial.tools.list_ports import comports
+
+def find_xds110_serport():
+    xds_ports = [i[0] for i in comports() if (i.vid == 0x0451 and i.pid == 0xBEF3)]
+    if len(xds_ports) > 0:
+        return sorted(xds_ports)[0]
+    else:
+        raise IOError("XDS110 not found")
 
 class SniffleHW:
-    def __init__(self, serport):
+    def __init__(self, serport=None):
+        if serport is None:
+            serport = find_xds110_serport()
+
         self.decoder_state = SniffleDecoderState()
         # 230399 instead of 230400 to avoid XDS110 USB UART latency bug
         self.ser = Serial(serport, 230399)

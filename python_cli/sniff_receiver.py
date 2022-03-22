@@ -26,7 +26,7 @@ _allow_hop3 = True
 
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
-    aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
+    aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
     aparse.add_argument("-c", "--advchan", default=40, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
     aparse.add_argument("-p", "--pause", action="store_const", default=False, const=True,

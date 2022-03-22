@@ -13,7 +13,7 @@ hw = None
 
 def main():
     aparse = argparse.ArgumentParser(description="Connection initiator test script for Sniffle BLE5 sniffer")
-    aparse.add_argument("-s", "--serport", default="/dev/ttyACM0", help="Sniffer serial port name")
+    aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
     args = aparse.parse_args()
 
     global hw

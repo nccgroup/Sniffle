@@ -146,9 +146,10 @@ optional arguments:
 The XDS110 debugger on the Launchpad boards creates two serial ports. On
 Linux, they are typically named `ttyACM0` and `ttyACM1`. The first of the
 two created serial ports is used to communicate with Sniffle. By default,
-the Python CLI communicates using `/dev/ttyACM0`, but you may need to
-override this with the `-s` command line option if you are not running on
-Linux or have additional USB CDC-ACM devices connected.
+the Python CLI communicates using the first CDC-ACM device it sees matching
+the TI XDS110 USB VID:PID combo. You may need to override this with the `-s`
+command line option if you are using a different USB serial adapter or have
+additional USB CDC-ACM devices connected.
 
 For the `-r` (RSSI filter) option, a value of -40 tends to work well if the
 sniffer is very close to or nearly touching the transmitting device. The RSSI
