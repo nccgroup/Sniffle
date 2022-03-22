@@ -31,6 +31,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* ======== Board ======== */
+var board = system.deviceData.board.name;
+
+/* ======== Components ======== */
+var Components = system.deviceData.board.components;
+
 /* ======== RF ======== */
 var RF = scripting.addModule("/ti/drivers/RF");
 
@@ -66,21 +72,12 @@ if (system.deviceData.deviceId.startsWith("CC1352P")) {
         "cmdFs"];
 }
 
-/* ======== LED Red ======== */
-var GPIO = scripting.addModule("/ti/drivers/GPIO");  // Add a GPIO module for use by LEDs
-var LED_R = GPIO.addInstance();                      // Add an a GPIO module instance for LED_R
-
-/* if a red LED component exists, assign it to the LED_R instance */
-if (system.deviceData.board && system.deviceData.board.components.LED_RED) {
-    LED_R.$hardware = system.deviceData.board.components.LED_RED;
-}
-else
-{
-    LED_R.mode = "Output";  // Set the LED pin to output
-}
-
-LED_R.$name = "CONFIG_GPIO_RLED";                     // Descriptive name for the LED_R GPIO
-LED_R.pinInstance.$name = "CONFIG_PIN_RLED";          // Descriptive name for LED_R PIN
+/* ======== LED ======== */
+var LED = scripting.addModule("/ti/drivers/apps/LED");
+var led0 = LED.addInstance();
+led0.$hardware = Components.LED0;
+var led1 = LED.addInstance();
+led1.$hardware = Components.LED1;
 
 /* ======== UART ======== */
 var UART = scripting.addModule("/ti/drivers/UART");

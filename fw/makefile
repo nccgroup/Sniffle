@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13x2_26x2_sdk_5_10_00_48
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_5_40_00_40
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -26,27 +26,24 @@ endif
 
 ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
     CCXML = CC26X2/CC2652R1F.ccxml
-    CFLAGS += -DDeviceFamily_CC26X2
     SYSCFG_BOARD = /ti/boards/CC26X2R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
     CCXML = CC1352/CC1352R1F3.ccxml
-    CFLAGS += -DDeviceFamily_CC13X2
     SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
     CCXML = CC2652RB/CC2652RB1F.ccxml
-    CFLAGS += -DDeviceFamily_CC26X2
     SYSCFG_BOARD = /ti/boards/LP_CC2652RB
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352P1_PLATFORMS)),)
     CCXML = CC1352P1/CC1352P1F3.ccxml
-    CFLAGS += -DDeviceFamily_CC13X2
     SYSCFG_BOARD = /ti/boards/CC1352P1_LAUNCHXL
 endif
 
 XDCTARGET = gnu.targets.arm.M4F
-TI_PLTFRM = ti.platforms.simplelink:$(PLATFORM)
+TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+CFLAGS += -DDeviceFamily_CC13X2_CC26X2
 
 CFLAGS += -I. \
     -D__STRICT_ANSI__ \
@@ -122,7 +119,7 @@ ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_d
 
 syscfg: sniffle.syscfg
 	@ echo Generating configuration files...
-	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
+	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --rtos tirtos --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
 
 %.obj: %.c $(CONFIGPKG)/compiler.opt syscfg
 	@ echo Building $@

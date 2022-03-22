@@ -24,7 +24,8 @@
 #include <ti/sysbios/knl/Event.h>
 
 /* Drivers */
-#include <ti/drivers/PIN.h>
+#include <ti/drivers/GPIO.h>
+#include <ti/drivers/apps/LED.h>
 
 /* Board Header files */
 #include "ti_drivers_config.h"
@@ -33,7 +34,7 @@
 #define PACKET_TASK_STACK_SIZE 1024
 #define PACKET_TASK_PRIORITY   3
 
-#define RX_ACTIVITY_LED CONFIG_PIN_RLED
+#define RX_ACTIVITY_LED CONFIG_LED_0
 
 /***** Type declarations *****/
 
@@ -56,15 +57,8 @@ static bool filterRpas = false;
 static void packetTaskFunction(UArg arg0, UArg arg1);
 static bool macFilterCheck(BLE_Frame *frame);
 
-/* Pin driver handle */
-static PIN_Handle ledPinHandle;
-static PIN_State ledPinState;
-
-/* Configure LED Pin */
-static PIN_Config ledPinTable[] = {
-    RX_ACTIVITY_LED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    PIN_TERMINATE
-};
+/* LED driver handle */
+static LED_Handle ledHandle;
 
 // size must be a power of 2
 #define JANKY_QUEUE_SIZE 8u
@@ -89,8 +83,10 @@ void PacketTask_init(void) {
     }
 
     /* Open LED pins */
-    ledPinHandle = PIN_open(&ledPinState, ledPinTable);
-    if (!ledPinHandle)
+    LED_Params ledParams;
+    LED_init();
+    ledHandle = LED_open(RX_ACTIVITY_LED, &ledParams);
+    if (!ledHandle)
     {
         System_abort("Error initializing board 3.3V domain pins\n");
     }
@@ -194,13 +190,13 @@ static void packetTaskFunction(UArg arg0, UArg arg1)
         Semaphore_pend(packetAvailSem, BIOS_WAIT_FOREVER);
 
         // activate LED
-        PIN_setOutputValue(ledPinHandle, RX_ACTIVITY_LED, 1);
+        LED_write(ledHandle, 1);
 
         // send packet
         sendPacket(s_frames + (atomic_load(&queue_tail) & JANKY_QUEUE_MASK));
 
         // deactivate LED
-        PIN_setOutputValue(ledPinHandle, RX_ACTIVITY_LED, 0);
+        LED_write(ledHandle, 0);
 
         // we can now handle a new packet (wraparound is OK)
         atomic_fetch_add(&queue_tail, 1);
