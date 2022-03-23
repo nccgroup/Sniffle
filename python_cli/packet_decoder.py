@@ -283,7 +283,7 @@ class ConnectIndMessage(AdvertMessage):
 
     def str_aia(self):
         return "InitA: %s AdvA: %s AA: 0x%08X CRCInit: 0x%06X" % (
-                str_mac2(self.InitA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd), self.aa, self.CRCInit)
+                str_mac2(self.InitA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd), self.aa_conn, self.CRCInit)
 
     def str_conn_params(self):
         return "WinSize: %d WinOffset: %d Interval: %d Latency: %d Timeout: %d Hop: %d SCA: %d" % (
