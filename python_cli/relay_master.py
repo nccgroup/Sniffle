@@ -15,7 +15,7 @@ from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, \
         MeasurementMessage, SnifferState
 from packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, AdvIndMessage, \
-        AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, str_mac
+        AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, str_mac, LlControlMessage
 from relay_protocol import RelayServer, MessageType
 
 """
@@ -87,6 +87,10 @@ def main():
             help="Don't show empty packets")
     aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
             "connection parameter changes")
+    aparse.add_argument("-f", "--fastslave", action="store_const", default=False, const=True,
+            help="Relay slave should request a fast connection interval")
+    aparse.add_argument("-F", "--fastmaster", action="store_const", default=False, const=True,
+            help="Relay master should specify a fast connection interval")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -150,10 +154,6 @@ def main():
     conn_req = DPacketMessage.from_body(body)
     if not isinstance(conn_req, ConnectIndMessage):
         raise ValueError("CONN_REQ was not a CONN_REQ!")
-    connector_addr = conn_req.InitA
-    connector_random = bool(conn_req.TxAdd)
-    connector_interval = conn_req.Interval
-    connector_latency = conn_req.Latency
     print("Relay slave notified us of connection request. Connecting to real target...")
     print(conn_req)
 
@@ -167,6 +167,15 @@ def main():
                 scan_rsp.chan, scan_rsp.rssi, scan_rsp.body, scan_rsp.phy)
         pcwriter.write_packet(int(time() * 1000000), conn_req.aa, conn_req.chan,
                 conn_req.rssi, conn_req.body, conn_req.phy)
+
+    connector_addr = conn_req.InitA
+    connector_random = bool(conn_req.TxAdd)
+    if args.fastmaster:
+        connector_interval = 6
+        connector_latency = 0
+    else:
+        connector_interval = conn_req.Interval
+        connector_latency = conn_req.Latency
 
     preloads = []
     if args.preload:
@@ -189,15 +198,36 @@ def main():
             break
     print("Connected to target.", end='\n\n')
 
+    # request legitimate master (relay slave) to use a fast connection interval
+    # LL Control (0x03), length 24 (0x18), LL_CONNECTION_PARAM_REQ (0x0F)
+    # interval: 0x0006 to 0x000A (7.5 to 15 ms)
+    # latency: 0
+    # timeout: 0x01F4 (5 seconds)
+    # preferred periodicity: 3
+    # reference event: 0x0005
+    # offsets: 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0000
+    if args.fastslave:
+        conn_update_pdu = DPacketMessage.from_body(b'\x03\x18\x0f\x06\x00\x0c\x00\x00\x00\xf4\x01\x03'
+                b'\x05\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x00\x00')
+        conn.send_msg(MessageType.PACKET, b'\x04\x00' + conn_update_pdu.body)
+
+    filter_changes = args.fastslave or args.fastmaster
+
     while True:
         ready, _, _ = select([hw.ser.fd, conn.sock], [], [])
 
         if conn.sock in ready:
-            sock_recv_print_forward(conn, args.quiet)
+            sock_recv_print_forward(conn, args.quiet, filter_changes)
         if hw.ser.fd in ready:
-            ser_recv_print_forward(conn, args.quiet)
+            ser_recv_print_forward(conn, args.quiet, filter_changes)
 
-def sock_recv_print_forward(conn, quiet):
+def has_instant(pkt):
+    return isinstance(pkt, LlControlMessage) and pkt.opcode in [0x00, 0x01, 0x18]
+
+def is_param_req(pkt):
+    return isinstance(pkt, LlControlMessage) and pkt.opcode == 0x0F
+
+def sock_recv_print_forward(conn, quiet, filter_changes=False):
     # receive packets from relay slave and retransmit them here
     mtype, body = conn.recv_msg()
     if mtype != MessageType.PACKET:
@@ -214,19 +244,25 @@ def sock_recv_print_forward(conn, quiet):
     pkt.aa = hw.decoder_state.cur_aa
     pkt.event = event
 
-    hw.cmd_transmit(llid, pdu, event)
+    # Passing on PDUs with instants in the past would break the connection
+    if not (filter_changes and has_instant(pkt)):
+        hw.cmd_transmit(llid, pdu, event)
     print_message(pkt, quiet)
 
-def ser_recv_print_forward(conn, quiet):
+def ser_recv_print_forward(conn, quiet, filter_changes=False):
     msg = hw.recv_and_decode()
 
     if isinstance(msg, PacketMessage):
         msg = DPacketMessage.decode(msg)
         # only forward non-empty data
         empty = isinstance(msg, LlDataContMessage) and msg.data_length == 0
-        if not empty:
+        block_req = filter_changes and is_param_req(msg)
+        if not empty and not block_req:
             # Forward packets to the relay slave
             conn.send_msg(MessageType.PACKET, pack('<H', msg.event) + msg.body)
+        if block_req:
+            # LL_REJECT_EXT_IND, unacceptable connection parameters
+            hw.cmd_transmit(3, b'\x11\x0F\x3B')
 
     print_message(msg, quiet)
 
