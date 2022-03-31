@@ -17,7 +17,7 @@ int messenger_init()
     UART_init();
     UART_Params uartParams;
     UART_Params_init(&uartParams);
-    uartParams.baudRate = 230400;
+    uartParams.baudRate = 2000000;
     uartParams.readMode = UART_MODE_BLOCKING;
     uartParams.writeMode = UART_MODE_BLOCKING;
     uartParams.writeDataMode = UART_DATA_BINARY;

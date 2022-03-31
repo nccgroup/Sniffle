@@ -61,7 +61,7 @@ static bool macFilterCheck(BLE_Frame *frame);
 static LED_Handle ledHandle;
 
 // size must be a power of 2
-#define JANKY_QUEUE_SIZE 16u
+#define JANKY_QUEUE_SIZE 8u
 #define JANKY_QUEUE_MASK (JANKY_QUEUE_SIZE - 1)
 
 // 255+2=257 is the most we need, but use 260 for better alignment/performance

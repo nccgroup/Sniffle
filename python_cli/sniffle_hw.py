@@ -26,8 +26,7 @@ class SniffleHW:
             serport = find_xds110_serport()
 
         self.decoder_state = SniffleDecoderState()
-        # 230399 instead of 230400 to avoid XDS110 USB UART latency bug
-        self.ser = Serial(serport, 230399)
+        self.ser = Serial(serport, 2000000)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
 
