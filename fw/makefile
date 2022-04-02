@@ -10,11 +10,22 @@ LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 CONFIGPKG = rtos_build
 NAME = sniffle
 
-CC26X2_PLATFORMS = CC2642R1F CC2652R1F
-CC1352_PLATFORMS = CC1352R1F3
+CC26X2R1_PLATFORMS = CC2642R1F CC2652R1F
+CC1352R1_PLATFORMS = CC1352R1F3
 CC2652RB_PLATFORMS = CC2652RB1F
 CC1352P1_PLATFORMS = CC1352P1F3
-SUPPORTED_PLATFORMS = $(CC26X2_PLATFORMS) $(CC1352_PLATFORMS) $(CC2652RB_PLATFORMS) $(CC1352P1_PLATFORMS)
+CC2652R7_PLATFORMS = CC2652R74
+CC1352P7_PLATFORMS = CC1352P74
+CC2651P3_PLATFORMS = CC2651P31
+
+SUPPORTED_PLATFORMS = \
+    $(CC26X2R1_PLATFORMS) \
+    $(CC1352R1_PLATFORMS) \
+    $(CC2652RB_PLATFORMS) \
+    $(CC1352P1_PLATFORMS) \
+    $(CC2652R7_PLATFORMS) \
+    $(CC1352P7_PLATFORMS) \
+    $(CC2651P3_PLATFORMS)
 
 ifeq ($(PLATFORM),)
     PLATFORM = CC2642R1F
@@ -24,26 +35,68 @@ ifeq ($(filter $(PLATFORM), $(SUPPORTED_PLATFORMS)),)
     $(error "PLATFORM not in $(SUPPORTED_PLATFORMS)")
 endif
 
-ifneq ($(filter $(PLATFORM), $(CC26X2_PLATFORMS)),)
-    CCXML = CC26X2/CC2652R1F.ccxml
+HARD_FLOAT = 1
+
+ifneq ($(filter $(PLATFORM), $(CC26X2R1_PLATFORMS)),)
+    CCXML = ccxml/CC2652R1F.ccxml
     SYSCFG_BOARD = /ti/boards/CC26X2R1_LAUNCHXL
+    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+    TI_PLAT_NAME = cc13x2_cc26x2
+    CFLAGS += -DDeviceFamily_CC26X2
 endif
-ifneq ($(filter $(PLATFORM), $(CC1352_PLATFORMS)),)
-    CCXML = CC1352/CC1352R1F3.ccxml
+ifneq ($(filter $(PLATFORM), $(CC1352R1_PLATFORMS)),)
+    CCXML = ccxml/CC1352R1F3.ccxml
     SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
+    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+    TI_PLAT_NAME = cc13x2_cc26x2
+    CFLAGS += -DDeviceFamily_CC13X2
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
-    CCXML = CC2652RB/CC2652RB1F.ccxml
+    CCXML = ccxml/CC2652RB1F.ccxml
     SYSCFG_BOARD = /ti/boards/LP_CC2652RB
+    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+    TI_PLAT_NAME = cc13x2_cc26x2
+    CFLAGS += -DDeviceFamily_CC26X2
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352P1_PLATFORMS)),)
-    CCXML = CC1352P1/CC1352P1F3.ccxml
+    CCXML = ccxml/CC1352P1F3.ccxml
     SYSCFG_BOARD = /ti/boards/CC1352P1_LAUNCHXL
+    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+    TI_PLAT_NAME = cc13x2_cc26x2
+    CFLAGS += -DDeviceFamily_CC13X2
+endif
+ifneq ($(filter $(PLATFORM), $(CC2652R7_PLATFORMS)),)
+    CCXML = ccxml/CC2652R7.ccxml
+    SYSCFG_BOARD = /ti/boards/LP_CC2652R7
+    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+    TI_PLAT_NAME = cc13x2x7_cc26x2x7
+    CFLAGS += -DDeviceFamily_CC26X2X7
+endif
+ifneq ($(filter $(PLATFORM), $(CC1352P7_PLATFORMS)),)
+    CCXML = ccxml/CC1352P7.ccxml
+    SYSCFG_BOARD = /ti/boards/LP_CC1352P7_1
+    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
+    TI_PLAT_NAME = cc13x2x7_cc26x2x7
+    CFLAGS += -DDeviceFamily_CC13X2X7
+endif
+ifneq ($(filter $(PLATFORM), $(CC2651P3_PLATFORMS)),)
+    CCXML = ccxml/CC2651P3.ccxml
+    SYSCFG_BOARD = /ti/boards/LP_CC2651P3
+    TI_PLTFRM = ti.platforms.simplelink:CC13X1_CC26X1
+    TI_PLAT_NAME = cc13x1_cc26x1
+    CFLAGS += -DDeviceFamily_CC26X1
+    HARD_FLOAT = 0
 endif
 
-XDCTARGET = gnu.targets.arm.M4F
-TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
-CFLAGS += -DDeviceFamily_CC13X2_CC26X2
+ifeq ($(HARD_FLOAT),1)
+    XDCTARGET = gnu.targets.arm.M4F
+    LFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
+    LFLAGS += "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/hard"
+else
+    XDCTARGET = gnu.targets.arm.M4
+    LFLAGS += -mfloat-abi=soft
+    LFLAGS += "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/nofp"
+endif
 
 CFLAGS += -I. \
     -D__STRICT_ANSI__ \
@@ -55,22 +108,19 @@ CFLAGS += -I. \
     -Wall
 
 LFLAGS += \
-    -Wl,-T,cc13x2_cc26x2_tirtos.lds \
+    -Wl,-T,$(TI_PLAT_NAME)_tirtos.lds \
     "-Wl,-Map,$(NAME).map" \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
     -l:third_party/spiffs/lib/gcc/m4f/spiffs_cc26xx.a \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
     ti_utils_build_linker.cmd.genlibs \
     "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
-    -l:ti/devices/cc13x2_cc26x2/driverlib/bin/gcc/driverlib.lib \
+    -l:ti/devices/$(TI_PLAT_NAME)/driverlib/bin/gcc/driverlib.lib \
     -march=armv7e-m \
     -mthumb \
-    -mfloat-abi=hard \
-    -mfpu=fpv4-sp-d16 \
     -nostartfiles \
     -static \
     -Wl,--gc-sections \
-    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/hard" \
     -lgcc \
     -lc \
     -lm \

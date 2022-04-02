@@ -50,7 +50,7 @@ ble5.ble = ["bt5le1m"];
 ble5.radioConfigbt5le1m.codeExportConfig.symGenMethod = "Legacy";
 ble5.radioConfigbt5le1m.codeExportConfig.appOverride = "sniffle_overrides.h";
 ble5.radioConfigbt5le1m.codeExportConfig.appOverrideMacro = "BLE_APP_OVERRIDES";
-if (system.deviceData.deviceId.startsWith("CC1352P")) {
+if (system.deviceData.deviceId[6] == "P") {
     ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
         "cmdBle5GenericRx",
         "cmdBle5Master",

@@ -20,10 +20,14 @@ Sniffle has a number of useful features, including:
 
 ## Prerequisites
 
-* TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
-* or TI CC2652RB Launchpad Board: <https://www.ti.com/tool/LP-CC2652RB>
-* or TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
-* or TI CC1352P1 Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352P>
+* Any of the following hardware devices (functionally equivalent for Sniffle)
+    * TI CC26x2R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC26X2R1>
+    * TI CC2652RB Launchpad Board: <https://www.ti.com/tool/LP-CC2652RB>
+    * TI CC1352R Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352R1>
+    * TI CC1352P Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352P>
+    * TI CC2652R7 Launchpad Board: <https://www.ti.com/tool/LP-CC2652R7>
+    * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
+    * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/store/ti/en/p/product/?p=LP-CC2651P3>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
 * TI CC13xx/CC26xx SDK 5.40.00.40: <https://www.ti.com/tool/SIMPLELINK-CC13XX-CC26XX-SDK>
 * TI DSLite Programmer Software: see below
