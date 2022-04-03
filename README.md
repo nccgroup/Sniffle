@@ -143,6 +143,7 @@ optional arguments:
   -q, --quiet           Don't display empty packets
   -Q PRELOAD, --preload PRELOAD
                         Preload expected encrypted connection parameter changes
+  -n, --nophychange     Ignore encrypted PHY mode changes
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```
@@ -227,7 +228,10 @@ between when the connection update packet is transmitted and when the new
 parameters are applied. DeltaInstant must be greater than or equal to 6, as per
 the Bluetooth specification's requirements for master devices. If multiple
 encrypted parameter updates are expected, you can provide multiple parameter
-pairs, separated by commas (eg. `6:7,39:8`).
+pairs, separated by commas (eg. `6:7,39:8`). If you have a device that issues
+encrypted PHY update PDUs that don't change the PHY, or puts out encrypted LE
+power control PDUs without any PHY changes, you can use the `--nophychange`/`-n`
+option.
 
 If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On

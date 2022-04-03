@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2021, NCC Group plc
+ * Copyright (c) 2016-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -62,6 +62,9 @@ void setChanMap(uint64_t map);
 /* Preload encrypted (unknown key) connection parameter updates,
  * with pairs of: Interval, DeltaInstant */
 int preloadConnParamUpdates(const uint16_t *pairs, uint32_t numPairs);
+
+/* Preload encrypted (unknown key) PHY update */
+void preloadPhyUpdate(bool ignore, PHY_Mode phy);
 
 typedef enum {
     ADV_IND,

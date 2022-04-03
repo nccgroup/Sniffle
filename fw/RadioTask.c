@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2021, NCC Group plc
+ * Copyright (c) 2016-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -94,14 +94,21 @@ static uint32_t itInd;
 
 static uint64_t chanMapTestMask;
 
+// preloaded encrypted connection interval and WinOffset changes
 #define MAX_PARAM_PAIRS 4
-#define DELTA_INSTANT_TIMEOUT 12
 static uint32_t numParamPairs;
 static uint32_t preloadedParamIndex;
 static uint16_t connParamPairs[MAX_PARAM_PAIRS * 2];
+
+// encrypted connection interval inference
+#define DELTA_INSTANT_TIMEOUT 12
 static uint16_t connUpdateInstant;
 static uint16_t prevInterval;
 static uint16_t timeDelta;
+
+// preloaded encrypted PHY change
+static bool ignoreEncPhyChange = false;
+static PHY_Mode preloadedPhy = PHY_2M;
 
 static bool postponed = false;
 static bool followConnections = true;
@@ -962,24 +969,23 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
     // don't react to encrypted control PDUs we can't decipher
     if (ll_encryption)
     {
-        if (datLen == 9) {
-            // must be LL_PHY_UPDDATE_IND due to length
+        if (datLen == 9 && !ignoreEncPhyChange && last_rconf->phy != preloadedPhy) {
+            // must be LL_PHY_UPDATE_IND due to length
             // 1 byte opcode + 4 byte CtrData + 4 byte MIC
             // usually this means switching to 2M PHY mode
             // usually the switch is 6-10 instants from now
             // thus, we'll make an educated guess
-            //
+
             // Note:
             // On BLE 5.2+, it could also be LL_POWER_CONTROL_RSP or LL_POWER_CHANGE_IND.
-            // I'll deal with that possibility another day, since hardly anything uses
-            // BLE 5.2 power control currently.
+            // To handle this, I provide an option to preload a specific PHY or ignore these PDUs.
             next_rconf.chanMap = last_rconf->chanMap;
             next_rconf.chanMapCertain = last_rconf->chanMapCertain;
             next_rconf.offset = 0;
             next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
             next_rconf.intervalCertain = last_rconf->intervalCertain;
             next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
-            next_rconf.phy = PHY_2M;
+            next_rconf.phy = preloadedPhy;
             next_rconf.slaveLatency = last_rconf->slaveLatency;
             nextInstant = (frame->eventCtr + 7) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
@@ -989,7 +995,10 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             // usually the switch is 6-10 instants from now
             // we'll switch on the late side to avoid false measurement
             // we'll figure out the correct map and update accordingly
-            // note: we can't try to guess the map when we're a master
+
+            // Note:
+            // We can't reliably measure the map when we're a master because
+            // slave latency may be non-zero
             next_rconf.chanMap = 0x1FFFFFFFFFULL;
             next_rconf.chanMapCertain = false;
             next_rconf.offset = 0;
@@ -1522,4 +1531,11 @@ int preloadConnParamUpdates(const uint16_t *pairs, uint32_t numPairs)
     numParamPairs = numPairs;
 
     return 0;
+}
+
+/* Preload encrypted (unknown key) PHY update */
+void preloadPhyUpdate(bool ignore, PHY_Mode phy)
+{
+    ignoreEncPhyChange = ignore;
+    preloadedPhy = phy;
 }

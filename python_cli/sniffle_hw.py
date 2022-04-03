@@ -154,6 +154,15 @@ class SniffleHW:
     def cmd_scan(self):
         self._send_cmd([0x22])
 
+    def cmd_phy_preload(self, phy=1):
+        if phy is None:
+            # ignore encrypted PHY changes
+            self._send_cmd([0x23, 0xFF])
+        else:
+            if not (0 <= phy <= 3):
+                raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
+            self._send_cmd([0x23, phy])
+
     def _recv_msg(self, desync=False):
         got_msg = False
         while not (got_msg or self.recv_cancelled):

@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2021, NCC Group plc
+ * Copyright (c) 2018-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -176,6 +176,13 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             // no parameters for this command
             if (ret != 2) continue;
             scan();
+            break;
+        case COMMAND_PHY_PRELOAD:
+            if (ret != 3) continue;
+            if (msgBuf[2] > PHY_CODED_S2)
+                preloadPhyUpdate(true, PHY_1M);
+            else
+                preloadPhyUpdate(false, (PHY_Mode)msgBuf[2]);
             break;
         default:
             break;

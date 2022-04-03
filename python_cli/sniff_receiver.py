@@ -47,6 +47,8 @@ def main():
             help="Don't display empty packets")
     aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
             "connection parameter changes")
+    aparse.add_argument("-n", "--nophychange", action="store_const", default=False, const=True,
+            help="Ignore encrypted PHY mode changes")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -98,6 +100,12 @@ def main():
     else:
         # reset preloaded encrypted connection interval changes
         hw.cmd_interval_preload()
+
+    if args.nophychange:
+        hw.cmd_phy_preload(None)
+    else:
+        # preload change to 2M
+        hw.cmd_phy_preload(1)
 
     # configure RSSI filter
     global _rssi_min

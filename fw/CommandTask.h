@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2021, NCC Group plc
+ * Copyright (c) 2018-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -29,5 +29,6 @@ void CommandTask_init(void);
 #define COMMAND_SETMAP          0x20
 #define COMMAND_INTVL_PRELOAD   0x21
 #define COMMAND_SCAN            0x22
+#define COMMAND_PHY_PRELOAD     0x23
 
 #endif /* COMMANDTASK_H */
