@@ -118,7 +118,6 @@ def main():
         raise ValueError("Unexpected message type in latency test")
     print("Round trip latency: %.1f ms" % ((etime - stime) * 1000))
 
-
     # give the relay slave the preloads if any
     if args.preload:
         conn.send_msg(MessageType.PRELOAD, bytes(args.preload, encoding='utf-8'))
@@ -305,6 +304,7 @@ def connect_target(targ_mac, chan=37, targ_random=True, initiator_mac=None, init
     hw.cmd_mac(targ_mac, False)
     hw.cmd_auxadv(False)
     hw.cmd_interval_preload(preloads)
+    hw.cmd_phy_preload()
     if initiator_mac is None:
         hw.random_addr()
     else:

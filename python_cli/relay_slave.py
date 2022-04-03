@@ -58,6 +58,7 @@ def main():
             tup = (int(tsplit[0]), int(tsplit[1]))
             preloads.append(tup)
     hw.cmd_interval_preload(preloads)
+    hw.cmd_phy_preload()
 
     # obtain the target's advertisement and scan response from the master
     print("Waiting for advertisement and scan response...")
