@@ -1,3 +1,30 @@
+# Mobile extension for Sniffle
+
+## Description
+
+This project extension enables the usage of Sniffle in a mobile setup.
+By pushing a button, Sniffle should run and indicate sniffing state by a led.
+Once the button is pressed a second time, Sniffle should stop, save the PCAP file to the USB stick and
+and add the start timestamp to the relative timestamps. 
+When the LED is off, the USB stick can be safely removed anytime.
+A config information file for sniffle is located on the USB flash drive to simulate the cli usage.
+
+## Prequesites
+
+### Hardware
+  * TI board flashed with Sniffle
+  * Raspberry Pi, in my case Zero
+  * USB port extension (TI - board and USB flash drive)
+  * USB Stick to save .pcap - file
+  * button breakout (start - stop sniffing)
+  * timer module breakout (timestamps)
+  * LED breakout (state indication)
+  * battery pack for mobile usage
+
+### Software  
+  * Raspbian Lite (Debian Bullseye)
+
+
 # Sniffle
 
 **Sniffle is a sniffer for Bluetooth 5 and 4.x (LE) using TI CC1352/CC26x2 hardware.**
