@@ -13,7 +13,7 @@ A config information file for sniffle is located on the USB flash drive to simul
 
 ### Hardware
   * TI board flashed with Sniffle
-  * Raspberry Pi, in my case Zero
+  * Raspberry Pi, in my case I used a Zero
   * USB port extension (TI - board and USB flash drive)
   * USB Stick to save .pcap - file
   * button breakout (start - stop sniffing)
@@ -24,6 +24,13 @@ A config information file for sniffle is located on the USB flash drive to simul
 ### Software  
   * Raspbian Lite (Debian Bullseye)
 
+### Installation
+
+run `setup.sh` in project root folder. 
+
+### Usage
+
+In preparation...
 
 # Sniffle
 
