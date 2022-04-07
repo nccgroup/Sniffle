@@ -3,7 +3,7 @@ import subprocess
 import sys
 import processes
 
-command_find_usb_devices = "./find_usbDevices.sh"
+command_find_usb_devices = "./find_usb_devices.sh"
 
 def main():
     # TODO: 0. get a system overview and keep system stable
@@ -11,7 +11,7 @@ def main():
     processes.list_running_processes()
 
     # TODO: 1. find, mount and make usb flash drive accessible
-    #rc = call("./find_usbDevices.sh")
+    #rc = call("./find_usb_devices.sh")
     #os.system("mount /dev/sda /mnt/usb_drive")
     # TODO: 2. extract commands from config file on flash drive
     # TODO: 3. start button check loop:
