@@ -1,5 +1,4 @@
 import time
-
 import system
 import usb_drive
 import configuration
@@ -20,8 +19,6 @@ def main():
     # automount usb drive and get usb_path. Set logger to usb drive for development
     usb = usb_drive.USBDrive()
     # check for mount status can be done everytime
-    time.sleep(1)
-    usb.init_automount()
     logger = usb.set_logger()
     logger.info("logging started")
 
