@@ -12,6 +12,10 @@ class USBDrive:
         self.PROJECT_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
         self.MOUNT_ROOT_DIR = '/media/'
         self.mounted_devices = []
+        self.init_automount()
+
+    def init_automount(self):
+        self.mounted_devices = []
         if os.path.isdir(self.MOUNT_ROOT_DIR):
             if not os.listdir(self.MOUNT_ROOT_DIR):
                 print("Directory is empty")
@@ -30,9 +34,6 @@ class USBDrive:
                     print(self.mounted_devices)
         else:
             print(f"{self.MOUNT_ROOT_DIR} directory does not exist")
-
-    def init_automount(self):
-        self.__init__()
 
     def get_usb_devices(self) -> []:
         if self.mounted_devices:

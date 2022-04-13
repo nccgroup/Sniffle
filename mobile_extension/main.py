@@ -1,7 +1,8 @@
+import time
 
 import system
 import usb_drive
-import config
+import configuration
 from logging.handlers import TimedRotatingFileHandler
 
 # commands:
@@ -17,12 +18,16 @@ def main():
 
     # find, mount and make usb flash drive accessible. Set logger to usb drive for development
     usb = usb_drive.USBDrive()
+    # check for mount status can be done everytime
+    time.sleep(1)
     usb.init_automount()
     logger = usb.set_logger()
     logger.info("logging started")
 
     # TODO: 2. extract commands from config file on flash drive
-    configs = config.Config(usb.get_usb_devices()[0])
+    config = configuration.Config(usb.get_usb_devices()[0])
+    config_dict = config.get_config()
+    logger.info(f" Command from config file: '{config_dict['command']}'")
 
     # TODO: 3. start button check loop:
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on

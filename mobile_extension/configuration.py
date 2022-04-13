@@ -7,6 +7,12 @@ from os import walk
 logger = logging.getLogger(__name__)
 
 
+def remove_suffix(input_string, suffix):
+    if suffix and input_string.endswith(suffix):
+        return input_string[:-len(suffix)]
+    return input_string
+
+
 class Config:
     def __init__(self, config_path: str):
         """config_path: root directory of usb flash.
@@ -19,10 +25,10 @@ class Config:
                     # sanitize:
                     if ".txt" in filename:
                         filename_path = config_path + '/' + filename
-                        sanitized_filename_path = config_path + '/' + filename.removesuffix(".txt")
+                        sanitized_filename_path = config_path + '/' + filename.replace('.txt', '')
                         os.rename(filename_path, sanitized_filename_path)
                         logger.info(f"Sanitized {filename_path} to {sanitized_filename_path}")
-                        filename = filename.removesuffix(".txt")
+                        filename = filename.replace('.txt', '')
                     config_path = config_path + "/" + filename
                     with open(config_path, 'r') as stream:
                         try:
@@ -34,6 +40,7 @@ class Config:
                     logger.error(f"Not able to load Config file: '{filename}'. No '.yml' file extension.")
             else:
                 logger.error(f"Cannot load config file: {filename}. The filename must contain 'config', '.yml' file extension required and be place at root dir of usb flash drive.")
+
 
     def init_config(self, config_path: str):
         self.__init__(self, config_path)
