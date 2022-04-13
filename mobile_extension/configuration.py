@@ -1,5 +1,4 @@
 import os
-
 import yaml
 import logging
 from os import walk

@@ -1,4 +1,3 @@
-# source: https://betterprogramming.pub/how-to-run-a-python-script-on-insertion-of-a-usb-device-2e86d38dcdb
 import logging
 import os
 import time
