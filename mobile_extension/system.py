@@ -4,7 +4,7 @@ import subprocess
 
 def execute_shell_command(command: str):
     subprocesses = subprocess.Popen(command, stdout=subprocess.PIPE)
-    process_list_os, error = subprocesses.communicate()
+    process_list_os, error = subprocesses.communicate("yes\n")
     for line in process_list_os.splitlines():
         print(line)
     subprocesses.terminate()

@@ -26,7 +26,17 @@ A config information file for sniffle is located on the USB flash drive to simul
 
 ### Installation
 
-run `setup.sh` in project root folder. 
+run `setup.sh` in project root folder.
+This project relies on automount usb drives at plugin and remove. After set up of automount, you will find all mounted usb devices at `~ $ /media/`.
+Usb devices will be mounted starting with usb, usb0 to usb7. 
+
+#### Set up automount usb drives:
+* `sudo apt install usbmount`
+* `sudo nano /lib/systemd/system/systemd-udevd.service`
+* change `PrivateMounts=yes` to `PrivateMounts=no`
+* reboot raspberry pi zero by `sudo reboot` 
+* check if usb is mounted by listing the content of the usb drive: `ls -lt /media/usb0`
+* If you encounter any problem, have a look at the usbmount logs: `journalctl -u systemd-udevd.service -f`
 
 ### Usage
 

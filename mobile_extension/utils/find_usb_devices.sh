@@ -1,6 +1,4 @@
 #!/bin/bash
-# source:
-# https://unix.stackexchange.com/questions/144029/command-to-determine-ports-of-a-device-like-dev-ttyusb0
 
 for sysdevpath in $(find /sys/bus/usb/devices/usb*/ -name dev); do
     (
@@ -12,3 +10,6 @@ for sysdevpath in $(find /sys/bus/usb/devices/usb*/ -name dev); do
         echo "/dev/$devname - $ID_SERIAL"
     )
 done
+
+# source:
+# https://unix.stackexchange.com/questions/144029/command-to-determine-ports-of-a-device-like-dev-ttyusb0
