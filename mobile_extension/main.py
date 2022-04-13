@@ -31,11 +31,11 @@ def main():
     logger.info(f" Command from config file: '{config_dict['command']}'")
 
     # TODO: 3. start button check loop:
-    gpio2_button = button.Button(2)
+    #gpio2_button = button.Button(2)
 
-    while True:
-        if gpio2_button.pressed():
-            gpio2_button.on_button_press()
+    #while True:
+    #    if gpio2_button.pressed():
+    #        gpio2_button.on_button_press()
 
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on
     # TODO: 3.2. if button is pressed a second time: Stop Sniffle and get stop timestamp from timer module

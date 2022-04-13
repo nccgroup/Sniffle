@@ -7,21 +7,19 @@ from os import walk
 logger = logging.getLogger(__name__)
 
 
-def remove_suffix(input_string, suffix):
-    if suffix and input_string.endswith(suffix):
-        return input_string[:-len(suffix)]
-    return input_string
-
-
 class Config:
     def __init__(self, config_path: str):
         """config_path: root directory of usb flash.
         The filename must contain 'config', '.yml' file extension required
         and be place at root dir of usb flash drive"""
+        self.config_dictionary = dict()
+        self.init_config(config_path)
+
+    def init_config(self, config_path: str):
         filenames = next(walk(config_path), (None, None, []))[2]  # [] if no file
         for filename in filenames:
             if "config" in filename:
-                if  ".yml" in filename:
+                if ".yml" in filename:
                     # sanitize:
                     if ".txt" in filename:
                         filename_path = config_path + '/' + filename
@@ -39,14 +37,12 @@ class Config:
                 else:
                     logger.error(f"Not able to load Config file: '{filename}'. No '.yml' file extension.")
             else:
-                logger.error(f"Cannot load config file: {filename}. The filename must contain 'config', '.yml' file extension required and be place at root dir of usb flash drive.")
+                logger.error(
+                    f"Cannot load config file: {filename}. The filename must contain 'config', '.yml' file extension required and be place at root dir of usb flash drive.")
 
-
-    def init_config(self, config_path: str):
-        self.__init__(self, config_path)
 
     def get_config(self) -> dict:
-        return self.config_dictionary
+            return self.config_dictionary
 
     def save_config(self, save_config_path: str):
         """saves the dictionary to save_config_path"""
