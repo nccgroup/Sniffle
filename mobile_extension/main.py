@@ -17,8 +17,7 @@ def main():
     system.list_running_processes()
 
     # automount usb drive and get usb_path. Set logger to usb drive for development
-    usb = usb_drive.USBDrive()
-    # check for mount status can be done everytime
+    usb = usb_drive.USBDrive() # check for mount status can be triggered by function as well
     logger = usb.set_logger()
     logger.info("logging started")
 
@@ -28,11 +27,11 @@ def main():
     logger.info(f" Command from config file: '{config_dict['command']}'")
 
     # TODO: 3. start button check loop:
-    #gpio2_button = button.Button(2)
+    gpio3_button = button.Button(3)
 
-    #while True:
-    #    if gpio2_button.pressed():
-    #        gpio2_button.on_button_press()
+    while True:
+        if gpio3_button.pressed:
+            gpio3_button.on_button_press()
 
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on
     # TODO: 3.2. if button is pressed a second time: Stop Sniffle and get stop timestamp from timer module

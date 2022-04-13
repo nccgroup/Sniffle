@@ -2,12 +2,12 @@ import threading
 import time
 import RPi.GPIO as GPIO
 
-GPIO.setmode(GPIO.BOARD)
+GPIO.setmode(GPIO.BOARD) # Use physical pin numbering
 
 class Button(threading.Thread):
     def __init__(self, channel):
         threading.Thread.__init__(self)
-        self._pressed = False
+        self.pressed = False
         self.channel = channel
         GPIO.setup(self.channel, GPIO.IN)
         self.deamon = True
@@ -20,9 +20,9 @@ class Button(threading.Thread):
             time.sleep(0.01)
 
             if current is False and previous is True:
-                self._pressed = True
+                self.pressed = True
 
-                while self._pressed:
+                while self.pressed:
                     time.sleep(0.05)
 
             previous = current
