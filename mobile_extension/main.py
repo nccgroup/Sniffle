@@ -3,6 +3,7 @@ import time
 import system
 import usb_drive
 import configuration
+import button
 from logging.handlers import TimedRotatingFileHandler
 
 # commands:
@@ -16,7 +17,7 @@ def main():
     system.execute_shell_command(command_find_usb_devices)
     system.list_running_processes()
 
-    # find, mount and make usb flash drive accessible. Set logger to usb drive for development
+    # automount usb drive and get usb_path. Set logger to usb drive for development
     usb = usb_drive.USBDrive()
     # check for mount status can be done everytime
     time.sleep(1)
@@ -24,12 +25,18 @@ def main():
     logger = usb.set_logger()
     logger.info("logging started")
 
-    # TODO: 2. extract commands from config file on flash drive
+    # load commands from config file on flash drive
     config = configuration.Config(usb.get_usb_devices()[0])
     config_dict = config.get_config()
     logger.info(f" Command from config file: '{config_dict['command']}'")
 
     # TODO: 3. start button check loop:
+    gpio2_button = button.Button(2)
+
+    while True:
+        if gpio2_button.pressed():
+            gpio2_button.on_button_press()
+
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on
     # TODO: 3.2. if button is pressed a second time: Stop Sniffle and get stop timestamp from timer module
     # TODO: 4. check if pcap was saved to usb flash drive and add start timestamp to relative timestamps per frame
