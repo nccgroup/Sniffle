@@ -1,15 +1,22 @@
 import RPi.GPIO as GPIO
 import time
 from threading import Thread
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 GPIO.setmode(GPIO.BOARD)
 
 class Button(Thread):
-    def __init__(self, channel):
+    def __init__(self, channel, name):
         Thread.__init__(self)
         self.channel = channel
+        self.name = name
         self.pressed = False
         GPIO.setup(channel, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        logger.info(f"Created button '{self.name}' thread on channel: {self.channel}. Initial state: {self.pressed}")
 
     def run(self):
         while True:
@@ -19,7 +26,7 @@ class Button(Thread):
                     self.pressed = False
                 else:
                     self.pressed = True
-                print(f"Button Pressed: {self.pressed}")
+                logger.info(f"Button '{self.name}' pressed, state: {self.pressed}")
                 time.sleep(0.2)
 
     def get_button_state(self) -> bool:

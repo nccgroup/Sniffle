@@ -27,20 +27,20 @@ def main():
     config_dict = config.get_config()
     logger.info(f" Command from config file: '{config_dict['command']}'")
 
-    # TODO: 3. start button check loop:
-
-    gpio11_button = button.Button(11)
-    gpio11_button.start()
+    # start button check thread loop:
+    sst_tracing_button = button.Button(11, "sst_tracing_button")
+    sst_tracing_button.start()
     time.sleep(5)
-    print(f" Button state is currently: {gpio11_button.get_button_state()}")
+    print(f" Button state is currently: {sst_tracing_button.get_button_state()}")
     time.sleep(5)
-    print(f" Button state is currently: {gpio11_button.get_button_state()}")
-    gpio11_button.join()
-    print("Thread joined")
-
-
+    print(f" Button state is currently: {sst_tracing_button.get_button_state()}")
+    # sst_tracing_button.join()
 
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on
+    # get mount directory
+    # check if tracefiles folder exists and create on purpose
+    #
+
     # TODO: 3.2. if button is pressed a second time: Stop Sniffle and get stop timestamp from timer module
     # TODO: 4. check if pcap was saved to usb flash drive and add start timestamp to relative timestamps per frame
     # TODO: 5. demount usb_drive and turn led off to indicate is can be removed
