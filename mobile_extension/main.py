@@ -30,16 +30,18 @@ def main():
     # start button check thread loop:
     sst_tracing_button = button.Button(11, "sst_tracing_button")
     sst_tracing_button.start()
-    time.sleep(5)
+    time.sleep(1)
     print(f" Button state is currently: {sst_tracing_button.get_button_state()}")
-    time.sleep(5)
+    time.sleep(1)
     print(f" Button state is currently: {sst_tracing_button.get_button_state()}")
     # sst_tracing_button.join()
 
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on
-    # get mount directory
     # check if tracefiles folder exists and create on purpose
-    #
+    blt_traces_path = usb.get_trace_file_folder_path()
+    print(f"Blt trace file folder path: {blt_traces_path}")
+    blt_tracefile_name = usb.create_new_pcap_name()
+
 
     # TODO: 3.2. if button is pressed a second time: Stop Sniffle and get stop timestamp from timer module
     # TODO: 4. check if pcap was saved to usb flash drive and add start timestamp to relative timestamps per frame
