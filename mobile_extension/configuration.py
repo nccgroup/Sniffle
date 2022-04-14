@@ -12,6 +12,7 @@ class Config:
         The filename must contain 'config', '.yml' file extension required
         and be place at root dir of usb flash drive"""
         self.config_dictionary = dict()
+        self.sniffle_command = ""
         self.init_config(config_path)
 
     def init_config(self, config_path: str):
