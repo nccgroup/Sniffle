@@ -8,11 +8,12 @@ from logging.handlers import TimedRotatingFileHandler
 # commands:
 command_find_usb_devices = "utils/find_usb_devices.sh"
 pwd = "pwd"
-chmod_fusbd = "chmod +x utils/find_usb_devices.sh"
+chmod_fusbd = "chmod +x /tmp/pycharm_project_493/mobile_extension/utils/find_usb_devices.sh"
 
 def main():
     # get a system overview and keep system stable
     system.execute_shell_command(pwd)
+    # system.execute_shell_command(chmod_fusbd)
     system.execute_shell_command(command_find_usb_devices)
     system.list_running_processes()
 
@@ -27,11 +28,17 @@ def main():
     logger.info(f" Command from config file: '{config_dict['command']}'")
 
     # TODO: 3. start button check loop:
-    gpio3_button = button.Button(3)
 
-    while True:
-        if gpio3_button.pressed:
-            gpio3_button.on_button_press()
+    gpio11_button = button.Button(11)
+    gpio11_button.start()
+    time.sleep(5)
+    print(f" Button state is currently: {gpio11_button.get_button_state()}")
+    time.sleep(5)
+    print(f" Button state is currently: {gpio11_button.get_button_state()}")
+    gpio11_button.join()
+    print("Thread joined")
+
+
 
     # TODO: 3.1. if button is pressed: Start Sniffle with subprocess, get start timestamp from timer module and turn led on
     # TODO: 3.2. if button is pressed a second time: Stop Sniffle and get stop timestamp from timer module
