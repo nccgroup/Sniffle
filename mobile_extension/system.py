@@ -1,18 +1,51 @@
 import logging
 import os
 import subprocess
+import psutil
 
 # os.system("python /tmp/pycharm_project_493/python_cli/sniff_receiver.py -s /dev/ttyACM0")
+import time
+
 logger = logging.getLogger(__name__)
 
-def execute_shell_command(command: []):
-    subprocesses = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-    logger.info(f"Subprocess started. PID: {subprocesses.pid}")
-    process_list_os, error = subprocesses.communicate("yes\n")
-    for line in process_list_os.splitlines():
-        logger.info(line)
-    logging.info(f"Process return code: {subprocesses.returncode}")
-    subprocesses.terminate()
+def start_process(command: []):
+    logger.info(f"Executing command in subprocess: {command}")
+    process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        # outs, errs = process.communicate(timeout=1)
+        print(f"process {process.pid} running!")
+    except subprocess.TimeoutExpired:
+        process.kill()
+        outs, errs = process.communicate()
+        logger.error(f"Process timeout: outs: {outs} err: {errs}")
+    return process
+
+def os_kill_pid(pid: int):
+    """ Check For the existence of a unix pid. """
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
+
+def kill_process(process: subprocess.Popen) -> bool:
+    pid = process.pid
+    process.kill()
+    process.stdout.close()
+    exit_status = process.wait()
+    if psutil.pid_exists(pid):
+        logger.info(f"process pid {pid} still running after kill! Exit status: {exit_status}!")
+        return False
+    else:
+        logger.info(f"process pid {pid} terminated with exit status: {exit_status}!")
+        return True
+
+def process_running(pid: int) -> bool:
+    if psutil.pid_exists(pid):
+        return True
+    else:
+        return False
 
 def list_running_processes():
     subprocesses = subprocess.Popen(['ps', '-A'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -39,4 +72,3 @@ def clean_processes(processes=[]):
 class Processes:
     def __init__(self):
         pass
-

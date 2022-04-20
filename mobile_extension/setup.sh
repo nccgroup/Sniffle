@@ -1,8 +1,9 @@
 #!/bin/bash
 
+sudo chmod ugo+rwx sniffer
 sudo apt update
 sudo apt upgrade
 sudo apt install pip
-pip install -m requirements.txt
+sudo pip install -m requirements.txt
 sudo apt install usbmount
-chmod +x utils/find_usb_devices.sh
+sudo chmod +x home/sniffer/mobile_extension/utils/find_usb_devices.sh
