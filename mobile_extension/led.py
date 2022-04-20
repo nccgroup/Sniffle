@@ -18,26 +18,19 @@ class Led(Thread):
         self.init_leds()
 
     def run(self):
-        try:
-            while True:
-                time.sleep(.1)
-                if self.check_blue():
-                    self.blue_led_on()
-                    time.sleep(0.2)
-                if self.check_green():
-                    self.green_led_on()
-                    time.sleep(0.2)
-                if self.check_red():
-                    self.red_led_on()
-                    time.sleep(0.2)
-                if self.check_off():
-                    self.leds_off()
-                    time.sleep(0.2)
-        except KeyboardInterrupt:
-            pass
-            GPIO.cleanup()
-
-
+        while True:
+            if self.check_blue():
+                self.blue_led_on()
+                time.sleep(0.1)
+            if self.check_green():
+                self.green_led_on()
+                time.sleep(0.1)
+            if self.check_red():
+                self.red_led_on()
+                time.sleep(0.1)
+            if self.check_off():
+                self.leds_off()
+                time.sleep(0.1)
 
     def init_leds(self):
         self.channel_blue_state = False

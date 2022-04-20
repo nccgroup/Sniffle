@@ -19,19 +19,15 @@ class Button(Thread):
         logger.info(f"Created button '{self.name}' thread on gpio channel: {self.channel}. Initial state: {self.pressed}")
 
     def run(self):
-        try:
-            while True:
-                input_state = GPIO.input(self.channel)
-                if not input_state:
-                    if self.pressed:
-                        self.pressed = False
-                    else:
-                        self.pressed = True
-                    logger.info(f"Button '{self.name}' pressed, state: {self.pressed}")
-                    time.sleep(0.2)
-        except KeyboardInterrupt:
-            pass
-            GPIO.cleanup()
+        while True:
+            input_state = GPIO.input(self.channel)
+            if not input_state:
+                if self.pressed:
+                    self.pressed = False
+                else:
+                    self.pressed = True
+                logger.info(f"Button '{self.name}' pressed, state: {self.pressed}")
+                time.sleep(0.2)
 
     def get_button_state(self) -> bool:
         return self.pressed
