@@ -4,8 +4,6 @@ import logging
 from os import walk
 import pathlib
 
-logger = logging.getLogger(__name__)
-
 
 class Config:
     def __init__(self, config_path: pathlib.Path):
@@ -18,9 +16,12 @@ class Config:
         self.output_argument = ["-o"] # output path can only be added when cmd command is called, because out path contains timestamp in blt_trace_name pcap
         self.optional_arguments = [] # filled from config file with init_config(config_path)
         self.sniffle_cmd_command_without_outpath = [] # filled from usb class if mounted
+        self.logger = None
         self.init_config(config_path)
 
+
     def init_config(self, config_path: pathlib.Path):
+        self.logger = logging.getLogger(__name__)
         filenames = next(walk(config_path), (None, None, []))[2]  # [] if no file
         for filename in filenames:
             if "config" in filename:
@@ -30,7 +31,7 @@ class Config:
                         filename_path = config_path.joinpath(filename)
                         sanitized_filename_path = config_path.joinpath(filename.replace('.txt', ''))
                         os.rename(filename_path, sanitized_filename_path)
-                        logger.info(f"Sanitized {filename_path} to {str(sanitized_filename_path)}")
+                        self.logger.info(f"Sanitized {filename_path} to {str(sanitized_filename_path)}")
                         filename = filename.replace('.txt', '')
                     config_path = config_path.joinpath(filename)
                     with open(config_path, 'r') as stream:
@@ -38,23 +39,28 @@ class Config:
                             self.config_dictionary = yaml.safe_load(stream=stream)
                             self.init_cmd_command()
                         except yaml.YAMLError as exception:
-                            logger.error("Error while loading config.", exc_info=True)
+                            self.logger.error("Error while loading config.", exc_info=True)
                             raise exception
                 else:
-                    logger.error(f"Not able to load Config file: '{filename}'. No '.yml' file extension.")
+                    self.logger.error(f"Not able to load Config file: '{filename}'. No '.yml' file extension.")
             else:
-                logger.error(
+                self.logger.error(
                     f"Cannot load config file: {filename}. The filename must contain 'config', '.yml' file extension required and be place at root dir of usb flash drive.")
 
 
     def init_cmd_command(self):
         if "optional_arguments" in self.config_dictionary:
             self.optional_arguments = self.config_dictionary["optional_arguments"]
-            logger.info(f"Optional arguments from config file imported: {self.optional_arguments}")
             self.sniffle_cmd_command_without_outpath = self.sniff_receiver_base_command + self.serial_port_command_argument + self.optional_arguments + self.output_argument
-            logger.info(f"CMD sniffle command without output path: {self.sniffle_cmd_command_without_outpath}")
+            try:
+                self.logger.info(f"CMD sniffle command without output path: {self.sniffle_cmd_command_without_outpath}")
+            except OSError:
+                pass
         else:
-            logger.error(f"<optional_arguments> not found in config file>, import of arguments not possible. Dict: {str(self.config_dictionary)}")
+            try:
+                self.logger.error(f"<optional_arguments> not found in config file>, import of arguments not possible. Dict: {str(self.config_dictionary)}")
+            except OSError:
+                pass
 
     def get_config(self) -> dict:
             return self.config_dictionary
@@ -64,8 +70,8 @@ class Config:
         with open(save_config_path, 'w') as outfile:
             try:
                 yaml.dump(self.config_dictionary, outfile, default_flow_style=False)
-                logger.info(f"Config saved to <{str(save_config_path)}>")
+                self.logger.info(f"Config saved to <{str(save_config_path)}>")
             except yaml.YAMLError as exception:
-                logger.error(f"Error while writing config to {str(save_config_path)}", exc_info=True)
+                self.logger.error(f"Error while writing config to {str(save_config_path)}", exc_info=True)
                 raise exception
 

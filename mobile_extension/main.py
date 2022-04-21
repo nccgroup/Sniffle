@@ -43,6 +43,7 @@ def main():
 
     while True:
         try:
+            usb.init_automount()
             if usb.usb_mounted:
                 # button state true and sniffer does not run: -> start sniffing
                 if sst_tracing_button.get_button_state() and not sniffer_running:

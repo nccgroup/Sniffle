@@ -25,6 +25,7 @@ class USBDrive():
 
     def init_automount(self):
         print_flag = True
+        self.usb_mounted = False
         while not self.usb_mounted:
             if os.path.isdir(self.MOUNT_ROOT_DIR):
                 if not os.listdir(self.MOUNT_ROOT_DIR):
@@ -39,9 +40,6 @@ class USBDrive():
                                     self.set_trace_file_folder_path()
                                     self.usb_mounted = True
                                     break
-                        else:
-                            self.usb_mounted = False
-
                     if not self.usb_mounted:
                         if print_flag:
                             print("No USB devices is mounted. In order to proceed, please plug in configured USB flash drive ...")
@@ -49,13 +47,13 @@ class USBDrive():
                         time.sleep(.5)
                     else:
                         print(f"Mounted USB devices: {self.MOUNT_DIR}")
+                        self.logger = self.set_logger()
             else:
                 raise FileNotFoundError(f"{self.MOUNT_ROOT_DIR} directory does not exist")
 
     def init_config(self):
         # load commands from config file on flash drive
         self.config = configuration.Config(self.get_mounted_usb_device()) # only one flash drive is supported now
-        print(f" Command from config file: '{self.config.get_config()}")
 
     def get_mounted_usb_device(self) -> pathlib.Path:
         if self.MOUNT_DIR:
