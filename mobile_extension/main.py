@@ -11,11 +11,6 @@ import button
 import led
 
 
-# global vars:
-trace_name = "close_stdout_main.pcap"
-trace_path = "/media/usb0/blt_traces/" + trace_name
-sniffle_command = ["sudo", "/bin/python3", "/sniffer/python_cli/sniff_receiver.py", "-s", "/dev/ttyACM0", "-o", trace_path]
-
 def init():
     GPIO.setmode(GPIO.BOARD)
 
