@@ -13,6 +13,7 @@ def str_contains_number(s:str):
 
 class USBDrive():
     def __init__(self, usb_nr = 0):
+        self.logger = None
         self.trace_file_folder_path = ""
         self.PROJECT_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
         self.MOUNT_ROOT_DIR = pathlib.Path('/media/')
@@ -21,7 +22,6 @@ class USBDrive():
         self.config = None
         self.usb_mounted = False
         self.init_automount()
-        self.logger = self.set_logger()
 
     def init_automount(self):
         print_flag = True
@@ -36,8 +36,9 @@ class USBDrive():
                             if str_contains_number(usb_dir):  # first mounted usb is mounted twice. (usb and usb0)
                                 if str(self.usb_nr) in usb_dir:
                                     self.MOUNT_DIR = pathlib.Path.joinpath(self.MOUNT_ROOT_DIR, usb_dir)
-                                    self.init_config()
-                                    self.set_trace_file_folder_path()
+                                    self.logger = self.set_logger()
+                                    self.import_config()
+                                    self.trace_file_folder_path = self.set_trace_file_folder_path()
                                     self.usb_mounted = True
                                     break
                     if not self.usb_mounted:
@@ -47,11 +48,10 @@ class USBDrive():
                         time.sleep(.5)
                     else:
                         print(f"Mounted USB devices: {self.MOUNT_DIR}")
-                        self.logger = self.set_logger()
             else:
                 raise FileNotFoundError(f"{self.MOUNT_ROOT_DIR} directory does not exist")
 
-    def init_config(self):
+    def import_config(self):
         # load commands from config file on flash drive
         self.config = configuration.Config(self.get_mounted_usb_device()) # only one flash drive is supported now
 
