@@ -13,7 +13,7 @@ def start_process(command: []) -> subprocess.Popen:
     sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
         # outs, errs = process.communicate(timeout=1)
-        print(f"process {sniffle_process.pid} running!")
+        print(f"process with pid: {sniffle_process.pid} started!")
     except subprocess.TimeoutExpired:
         sniffle_process.kill()
         outs, errs = sniffle_process.communicate()

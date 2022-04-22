@@ -96,3 +96,4 @@ class Led(Thread):
         self.channel_blue_state = False
         self.channel_green_state = False
         self.channel_red_state = False
+

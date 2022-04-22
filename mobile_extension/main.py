@@ -91,12 +91,23 @@ def main():
                         if system.kill_process(sniffle_process=sniffle_process):
                             logger.info("sniffer stopped, process killed successful")
                             sniffer_running = False
-                            indicator_led.set_red()
-                            time.sleep(.2)
+                            time.sleep(.3)
                             if os.path.exists(safe_path):
                                 logger.info(f"Saved {safe_path} successful")
+                                indicator_led.leds_off()
+                                time.sleep(.3)
+                                indicator_led.green_led_on()
+                                time.sleep(.6)
+                                indicator_led.leds_off()
+                                time.sleep(.3)
                             else:
                                 logger.info(f"BLT trace {safe_path} not saved successfully")
+                                indicator_led.leds_off()
+                                time.sleep(.3)
+                                indicator_led.red_led_on()
+                                time.sleep(.6)
+                                indicator_led.leds_off()
+                                time.sleep(.3)
 
                 # button state true and sniffer runs: -> running state
                 if sst_tracing_button.get_button_state() and sniffer_running:
