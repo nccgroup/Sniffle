@@ -8,17 +8,17 @@ import time
 
 logger = logging.getLogger(__name__)
 
-def start_process(command: []):
+def start_process(command: []) -> subprocess.Popen:
     logger.info(f"Executing command in subprocess: {command}")
-    process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
         # outs, errs = process.communicate(timeout=1)
-        print(f"process {process.pid} running!")
+        print(f"process {sniffle_process.pid} running!")
     except subprocess.TimeoutExpired:
-        process.kill()
-        outs, errs = process.communicate()
+        sniffle_process.kill()
+        outs, errs = sniffle_process.communicate()
         logger.error(f"Process timeout: outs: {outs} err: {errs}")
-    return process
+    return sniffle_process
 
 def os_kill_pid(pid: int):
     """ Check For the existence of a unix pid. """
@@ -29,11 +29,11 @@ def os_kill_pid(pid: int):
     else:
         return True
 
-def kill_process(process: subprocess.Popen) -> bool:
-    pid = process.pid
-    process.kill()
-    process.stdout.close()
-    exit_status = process.wait()
+def kill_process(sniffle_process: subprocess.Popen) -> bool:
+    pid = sniffle_process.pid
+    sniffle_process.kill()
+    sniffle_process.stdout.close()
+    exit_status = sniffle_process.wait()
     if psutil.pid_exists(pid):
         logger.info(f"process pid {pid} still running after kill! Exit status: {exit_status}!")
         return False
@@ -41,8 +41,8 @@ def kill_process(process: subprocess.Popen) -> bool:
         logger.info(f"process pid {pid} terminated with exit status: {exit_status}!")
         return True
 
-def process_running(pid: int) -> bool:
-    if psutil.pid_exists(pid):
+def process_running(sniffle_process: subprocess.Popen) -> bool:
+    if psutil.pid_exists(sniffle_process.pid):
         return True
     else:
         return False

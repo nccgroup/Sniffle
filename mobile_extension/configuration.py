@@ -50,16 +50,14 @@ class Config:
     def init_cmd_command(self):
         if "optional_arguments" in self.config_dictionary:
             self.optional_arguments = self.config_dictionary["optional_arguments"]
-            self.sniffle_cmd_command_without_outpath = self.sniff_receiver_base_command + self.serial_port_command_argument + self.optional_arguments + self.output_argument
-            try:
-                logger.info(f"CMD sniffle command without output path: {self.sniffle_cmd_command_without_outpath}")
-            except OSError:
-                pass
+            if self.optional_arguments:
+                self.sniffle_cmd_command_without_outpath = self.sniff_receiver_base_command + self.serial_port_command_argument + self.optional_arguments + self.output_argument
+            else:
+                self.sniffle_cmd_command_without_outpath = self.sniff_receiver_base_command + self.serial_port_command_argument + self.output_argument
+            logger.info(f"CMD sniffle command without output path: {self.sniffle_cmd_command_without_outpath}")
         else:
-            try:
-                logger.error(f"<optional_arguments> not found in config file>, import of arguments not possible. Dict: {str(self.config_dictionary)}")
-            except OSError:
-                pass
+            logger.error(f"<optional_arguments> not found in config file>, import of arguments not possible. Dict: {str(self.config_dictionary)}")
+
 
     def get_config(self) -> dict:
             return self.config_dictionary

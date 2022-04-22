@@ -96,4 +96,4 @@ class USBDrive():
         now = datetime.now()
         # dd/mm/YY H:M:S
         dt_string = now.strftime("%d_%m_%Y-T%H_%M_%S")
-        return "blt_sniffle_trace-" + dt_string
+        return "blt_sniffle_trace-" + dt_string + ".pcap"
