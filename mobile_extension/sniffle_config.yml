@@ -29,5 +29,5 @@ optional_arguments: []
 # Not supported optional arguments in this config file:
 #  -p, --pause           		            Pause sniffer after disconnect
 #  -h, --help            		            show this help message and exit
-#  -s SERPORT, --serport SERPORT	      Sniffer serial port name 	(Done automatically by mobile_extension)
-#  -o OUTPUT, --output OUTPUT 		      PCAP output file name 		(Done automatically by mobile_extension)
+#  -s SERPORT, --serport SERPORT        Sniffer serial port name 	(Done automatically by mobile_extension)
+#  -o OUTPUT, --output OUTPUT           PCAP output file name 		(Done automatically by mobile_extension)
