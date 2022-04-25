@@ -38,6 +38,10 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
 * check if usb is mounted by listing the content of the usb drive: `ls -lt /media/usb0`
 * If you encounter any problem, have a look at the usbmount logs: `journalctl -u systemd-udevd.service -f`
 
+#### Enable i2c on Raspberry Pi:
+* Go to `sudo raspi-config` 
+* Select Interface Options and enable I2C 
+* smbus library will work 
 ### Usage
 
 In preparation...

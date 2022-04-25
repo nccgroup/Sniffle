@@ -95,8 +95,3 @@ class USBDrive():
             except Exception as e:
                 logger.error(f"Error while creating blt trace file folder on usb flash drive: {e}")
 
-    def create_new_pcap_name(self) -> str:
-        now = datetime.now()
-        # dd/mm/YY H:M:S
-        dt_string = now.strftime("%d_%m_%Y-T%H_%M_%S")
-        return "blt_sniffle_trace-" + dt_string + ".pcap"

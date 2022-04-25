@@ -13,7 +13,7 @@ class Led(Thread):
         self.channel_green = channel_green
         self.channel_red = channel_red
         self.colour = 0 # 0: off, 1: blue; 2: green, 3 = red
-        self.target_colour = 0
+        self.target_colour = 0 # 0: off, 1: blue; 2: green, 3 = red
         self.sniffer_running = False
         self.init_leds()
 

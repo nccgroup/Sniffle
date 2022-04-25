@@ -10,10 +10,13 @@ from logging.handlers import QueueHandler
 import RPi.GPIO as GPIO
 import os
 import time
+
+import mobile_extension.DS3231 as DS3231
 import system
 import usb_drive
 import button
 import led
+from mobile_extension import DS3231
 
 
 def init():
@@ -37,9 +40,15 @@ def set_logger() -> logging.Logger:
         logger = logging.getLogger('mobile_extension')
         return logger
 
+def create_new_pcap_name(date_string: str) -> str:
+    # dd/mm/YY-TH:M:S
+    return "blt_sniffle_trace-" + date_string + ".pcap"
 
-def start_sniffle(usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
-    blt_tracefile_name = usb.create_new_pcap_name()
+
+def start_sniffle(rtc: DS3231, usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
+    start_dt_opj = rtc.read_datetime()
+    dt_string = start_dt_opj.strftime("%d_%m_%Y-T%H_%M_%S")
+    blt_tracefile_name = create_new_pcap_name(dt_string)
     safe_path = str(usb.trace_file_folder_path) + "/" + blt_tracefile_name
     cmd_command = usb.config.sniffle_cmd_command_without_outpath + [safe_path]
     sniffle_process = system.start_process(cmd_command)
@@ -48,7 +57,7 @@ def start_sniffle(usb: usb_drive.USBDrive, indicator_led: led.Led, logger: loggi
         indicator_led.set_blue()
     else:
         logger.error(f"Sniffer was started but process was not able to start!")
-    return sniffle_process, safe_path
+    return sniffle_process, safe_path, start_dt_opj
 
 
 def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, indicator_led: led.Led, logger: logging.Logger):
@@ -80,6 +89,9 @@ def main():
     indicator_led.start()
     indicator_led.set_off()
 
+    # RTC module
+    rtc = DS3231.SDL_DS3231()
+
     sniffer_running = False
 
     while True:
@@ -87,7 +99,7 @@ def main():
             if usb.mount_status():
                 # button state true and sniffer does not run: -> START SNIFFING
                 if sst_tracing_button.get_button_state() and not sniffer_running:
-                    sniffle_process, safe_path = start_sniffle(usb, indicator_led, logger)
+                    sniffle_process, safe_path, start_dt_opj = start_sniffle(rtc, usb, indicator_led, logger)
                     sniffer_running = True
 
                 # button state false and sniffer runs: -> STOP SNIFFING

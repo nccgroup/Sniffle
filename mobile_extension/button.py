@@ -1,21 +1,16 @@
 import RPi.GPIO as GPIO
 import logging
-from logging.handlers import QueueHandler # DONT DELETE!!!
 import sys
 import signal
 
-
-
 logger = logging.getLogger(__name__)
-
-# Callback: GPIO add event detect-> rising falling waitforedge
 
 def signal_handler(sig, frame):
     GPIO.cleanup()
     sys.exit(0)
 
 
-class Button():
+class Button:
     def __init__(self, channel, name):
         self.channel = channel
         self.name = name
