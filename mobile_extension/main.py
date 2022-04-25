@@ -22,7 +22,7 @@ def set_logger() -> logging.Logger:
         # logging setup to usb flash drive:
         root_dir = pathlib.Path(__file__).resolve().parents[0]
         logs_path = root_dir.joinpath('logs')
-        os.makedirs(logs_path, exist_ok=True) # as only one usb drive is expected, take first usb in list
+        os.makedirs(logs_path, exist_ok=True)
         formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s")
         wd_stream_handler = logging.StreamHandler()
         wd_stream_handler.setLevel(logging.INFO)

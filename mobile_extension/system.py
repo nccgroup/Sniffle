@@ -3,8 +3,6 @@ import os
 import subprocess
 import psutil
 
-# os.system("python /tmp/pycharm_project_493/python_cli/sniff_receiver.py -s /dev/ttyACM0")
-import time
 
 logger = logging.getLogger(__name__)
 

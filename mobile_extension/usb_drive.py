@@ -15,7 +15,7 @@ def str_contains_number(s:str):
 class USBDrive():
     def __init__(self, usb_nr = 0):
         self.trace_file_folder_path = ""
-        self.PROJECT_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+        self.PROJECT_ROOT_DIR = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
         self.MOUNT_ROOT_DIR = pathlib.Path('/media/')
         self.MOUNT_DIR = None
         self.usb_nr = usb_nr
@@ -61,12 +61,15 @@ class USBDrive():
             self.usb_mounted = False
             return False
 
-    def copy_logs_to_usb(self, source_logs_path: pathlib.Path):
+    def copy_logs_to_usb(self):
         """Once in a while, the local log files should be copied onto the usb drive in a
         'mobile_extension_logs' folder as the sniffer is operation without human machine interface"""
         if self.usb_mounted:
+            source_logs_path = self.PROJECT_ROOT_DIR.joinpath("logs")
             destination_dir = self.MOUNT_DIR.joinpath("mobile_extension_logs")
-            shutil.copytree(source_logs_path, destination_dir)
+            os.makedirs(destination_dir, exist_ok=True)
+            shutil.copytree(source_logs_path, destination_dir, dirs_exist_ok=True)
+            logger.info(f"Updated logs from {source_logs_path} to USB stick: {destination_dir}")
         else:
             logger.error(f"Logfiles could not be copied to USB drive because USB was not mounted.")
 
