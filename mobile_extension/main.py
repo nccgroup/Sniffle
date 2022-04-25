@@ -5,7 +5,8 @@
 
 import logging
 import pathlib
-from logging.handlers import QueueHandler # DONT DELETE!!!
+import subprocess
+from logging.handlers import QueueHandler
 import RPi.GPIO as GPIO
 import os
 import time
@@ -19,7 +20,6 @@ def init():
     GPIO.setmode(GPIO.BOARD)
 
 def set_logger() -> logging.Logger:
-        # logging setup to usb flash drive:
         root_dir = pathlib.Path(__file__).resolve().parents[0]
         logs_path = root_dir.joinpath('logs')
         os.makedirs(logs_path, exist_ok=True)
@@ -44,22 +44,42 @@ def delete_trace_file(tp: str):
         time.sleep(.1)
         print(f"{tp} removed!")
 
+def start_sniffle(usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
+    blt_tracefile_name = usb.create_new_pcap_name()
+    safe_path = str(usb.trace_file_folder_path) + "/" + blt_tracefile_name
+    cmd_command = usb.config.sniffle_cmd_command_without_outpath + [safe_path]
+    sniffle_process = system.start_process(cmd_command)
+    if system.process_running(sniffle_process=sniffle_process):
+        logger.info(f"Sniffer started: {cmd_command}")
+        indicator_led.set_blue()
+    else:
+        logger.error(f"Sniffer was started but process was not able to start!")
+    return sniffle_process, safe_path
+
+
+def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, indicator_led: led.Led, logger: logging.Logger):
+    if system.process_running(sniffle_process):
+        if system.kill_process(sniffle_process=sniffle_process):
+            logger.info("sniffer stopped, process killed successful!")
+            time.sleep(.3)
+            if os.path.exists(safe_path):
+                logger.info(f"BLT trace {safe_path} saved successful!")
+                indicator_led.indicate_successful()
+            else:
+                logger.info(f"BLT trace {safe_path} NOT saved successfully!")
+                indicator_led.indicate_failure()
+
 
 def main():
-
-    # at startup:
     init()
-
-    # logging:
     logger = set_logger()
-    logger.info("logging started: \n")
+    logger.info("logging started! \n")
 
     # automount usb drive and get usb_path:
-    usb = usb_drive.USBDrive()  # check for mount status can be triggered by function as well
+    usb = usb_drive.USBDrive()
 
     # start button check thread loop:
-    sst_tracing_button = button.Button(11, "sst_tracing_button")
-    sst_tracing_button.start()
+    sst_tracing_button = button.Button(16, "sst_tracing_button")
 
     # start indicator led thread:
     indicator_led = led.Led(8,10,12)
@@ -73,52 +93,18 @@ def main():
             if usb.mount_status():
                 # button state true and sniffer does not run: -> START SNIFFING
                 if sst_tracing_button.get_button_state() and not sniffer_running:
-                    blt_tracefile_name = usb.create_new_pcap_name()
-                    safe_path = str(usb.trace_file_folder_path) + "/" + blt_tracefile_name
-                    cmd_command = usb.config.sniffle_cmd_command_without_outpath + [safe_path]
-                    sniffle_process = system.start_process(cmd_command)
-                    if system.process_running(sniffle_process=sniffle_process):
-                    # check if process is running, check error codes
-                        logger.info(f"sniffer start: {cmd_command}")
-                        sniffer_running = True
-                        indicator_led.set_blue()
-                    else:
-                        logger.error(f"Sniffer was started but process was not able to start!")
+                    sniffle_process, safe_path = start_sniffle(usb, indicator_led, logger)
+                    sniffer_running = True
 
                 # button state false and sniffer runs: -> STOP SNIFFING
                 if not sst_tracing_button.get_button_state() and sniffer_running:
-                    if system.process_running(sniffle_process):
-                        if system.kill_process(sniffle_process=sniffle_process):
-                            logger.info("sniffer stopped, process killed successful")
-                            sniffer_running = False
-                            time.sleep(.3)
-                            if os.path.exists(safe_path):
-                                logger.info(f"Saved {safe_path} successful")
-                                indicator_led.leds_off()
-                                time.sleep(.3)
-                                indicator_led.green_led_on()
-                                time.sleep(.6)
-                                indicator_led.leds_off()
-                                time.sleep(.3)
-                            else:
-                                logger.info(f"BLT trace {safe_path} not saved successfully")
-                                indicator_led.leds_off()
-                                time.sleep(.3)
-                                indicator_led.red_led_on()
-                                time.sleep(.6)
-                                indicator_led.leds_off()
-                                time.sleep(.3)
+                    stop_sniffle(sniffle_process, safe_path, indicator_led, logger)
+                    sniffer_running = False
 
-                # button state true and sniffer runs: -> running state
-                if sst_tracing_button.get_button_state() and sniffer_running:
-                    logger.info("Sniffle runs!")
-                    indicator_led.set_blue()
-                    time.sleep(.6)
-                # button state false and sniffer does not run: -> sniffer does nothing
+                # button state false and sniffer does not run: -> sniffer idle, waiting for button press
                 if not sst_tracing_button.get_button_state() and not sniffer_running:
-                    logger.info("Sniffle waiting for button to get pressed. Idle")
                     indicator_led.set_green()
-                    time.sleep(.6)
+                    time.sleep(.3)
             else:
                 indicator_led.set_off()
                 usb.init_automount()
