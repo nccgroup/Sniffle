@@ -17,3 +17,4 @@ smbus==1.1.post2
 spidev==3.5
 ssh-import-id==5.10
 urllib3==1.26.5
+scapy~=2.4.5

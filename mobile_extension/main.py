@@ -11,12 +11,12 @@ import RPi.GPIO as GPIO
 import os
 import time
 
-import mobile_extension.DS3231 as DS3231
 import system
 import usb_drive
 import button
 import led
 from mobile_extension import DS3231
+from mobile_extension import PCAP
 
 
 def init():
@@ -107,6 +107,8 @@ def main():
                     stop_sniffle(sniffle_process, safe_path, indicator_led, logger)
                     sniffer_running = False
                     usb.copy_logs_to_usb()
+                    pcap = PCAP.PCAP(safe_path)
+                    pcap.process_pcap()
 
                 # button state false and sniffer does not run: -> sniffer idle, waiting for button press
                 if not sst_tracing_button.get_button_state() and not sniffer_running:
