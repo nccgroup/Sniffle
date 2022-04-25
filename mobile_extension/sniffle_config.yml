@@ -15,13 +15,13 @@ optional_arguments: []
 
 # supports optional arguments according to the development state of Sniffle:
 #  -c {37,38,39}, --advchan {37,38,39}  Advertising channel to listen on
-#  -r RSSI, --rssi RSSI  		            Filter packets by minimum RSSI
-#  -m MAC, --mac MAC     		            Filter packets by advertiser MAC
-#  -i IRK, --irk IRK     		            Filter packets by advertiser IRK
-#  -a, --advonly        	 	            Sniff only advertisements, don't follow connections
-#  -e, --extadv          		            Capture BT5 extended (auxiliary) advertising
-#  -H, --hop             		            Hop primary advertising channels in extended mode
-#  -l, --longrange       		            Use long range (coded) PHY for primary advertising
+#  -r RSSI, --rssi RSSI                 Filter packets by minimum RSSI
+#  -m MAC, --mac MAC                    Filter packets by advertiser MAC
+#  -i IRK, --irk IRK                    Filter packets by advertiser IRK
+#  -a, --advonly                        Sniff only advertisements, don't follow connections
+#  -e, --extadv                         Capture BT5 extended (auxiliary) advertising
+#  -H, --hop                            Hop primary advertising channels in extended mode
+#  -l, --longrange                      Use long range (coded) PHY for primary advertising
 #  -q, --quiet                          Don't display empty packets
 #  -Q PRELOAD, --preload PRELOAD        Preload expected encrypted connection parameter changes
 #  -n, --nophychange                    Ignore encrypted PHY mode changes
