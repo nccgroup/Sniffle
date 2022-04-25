@@ -38,12 +38,6 @@ def set_logger() -> logging.Logger:
         return logger
 
 
-def delete_trace_file(tp: str):
-    if os.path.exists(tp):
-        os.remove(tp)
-        time.sleep(.1)
-        print(f"{tp} removed!")
-
 def start_sniffle(usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
     blt_tracefile_name = usb.create_new_pcap_name()
     safe_path = str(usb.trace_file_folder_path) + "/" + blt_tracefile_name
@@ -61,7 +55,7 @@ def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, ind
     if system.process_running(sniffle_process):
         if system.kill_process(sniffle_process=sniffle_process):
             logger.info("sniffer stopped, process killed successful!")
-            time.sleep(.3)
+            time.sleep(.2)
             if os.path.exists(safe_path):
                 logger.info(f"BLT trace {safe_path} saved successful!")
                 indicator_led.indicate_successful()
@@ -100,6 +94,7 @@ def main():
                 if not sst_tracing_button.get_button_state() and sniffer_running:
                     stop_sniffle(sniffle_process, safe_path, indicator_led, logger)
                     sniffer_running = False
+                    usb.copy_logs_to_usb()
 
                 # button state false and sniffer does not run: -> sniffer idle, waiting for button press
                 if not sst_tracing_button.get_button_state() and not sniffer_running:
