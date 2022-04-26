@@ -49,9 +49,15 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
   * Create folder for blt traces: `/blt_traces` in root of USB drive
   * Create folder for developer logfiles: `/mobile_extension_logs` in root of USB drive
 
-#### Set up cron job for project
+#### Set up crontab for project
+  * Enable cron jobs: `sudo systemctl enable cron.service`
   * Open cron job editor: `sudo crontab -e` in bash console
-  * Insert cronjob on reboot: `@reboot sudo /bin/python3 -u sniffer/mobile_extension/main.py`
+  * Insert cronjob on reboot: `@reboot /bin/python3 -u sniffer/mobile_extension/main.py`
+
+Troubleshooting:
+  * Check if crontab is activated: `sudo systemctl status cron.service`
+  * Cron syslogs: `grep CRON /var/log/syslog`
+  * Check if crontab executed the process: `ps aux`
   
 ### Usages
 
