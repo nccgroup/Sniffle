@@ -2,17 +2,14 @@
 
 ## Description
 
-This project extension enables the usage of Sniffle in a mobile setup.
-By pushing a button, Sniffle should run and indicate sniffing state by a led.
-Once the button is pressed a second time, Sniffle should stop, save the PCAP file to the USB stick and
-and add the start timestamp to the relative timestamps. 
-When the LED is off, the USB stick can be safely removed anytime.
-A config information file for sniffle is located on the USB flash drive to simulate the cli usage.
+This project extension allows Sniffle to be used in a mobile setup.
+By pressing a button Sniffle is started and stopped, the status is indicated by a LED.
+A configuration file for Sniffle is on the USB stick.
 
 ## Prequesites
 
 ### Hardware
-  * TI board flashed with Sniffle
+  * TI board flashed with your desired Version of Sniffle
   * Raspberry Pi, in my case I used a Zero
   * USB port extension (TI - board and USB flash drive)
   * USB Stick to save .pcap - file
@@ -24,28 +21,47 @@ A config information file for sniffle is located on the USB flash drive to simul
 ### Software  
   * Raspbian Lite (Debian Bullseye)
 
-### Installation
+#### Installation on Raspberry Pi 
 
-run `setup.sh` in project root folder.
-This project relies on automount usb drives at plugin and remove. After set up of automount, you will find all mounted usb devices at `~ $ /media/`.
-Usb devices will be mounted starting with usb, usb0 to usb7. 
+  * Create a project folder: `~ $ /sniffer` on Raspberry Pi root
+  * Clone this project into the project folder: `~ $ /sniffer`
+  * run `setup.sh` in `~ $ /sniffer/Sniffle/mobile_extension` folder
 
 #### Set up automount usb drives:
-* `sudo apt install usbmount`
-* `sudo nano /lib/systemd/system/systemd-udevd.service`
-* change `PrivateMounts=yes` to `PrivateMounts=no`
-* reboot raspberry pi zero by `sudo reboot` 
-* check if usb is mounted by listing the content of the usb drive: `ls -lt /media/usb0`
-* If you encounter any problem, have a look at the usbmount logs: `journalctl -u systemd-udevd.service -f`
+This project relies on automount usb drives at plugin and remove. 
+After set up of automount, you will find all mounted usb devices at `~ $ /media/`. 
+Usb devices will be mounted starting with usb, usb0 to usb7. 
+
+  * `sudo apt install usbmount`
+  * `sudo nano /lib/systemd/system/systemd-udevd.service`
+  * change `PrivateMounts=yes` to `PrivateMounts=no`
+  * reboot raspberry pi zero by `sudo reboot` 
+  * check if usb is mounted by listing the content of the usb drive: `ls -lt /media/usb0`
+  * If you encounter any problem, have a look at the usbmount logs: `journalctl -u systemd-udevd.service -f`
 
 #### Enable i2c on Raspberry Pi:
-* Go to `sudo raspi-config` 
-* Select Interface Options and enable I2C 
-* smbus library will work 
+  * Go to `sudo raspi-config` 
+  * Select Interface Options and enable I2C 
+  * smbus library will work in order to init the I2C RTC module
 
-### Usage
+#### Set up USB flash drive
+  * Copy `sniffle_config.yml` from `/mobile_extension` to root of USB drive
+  * Create folder for blt traces: `/blt_traces` in root of USB drive
+  * Create folder for developer logfiles: `/mobile_extension_logs` in root of USB drive
 
-In preparation...
+#### Set up cron job for project
+  * Open cron job editor: `sudo crontab -e` in bash console
+  * Insert cronjob on reboot: `@reboot python /Sniffle/mobile_extension/main.py`
+  
+### Usages
+
+Start the Sniffle process: A green LED indicates that Sniffle is ready and waiting for the button to be pressed. 
+When the button is pressed, a subprocess executes Sniffle with the preconfigured `optional_arguments`
+from the sniffle_config.yml file and the LED turns blue, indicating a running state. 
+If the button is pressed while the process is running, the subprocess is terminated. If the pcap file 
+has been successfully saved to the `/blt_traces` folder on the USB drive, the LED will flash green,
+If an error occurs while saving the file, the LED flashes red. No LED indicates that the USB drive should be plugged in. 
+Details of errors can be taken from the logfiles in the `/mobile_extension_logs` folder, which are stored with each save operation.
 
 # Sniffle
 
