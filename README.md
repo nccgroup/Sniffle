@@ -57,12 +57,13 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
 Troubleshooting:
   * Check if crontab is activated: `sudo systemctl status cron.service`
     * The process should be visible on file tree: `CGroup: /system.slice/cron.service`
-
-  * List all crontabs: `crontab -l`
-  * Cron syslogs: `grep CRON /var/log/syslog`
-  * Check log messages from cron with journalctl: `journalctl -u cron _TRANSPORT=stdout`
-  * Check if crontab executed the process: `ps aux`
   * restart crontab service: `sudo /etc/init.d/cron restart`
+  
+Others (did not help me):
+    * List all crontabs: `crontab -l`
+    * Cron syslogs: `grep CRON /var/log/syslog`
+    * Check log messages from cron with journalctl: `journalctl -u cron _TRANSPORT=stdout`
+    * Check if crontab executed the process: `ps aux`
   
 ### Usages
 
