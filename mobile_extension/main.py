@@ -121,7 +121,6 @@ def main():
             indicator_led.set_off()
             GPIO.cleanup()
             pass
-    # TODO: 4. add start timestamp to relative timestamps per frame
 
 if __name__ == "__main__":
     main()
