@@ -6,6 +6,7 @@
 import logging
 import pathlib
 import subprocess
+import sys
 from logging.handlers import QueueHandler
 import RPi.GPIO as GPIO
 import os
@@ -15,7 +16,8 @@ import system
 import usb_drive
 import button
 import led
-from mobile_extension import DS3231
+sys.path.append("/sniffer")
+from mobile_extension.DS3231 import SDL_DS3231
 
 
 def init():
@@ -44,7 +46,7 @@ def create_new_pcap_name(date_string: str) -> str:
     return "blt_sniffle_trace-" + date_string + ".pcap"
 
 
-def start_sniffle(rtc: DS3231, usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
+def start_sniffle(rtc: SDL_DS3231, usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
     start_dt_opj = rtc.read_datetime()
     dt_string = start_dt_opj.strftime("%d_%m_%Y-T%H_%M_%S")
     blt_tracefile_name = create_new_pcap_name(dt_string)
@@ -89,7 +91,7 @@ def main():
     indicator_led.set_off()
 
     # RTC module
-    rtc = DS3231.SDL_DS3231()
+    rtc = SDL_DS3231()
     system.set_hardware_clock(rtc)
 
     sniffer_running = False

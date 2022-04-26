@@ -1,8 +1,11 @@
 import logging
 import os
 import subprocess
+import sys
+
 import psutil
-from mobile_extension import DS3231
+sys.path.append("/sniffer")
+from mobile_extension.DS3231 import SDL_DS3231
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +69,7 @@ def clean_processes(processes=[]):
     print('Clean up finished!')
     print('')
 
-def set_hardware_clock(rtc: DS3231.SDL_DS3231):
+def set_hardware_clock(rtc: SDL_DS3231):
     # syscall example: hwclock - -set - -date = "9/22/96 16:45:05"
     date_str = rtc.read_datetime().strftime("%d/%m/%Y %H:%M:%S")
     try:

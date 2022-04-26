@@ -51,7 +51,7 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
 
 #### Set up cron job for project
   * Open cron job editor: `sudo crontab -e` in bash console
-  * Insert cronjob on reboot: `@reboot python /Sniffle/mobile_extension/main.py`
+  * Insert cronjob on reboot: `@reboot sudo /bin/python3 -u sniffer/mobile_extension/main.py`
   
 ### Usages
 
