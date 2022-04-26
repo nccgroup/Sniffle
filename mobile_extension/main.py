@@ -75,6 +75,7 @@ def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, ind
 
 
 def main():
+    print("start programm!")
     init()
     logger = set_logger()
     logger.info("logging started! \n")

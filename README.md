@@ -52,12 +52,17 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
 #### Set up crontab for project
   * Enable cron jobs: `sudo systemctl enable cron.service`
   * Open cron job editor: `sudo crontab -e` in bash console
-  * Insert cronjob on reboot: `@reboot /bin/python3 -u sniffer/mobile_extension/main.py`
+  * Insert cronjob on reboot: `@reboot sleep 60 && cd / && chmod ugo+rwx sniffer && chmod ugo+rwx /sniffer/crontab_logs.txt && /bin/python3 -u sniffer/mobile_extension/main.py >> /sniffer/crontab_logs.txt`
 
 Troubleshooting:
   * Check if crontab is activated: `sudo systemctl status cron.service`
+    * The process should be visible on file tree: `CGroup: /system.slice/cron.service`
+
+  * List all crontabs: `crontab -l`
   * Cron syslogs: `grep CRON /var/log/syslog`
+  * Check log messages from cron with journalctl: `journalctl -u cron _TRANSPORT=stdout`
   * Check if crontab executed the process: `ps aux`
+  * restart crontab service: `sudo /etc/init.d/cron restart`
   
 ### Usages
 
