@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 import psutil
-
+from mobile_extension import DS3231
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ def start_process(command: []) -> subprocess.Popen:
     sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
         # outs, errs = process.communicate(timeout=1)
-        print(f"process with pid: {sniffle_process.pid} started!")
+        print(f"Process with pid: {sniffle_process.pid} started!")
     except subprocess.TimeoutExpired:
         sniffle_process.kill()
         outs, errs = sniffle_process.communicate()
@@ -33,10 +33,10 @@ def kill_process(sniffle_process: subprocess.Popen) -> bool:
     sniffle_process.stdout.close()
     exit_status = sniffle_process.wait()
     if psutil.pid_exists(pid):
-        logger.info(f"process pid {pid} still running after kill! Exit status: {exit_status}!")
+        logger.info(f"Process pid {pid} still running after kill! Exit status: {exit_status}!")
         return False
     else:
-        logger.info(f"process pid {pid} terminated with exit status: {exit_status}!")
+        logger.info(f"Process pid {pid} terminated with exit status: {exit_status}!")
         return True
 
 def process_running(sniffle_process: subprocess.Popen) -> bool:
@@ -65,6 +65,15 @@ def clean_processes(processes=[]):
     subprocesses.terminate()
     print('Clean up finished!')
     print('')
+
+def set_hardware_clock(rtc: DS3231.SDL_DS3231):
+    # syscall example: hwclock - -set - -date = "9/22/96 16:45:05"
+    date_str = rtc.read_datetime().strftime("%d/%m/%Y %H:%M:%S")
+    try:
+        os.system('hwclock --set %s' % date_str)
+        logger.info(f"Raspberry Pi hardware clock set to {date_str}")
+    except OSError as e:
+        logger.error(f"Error while setting hardware clock: {e}")
 
 
 class Processes:

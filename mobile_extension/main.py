@@ -16,7 +16,6 @@ import usb_drive
 import button
 import led
 from mobile_extension import DS3231
-from mobile_extension import PCAP
 
 
 def init():
@@ -63,13 +62,13 @@ def start_sniffle(rtc: DS3231, usb: usb_drive.USBDrive, indicator_led: led.Led, 
 def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, indicator_led: led.Led, logger: logging.Logger):
     if system.process_running(sniffle_process):
         if system.kill_process(sniffle_process=sniffle_process):
-            logger.info("sniffer stopped, process killed successful!")
-            time.sleep(.2)
+            logger.info("Sniffer stopped, process successfully killed!")
+            time.sleep(.35)
             if os.path.exists(safe_path):
-                logger.info(f"BLT trace {safe_path} saved successful!")
+                logger.info(f"BLT trace {safe_path} successfully saved!")
                 indicator_led.indicate_successful()
             else:
-                logger.info(f"BLT trace {safe_path} NOT saved successfully!")
+                logger.error(f"BLT trace {safe_path} NOT successfully saved!")
                 indicator_led.indicate_failure()
 
 
@@ -91,6 +90,7 @@ def main():
 
     # RTC module
     rtc = DS3231.SDL_DS3231()
+    system.set_hardware_clock(rtc)
 
     sniffer_running = False
 
@@ -106,9 +106,8 @@ def main():
                 if not sst_tracing_button.get_button_state() and sniffer_running:
                     stop_sniffle(sniffle_process, safe_path, indicator_led, logger)
                     sniffer_running = False
+                    # copy developer log files to usb drive for bug fix analysis
                     usb.copy_logs_to_usb()
-                    pcap = PCAP.PCAP(safe_path)
-                    pcap.process_pcap()
 
                 # button state false and sniffer does not run: -> sniffer idle, waiting for button press
                 if not sst_tracing_button.get_button_state() and not sniffer_running:

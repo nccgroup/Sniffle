@@ -1,38 +1,31 @@
-from scapy.utils import RawPcapReader
-from scapy.layers.l2 import Ether
-from scapy.layers.inet import IP, TCP
+import datetime
+import logging
+from scapy.utils import rdpcap
+import warnings
+warnings.simplefilter("ignore", Warning)
 
+logger = logging.getLogger(__name__)
+
+DAY = 86400 # POSIX day (exact value)
+HOUR = DAY / 24
+MINUTE = HOUR / 60
+SECOND = MINUTE / 60
 
 class PCAP:
-    def __init__(self, file_name):
-        self.file_name = file_name
+    def __init__(self, file_name: str, start_timestamp: datetime.datetime):
+        self.file_name = str(file_name)
+        self.start_dt_opj = start_timestamp
+        self.start_dt_opj_unix = start_timestamp.timestamp()
+        logger.info(f"Created PCAP object: {self.file_name} Unix timestamp: {self.start_dt_opj_unix}, UTC: {self.start_dt_opj}")
 
 
-    def process_pcap(self):
-        print('Opening {}...'.format(self.file_name))
-
+    def print_timestamp(self):
+        pkts = rdpcap(self.file_name)
         count = 0
-        interesting_packet_count = 0
-
-        for (pkt_data, pkt_metadata,) in RawPcapReader(self.file_name):
-            count += 1
-
-            ether_pkt = Ether(pkt_data)
-            if 'type' not in ether_pkt.fields:
-                # LLC frames will have 'len' instead of 'type'.
-                # We disregard those
-                continue
-
-            if ether_pkt.type != 0x0800:
-                # disregard non-IPv4 packets
-                continue
-
-            ip_pkt = ether_pkt[IP]
-            if ip_pkt.proto != 6:
-                # Ignore non-TCP packet
-                continue
-
-            interesting_packet_count += 1
-
-        print('{} contains {} packets ({} interesting)'.
-              format(self.file_name, count, interesting_packet_count))
+        prev_p = 0
+        for p in pkts:
+            time_diff = abs(p.time - prev_p)
+            print(f"Count: {count} Packet: {p.name} timestamp: {p.time}, time difference: {time_diff}")
+            count = count + 1
+            prev_p = p.time
+        print(f"Number of packets: {count}")

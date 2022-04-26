@@ -27,7 +27,7 @@ class Led(Thread):
         GPIO.setup(self.channel_blue, GPIO.OUT)  # blue pin channel is set to output
         GPIO.setup(self.channel_green, GPIO.OUT)  # green pin channel is set to output
         GPIO.setup(self.channel_red, GPIO.OUT)  # red pin channel is set to output
-        logger.info(f"Created LED")
+        logger.info(f"Initialized led")
 
     def blue_led_on(self):
         GPIO.output(self.channel_blue, GPIO.HIGH)  # LED-Pin auf High (+3.3V) setzen = einschalten
@@ -102,7 +102,7 @@ class Led(Thread):
         self.set_green()
         time.sleep(.1)
         self.set_off()
-        time.sleep(.3)
+        time.sleep(.2)
 
     def indicate_failure(self):
         self.set_off()
@@ -118,4 +118,4 @@ class Led(Thread):
         self.set_red()
         time.sleep(.1)
         self.set_off()
-        time.sleep(.3)
+        time.sleep(.2)

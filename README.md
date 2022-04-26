@@ -42,6 +42,7 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
 * Go to `sudo raspi-config` 
 * Select Interface Options and enable I2C 
 * smbus library will work 
+
 ### Usage
 
 In preparation...

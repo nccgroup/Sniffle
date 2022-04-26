@@ -2,7 +2,6 @@ import logging
 import os
 import pathlib
 import time
-from datetime import datetime
 import mobile_extension.configuration as configuration
 import shutil
 
@@ -12,7 +11,7 @@ def str_contains_number(s:str):
     return any(i.isdigit() for i in s)
 
 
-class USBDrive():
+class USBDrive:
     def __init__(self, usb_nr = 0):
         self.trace_file_folder_path = ""
         self.PROJECT_ROOT_DIR = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
@@ -81,7 +80,7 @@ class USBDrive():
         if self.MOUNT_DIR:
             return self.MOUNT_DIR
         else:
-            raise FileNotFoundError("Can't get usb devices because no usb devices are mounted.")
+            raise FileNotFoundError("Can't get usb devices because no usb device is mounted.")
 
     def set_trace_file_folder_path(self) -> bool:
         self.trace_file_folder_path = self.MOUNT_DIR.joinpath('blt_traces')
