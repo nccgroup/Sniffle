@@ -29,7 +29,7 @@ Sniffle has a number of useful features, including:
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/tool/LP-CC2651P3>
 * GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
-* TI CC13xx/CC26xx SDK 5.40.00.40: <https://www.ti.com/tool/SIMPLELINK-CC13XX-CC26XX-SDK>
+* TI CC13xx/CC26xx SDK 6.10.00.29: <https://www.ti.com/tool/SIMPLELINK-CC13XX-CC26XX-SDK>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
@@ -56,7 +56,7 @@ expect this path, so I suggest just going with the default here. The same
 applies for the TI SysConfig tool.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_5_40_00_40`
+your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_6_10_00_29`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
 The only paths that need to be set here to build Sniffle are for GCC, XDC, and
 SysConfig. We don't need the CCS compiler. See the diff below as an example,
@@ -64,7 +64,7 @@ and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index fc34441..89dd4f9 100644
+index bfbde9f..5489575 100644
 --- a/imports.mak
 +++ b/imports.mak
 @@ -18,14 +18,14 @@
@@ -72,15 +72,15 @@ index fc34441..89dd4f9 100644
  #
  
 -XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_62_01_15_core
--SYSCONFIG_TOOL         ?= /home/username/ti/ccs1100/ccs/utils/sysconfig_1.10.0/sysconfig_cli.sh
+-SYSCONFIG_TOOL         ?= /home/username/ti/ccs1120/ccs/utils/sysconfig_1.12.0/sysconfig_cli.sh
 +XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_62_01_15_core
-+SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.10.0/sysconfig_cli.sh
++SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.12.0/sysconfig_cli.sh
  
  FREERTOS_INSTALL_DIR   ?= /home/username/FreeRTOSv202104.00
  
- CCS_ARMCOMPILER        ?= /home/username/ti/ccs1100/ccs/tools/compiler/ti-cgt-arm_20.2.5.LTS
- TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1100/ccs/tools/compiler/ti-cgt-armllvm_1.3.0.LTS
--GCC_ARMCOMPILER        ?= /home/username/ti/ccs1100/ccs/tools/compiler/9.2019.q4.major
+ CCS_ARMCOMPILER        ?= /home/username/ti/ccs1120/ccs/tools/compiler/ti-cgt-arm_20.2.5.LTS
+ TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1120/ccs/tools/compiler/ti-cgt-armllvm_1.3.1.LTS
+-GCC_ARMCOMPILER        ?= /home/username/ti/ccs1120/ccs/tools/compiler/9.2019.q4.major
 +GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/gcc-arm-none-eabi-9-2019-q4-major
  
  # The IAR compiler is not supported on Linux
