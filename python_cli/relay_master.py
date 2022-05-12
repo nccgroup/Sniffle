@@ -89,6 +89,8 @@ def main():
             "connection parameter changes")
     aparse.add_argument("-f", "--fastslave", action="store_const", default=False, const=True,
             help="Relay slave should request a fast connection interval")
+    aparse.add_argument("-p", "--pause", action="store_const", default=False, const=True,
+            help="Wait for key press on master before relaying")
     aparse.add_argument("-F", "--fastmaster", action="store_const", default=False, const=True,
             help="Relay master should specify a fast connection interval")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
@@ -143,6 +145,11 @@ def main():
     adv, scan_rsp = scan_target(macBytes)
     conn.send_msg(MessageType.ADVERT, adv.body)
     conn.send_msg(MessageType.SCAN_RSP, scan_rsp.body)
+
+    # Pause until key press if option selected
+    if args.pause:
+        input("Press enter to continue...")
+    conn.send_msg(MessageType.PING, b'')
 
     # relay slave will now impersonate our target
 

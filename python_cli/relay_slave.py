@@ -74,6 +74,11 @@ def main():
     advert = DPacketMessage.from_body(advert_body)
     scan_rsp = DPacketMessage.from_body(scan_rsp_body)
 
+    # wait for master to unpause us
+    mtype, _ = conn.recv_msg()
+    if mtype != MessageType.PING:
+        raise ValueError("Got wrong message type %s" % mtype.name)
+
     # advertise to impersonate our target
     hw.cmd_setaddr(advert.AdvA, bool(advert.TxAdd))
     hw.cmd_adv_interval(200) # approx 200ms advertising interval
