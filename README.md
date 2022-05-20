@@ -53,9 +53,10 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
   * Create folder for developer logfiles: `/mobile_extension_logs` in root of USB drive
 
 #### Set up crontab for project
+  * Create crontab log file in `/sniffer` by `touch crontab_logs.txt`
   * Enable cron jobs: `sudo systemctl enable cron.service`
   * Open cron job editor: `sudo crontab -e` in bash console
-  * Insert cronjob on reboot: `@reboot sleep 60 && cd / && chmod ugo+rwx sniffer && chmod ugo+rwx /sniffer/crontab_logs.txt && /bin/python3 -u sniffer/mobile_extension/main.py >> /sniffer/crontab_logs.txt`
+  * Insert cronjob on reboot: `@reboot sleep 60 && cd / && sudo chmod -R ugo+rwx /sniffer && /bin/python3 -u sniffer/mobile_extension/main.py >> /sniffer/crontab_logs.txt`
 
 Troubleshooting:
   * Check if crontab is activated: `sudo systemctl status cron.service`
