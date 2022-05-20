@@ -10,11 +10,11 @@ from mobile_extension.DS3231 import SDL_DS3231
 logger = logging.getLogger(__name__)
 
 def start_process(command: []) -> subprocess.Popen:
-    logger.info(f"Executing command in subprocess: {command}")
-    sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    logger.info(f"Executing command in subprocess: \n{command}")
+    # sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
-        # outs, errs = process.communicate(timeout=1)
-        print(f"Process with pid: {sniffle_process.pid} started!")
+        sniffle_process = subprocess.Popen(command, shell=False, stderr=subprocess.PIPE)
+        logger.info(f"Process with pid: {sniffle_process.pid} started!")
     except subprocess.TimeoutExpired:
         sniffle_process.kill()
         outs, errs = sniffle_process.communicate()
@@ -24,7 +24,7 @@ def start_process(command: []) -> subprocess.Popen:
 def os_kill_pid(pid: int):
     """ Check For the existence of a unix pid. """
     try:
-        os.kill(pid, 0)
+        os.kill(pid, 9)
     except OSError:
         return False
     else:
@@ -33,7 +33,8 @@ def os_kill_pid(pid: int):
 def kill_process(sniffle_process: subprocess.Popen) -> bool:
     pid = sniffle_process.pid
     sniffle_process.kill()
-    sniffle_process.stdout.close()
+    sniffle_process.poll()
+    sniffle_process.stderr.close()
     exit_status = sniffle_process.wait()
     if psutil.pid_exists(pid):
         logger.info(f"Process pid {pid} still running after kill! Exit status: {exit_status}!")

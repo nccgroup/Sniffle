@@ -23,8 +23,11 @@ A configuration file for Sniffle is on the USB stick.
 
 #### Installation on Raspberry Pi 
 
-  * Create a project folder: `~ $ /sniffer` on Raspberry Pi root
+  * Create a project folder: `~ $ /sniffer` on Raspberry Pi root 
+  * set permissions `sudo chmod ugo+rwx sniffer`
+  * Set up SSH remote interpreter IDE 
   * Clone this project into the project folder: `~ $ /sniffer`
+  * change permission for setup.sh by `chmod +x setup.sh`
   * run `setup.sh` in `~ $ /sniffer/Sniffle/mobile_extension` folder
 
 #### Set up automount usb drives:

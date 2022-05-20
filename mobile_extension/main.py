@@ -54,7 +54,7 @@ def start_sniffle(rtc: SDL_DS3231, usb: usb_drive.USBDrive, indicator_led: led.L
     cmd_command = usb.config.sniffle_cmd_command_without_outpath + [safe_path]
     sniffle_process = system.start_process(cmd_command)
     if system.process_running(sniffle_process=sniffle_process):
-        logger.info(f"Sniffer started: {cmd_command}")
+        logger.info(f"Sniffer started!")
         indicator_led.set_blue()
     else:
         logger.error(f"Sniffer was started but process was not able to start!")
@@ -67,7 +67,7 @@ def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, ind
             logger.info("Sniffer stopped, process successfully killed!")
             time.sleep(.35)
             if os.path.exists(safe_path):
-                logger.info(f"BLT trace {safe_path} successfully saved!")
+                logger.info(f"BLT trace {safe_path} successfully saved! Size: {(os.path.getsize(safe_path) / 1024)} KB \n")
                 indicator_led.indicate_successful()
             else:
                 logger.error(f"BLT trace {safe_path} NOT successfully saved!")
@@ -75,10 +75,11 @@ def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, ind
 
 
 def main():
-    print("start programm!")
+    print("START MOBILE EXTENSION FOR SNIFFLE")
     init()
     logger = set_logger()
-    logger.info("logging started! \n")
+    logger.info("\n\nSTART MOBILE EXTENSION FOR SNIFFLE")
+    logger.info("logging started!")
 
     # automount usb drive and get usb_path:
     usb = usb_drive.USBDrive()
