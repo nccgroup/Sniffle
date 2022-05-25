@@ -21,10 +21,8 @@ A configuration file for Sniffle is on the USB stick.
 ### Software  
   * Raspbian Lite (Debian Bullseye)
 
-#### Installation on Raspberry Pi 
-
-  * First of all ```sudo apt-get update``` 
-
+#### Installation on Raspberry Pi
+  * First of all ```sudo apt-get update```
   * Create a project folder: `~ $ /sniffer` on Raspberry Pi root 
   * set permissions `sudo chmod ugo+rwx sniffer`
   * Set up SSH remote interpreter IDE 
