@@ -23,6 +23,8 @@ A configuration file for Sniffle is on the USB stick.
 
 #### Installation on Raspberry Pi 
 
+  * First of all ```sudo apt-get update``` 
+
   * Create a project folder: `~ $ /sniffer` on Raspberry Pi root 
   * set permissions `sudo chmod ugo+rwx sniffer`
   * Set up SSH remote interpreter IDE 
@@ -44,8 +46,15 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
 
 #### Enable i2c on Raspberry Pi:
   * Go to `sudo raspi-config` 
-  * Select Interface Options and enable I2C 
+  * Select Interface Options and enable I2C
   * smbus library will work in order to init the I2C RTC module
+
+#### Install RTC 
+  * Install i2c tools: ```sudo apt-get install i2c-tools``` 
+  * run rtc install script ```bash mobile_extension/utils/install_rtc.sh```
+  * check whether RTC time is NOT: n/a by ```timedatectl```
+  * Check if Raspberry Pi system time ```date``` and RTC are the same ```sudo hwclock -r```
+  * The Raspberry Pi will automatically set the time to RTC when WIFI is available, if not write time to RTC manually by ```sudo hwclock -w``` 
 
 #### Set up USB flash drive
   * Copy `sniffle_config.yml` from `/mobile_extension` to root of USB drive
@@ -56,9 +65,9 @@ Usb devices will be mounted starting with usb, usb0 to usb7.
   * Create crontab log file in `/sniffer` by `touch crontab_logs.txt`
   * Enable cron jobs: `sudo systemctl enable cron.service`
   * Open cron job editor: `sudo crontab -e` in bash console
-  * Insert cronjob on reboot: `@reboot sleep 60 && cd / && sudo chmod -R ugo+rwx /sniffer && /bin/python3 -u sniffer/mobile_extension/main.py >> /sniffer/crontab_logs.txt`
+  * Insert cronjob on reboot: `@reboot sleep 60 && cd / && sudo chmod -R ugo+rwx /sniffer && /bin/python3 -u sniffer/mobile_extension/main.py`
 
-Troubleshooting:
+Crontab troubleshooting:
   * Check if crontab is activated: `sudo systemctl status cron.service`
     * The process should be visible on file tree: `CGroup: /system.slice/cron.service`
   * restart crontab service: `sudo /etc/init.d/cron restart`

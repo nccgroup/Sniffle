@@ -2,7 +2,7 @@
 
 # Written by Raphael Becker
 # Released as open source under GPLv3
-
+import datetime
 import logging
 import pathlib
 import subprocess
@@ -16,6 +16,7 @@ import system
 import usb_drive
 import button
 import led
+
 sys.path.append("/sniffer")
 from mobile_extension.DS3231 import SDL_DS3231
 
@@ -23,31 +24,33 @@ from mobile_extension.DS3231 import SDL_DS3231
 def init():
     GPIO.setmode(GPIO.BOARD)
 
+
 def set_logger() -> logging.Logger:
-        root_dir = pathlib.Path(__file__).resolve().parents[0]
-        logs_path = root_dir.joinpath('logs')
-        os.makedirs(logs_path, exist_ok=True)
-        formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s")
-        wd_stream_handler = logging.StreamHandler()
-        wd_stream_handler.setLevel(logging.INFO)
-        wd_stream_handler.setFormatter(formatter)
-        wd_file_handler = logging.handlers.TimedRotatingFileHandler(filename=logs_path.joinpath('mobile_extension.log'),
-                                                                    when='midnight',
-                                                                    backupCount=4)
-        wd_file_handler.setLevel(logging.DEBUG)
-        wd_file_handler.setFormatter(formatter)
-        # noinspection PyargumentList
-        logging.basicConfig(level=logging.DEBUG, handlers=[wd_stream_handler, wd_file_handler])
-        logger = logging.getLogger('mobile_extension')
-        return logger
+    root_dir = pathlib.Path(__file__).resolve().parents[0]
+    logs_path = root_dir.joinpath('logs')
+    os.makedirs(logs_path, exist_ok=True)
+    formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s")
+    wd_stream_handler = logging.StreamHandler()
+    wd_stream_handler.setLevel(logging.INFO)
+    wd_stream_handler.setFormatter(formatter)
+    wd_file_handler = logging.handlers.TimedRotatingFileHandler(filename=logs_path.joinpath('mobile_extension.log'),
+                                                                when='midnight',
+                                                                backupCount=4)
+    wd_file_handler.setLevel(logging.DEBUG)
+    wd_file_handler.setFormatter(formatter)
+    # noinspection PyargumentList
+    logging.basicConfig(level=logging.DEBUG, handlers=[wd_stream_handler, wd_file_handler])
+    logger = logging.getLogger('mobile_extension')
+    return logger
+
 
 def create_new_pcap_name(date_string: str) -> str:
     # dd/mm/YY-TH:M:S
     return "blt_sniffle_trace-" + date_string + ".pcap"
 
 
-def start_sniffle(rtc: SDL_DS3231, usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
-    start_dt_opj = rtc.read_datetime()
+def start_sniffle(usb: usb_drive.USBDrive, indicator_led: led.Led, logger: logging.Logger):
+    start_dt_opj = datetime.datetime.now()
     dt_string = start_dt_opj.strftime("%d_%m_%Y-T%H_%M_%S")
     blt_tracefile_name = create_new_pcap_name(dt_string)
     safe_path = str(usb.trace_file_folder_path) + "/" + blt_tracefile_name
@@ -61,13 +64,15 @@ def start_sniffle(rtc: SDL_DS3231, usb: usb_drive.USBDrive, indicator_led: led.L
     return sniffle_process, safe_path, start_dt_opj
 
 
-def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, indicator_led: led.Led, logger: logging.Logger):
+def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, indicator_led: led.Led,
+                 logger: logging.Logger):
     if system.process_running(sniffle_process):
         if system.kill_process(sniffle_process=sniffle_process):
             logger.info("Sniffer stopped, process successfully killed!")
             time.sleep(.35)
             if os.path.exists(safe_path):
-                logger.info(f"BLT trace {safe_path} successfully saved! Size: {(os.path.getsize(safe_path) / 1024)} KB \n")
+                logger.info(
+                    f"BLT trace {safe_path} successfully saved! Size: {(os.path.getsize(safe_path) / 1024)} KB \n")
                 indicator_led.indicate_successful()
             else:
                 logger.error(f"BLT trace {safe_path} NOT successfully saved!")
@@ -75,7 +80,6 @@ def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, ind
 
 
 def main():
-    print("START MOBILE EXTENSION FOR SNIFFLE")
     init()
     logger = set_logger()
     logger.info("\n\nSTART MOBILE EXTENSION FOR SNIFFLE")
@@ -88,13 +92,13 @@ def main():
     sst_tracing_button = button.Button(16, "sst_tracing_button")
 
     # start indicator led thread:
-    indicator_led = led.Led(8,10,12)
+    indicator_led = led.Led(8, 10, 12)
     indicator_led.start()
     indicator_led.set_off()
 
     # RTC module
-    rtc = SDL_DS3231()
-    system.set_hardware_clock(rtc)
+    # rtc = SDL_DS3231()
+    # system.set_time(rtc)
 
     sniffer_running = False
 
@@ -103,7 +107,7 @@ def main():
             if usb.mount_status():
                 # button state true and sniffer does not run: -> START SNIFFING
                 if sst_tracing_button.get_button_state() and not sniffer_running:
-                    sniffle_process, safe_path, start_dt_opj = start_sniffle(rtc, usb, indicator_led, logger)
+                    sniffle_process, safe_path, start_dt_opj = start_sniffle(usb, indicator_led, logger)
                     sniffer_running = True
 
                 # button state false and sniffer runs: -> STOP SNIFFING
@@ -125,6 +129,7 @@ def main():
             indicator_led.set_off()
             GPIO.cleanup()
             pass
+
 
 if __name__ == "__main__":
     main()

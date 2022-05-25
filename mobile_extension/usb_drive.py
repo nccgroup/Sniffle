@@ -43,11 +43,12 @@ class USBDrive:
                                     break
                     if not self.usb_mounted:
                         if print_flag:
-                            print("No USB devices is mounted. In order to proceed, please plug in configured USB flash drive ...")
+                            logger.info("No USB devices is mounted. In order to proceed, please plug in configured "
+                                        "USB flash drive ...")
                             print_flag = False
                         time.sleep(.1)
                     else:
-                        print(f"Mounted USB devices: {self.MOUNT_DIR}")
+                        logger.info(f"Mounted USB devices: {self.MOUNT_DIR}")
             else:
                 raise FileNotFoundError(f"{self.MOUNT_ROOT_DIR} directory does not exist")
 
