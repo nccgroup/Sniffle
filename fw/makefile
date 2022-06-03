@@ -170,6 +170,10 @@ ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_d
 syscfg: sniffle.syscfg
 	@ echo Generating configuration files...
 	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --rtos tirtos --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
+ifneq ($(filter $(PLATFORM), $(CC2651P3_PLATFORMS)),)
+	@ echo Modifying ti_radio_config.c to remove bAcceptSyncInfo line \(CC2651P3 only\)
+	@ sed -i "s/.extFilterConfig.bAcceptSyncInfo = 0x0,*/\/\/.extFilterConfig.bAcceptSyncInfo = 0x0,/g" ti_radio_config.c
+endif
 
 %.obj: %.c $(CONFIGPKG)/compiler.opt syscfg
 	@ echo Building $@
