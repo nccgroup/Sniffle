@@ -2,3 +2,4 @@ pyserial==3.5
 PyYAML==6.0
 psutil==5.9.0
 smbus==1.1.post2
+RotatingTextFile==0.0.2
