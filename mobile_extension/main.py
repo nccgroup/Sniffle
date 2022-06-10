@@ -88,9 +88,6 @@ def main():
     # automount usb drive and get usb_path:
     usb = usb_drive.USBDrive()
 
-    system_monitor = system_status.SystemStatus()
-    system_monitor.start()
-
     # start button check thread loop:
     sst_tracing_button = button.Button(16, "sst_tracing_button")
 
@@ -100,6 +97,9 @@ def main():
     indicator_led.set_off()
 
     sniffer_running = False
+
+    status = system_status.SystemStatus(usb)
+    status.start()
 
     while True:
         try:

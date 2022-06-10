@@ -7,12 +7,13 @@ import shutil
 
 logger = logging.getLogger(__name__)
 
-def str_contains_number(s:str):
+
+def str_contains_number(s: str):
     return any(i.isdigit() for i in s)
 
 
 class USBDrive:
-    def __init__(self, usb_nr = 0):
+    def __init__(self, usb_nr=0):
         self.trace_file_folder_path = ""
         self.PROJECT_ROOT_DIR = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
         self.MOUNT_ROOT_DIR = pathlib.Path('/media/')
@@ -53,7 +54,8 @@ class USBDrive:
                 raise FileNotFoundError(f"{self.MOUNT_ROOT_DIR} directory does not exist")
 
     def mount_status(self) -> bool:
-        """returns True if mounted USB device is not empty, as there must be at least one config file on the usb stick"""
+        """returns True if mounted USB device is not empty, as there must be at least one config file on the usb
+        stick """
         if os.listdir(self.MOUNT_ROOT_DIR.joinpath("usb" + str(self.usb_nr))):
             self.usb_mounted = True
             return True
@@ -75,7 +77,7 @@ class USBDrive:
 
     def import_config(self):
         # load commands from config file on flash drive
-        self.config = configuration.Config(self.get_mounted_usb_device()) # only one flash drive is supported now
+        self.config = configuration.Config(self.get_mounted_usb_device())  # only one flash drive is supported now
 
     def get_mounted_usb_device(self) -> pathlib.Path:
         if self.MOUNT_DIR:
@@ -94,4 +96,3 @@ class USBDrive:
                 return self.trace_file_folder_path
             except Exception as e:
                 logger.error(f"Error while creating blt trace file folder on usb flash drive: {e}")
-
