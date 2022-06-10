@@ -27,7 +27,6 @@ class Led(Thread):
         GPIO.setup(self.channel_blue, GPIO.OUT)  # blue pin channel is set to output
         GPIO.setup(self.channel_green, GPIO.OUT)  # green pin channel is set to output
         GPIO.setup(self.channel_red, GPIO.OUT)  # red pin channel is set to output
-        logger.info(f"Initialized led")
 
     def blue_led_on(self):
         GPIO.output(self.channel_blue, GPIO.HIGH)  # LED-Pin auf High (+3.3V) setzen = einschalten
