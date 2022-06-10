@@ -88,7 +88,7 @@ def main():
     # automount usb drive and get usb_path:
     usb = usb_drive.USBDrive()
 
-    system_monitor = system_health_monitor.SystemStatus()
+    system_monitor = system_status.SystemStatus()
     system_monitor.start()
 
     # start button check thread loop:
