@@ -1,12 +1,12 @@
 import datetime
 import time
 import unittest
-from mobile_extension.system_health_monitor import SystemStatus
+from mobile_extension.system_status import SystemStatus
 
 
-class TestSystemHealthMonitor(unittest.TestCase):
+class TestSystemStatus(unittest.TestCase):
 
-    def test_health_monitor_thread(self):
+    def test_system_status_thread(self):
         health_monitor = SystemStatus()
         health_monitor.start()
 

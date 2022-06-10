@@ -16,7 +16,7 @@ import system
 import usb_drive
 import button
 import led
-import system_health_monitor
+import system_status
 
 sys.path.append("/sniffer")
 
