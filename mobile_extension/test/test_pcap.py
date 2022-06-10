@@ -1,7 +1,6 @@
-import datetime
 import pathlib
 import unittest
-from mobile_extension import DS3231
+from mobile_extension.utils import DS3231
 from mobile_extension.PCAP import PCAP
 
 

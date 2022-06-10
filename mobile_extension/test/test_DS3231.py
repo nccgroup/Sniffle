@@ -1,5 +1,4 @@
-import mobile_extension.DS3231 as DS3231
-import time
+import mobile_extension.utils.DS3231 as DS3231
 import unittest
 import mobile_extension.system as system
 

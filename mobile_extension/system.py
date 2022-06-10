@@ -6,7 +6,7 @@ import sys
 import psutil
 
 sys.path.append("/sniffer")
-from mobile_extension.DS3231 import SDL_DS3231
+from mobile_extension.utils.DS3231 import SDL_DS3231
 
 logger = logging.getLogger(__name__)
 

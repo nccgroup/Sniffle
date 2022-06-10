@@ -16,9 +16,9 @@ import system
 import usb_drive
 import button
 import led
+import system_health_monitor
 
 sys.path.append("/sniffer")
-from mobile_extension.DS3231 import SDL_DS3231
 
 
 def init():
@@ -64,7 +64,7 @@ def start_sniffle(usb: usb_drive.USBDrive, indicator_led: led.Led, logger: loggi
     return sniffle_process, safe_path, start_dt_opj
 
 
-def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: pathlib.Path, indicator_led: led.Led,
+def stop_sniffle(sniffle_process: subprocess.Popen, safe_path: str, indicator_led: led.Led,
                  logger: logging.Logger):
     if system.process_running(sniffle_process):
         if system.kill_process(sniffle_process=sniffle_process):
@@ -88,6 +88,9 @@ def main():
     # automount usb drive and get usb_path:
     usb = usb_drive.USBDrive()
 
+    system_monitor = system_health_monitor.SystemStatus()
+    system_monitor.start()
+
     # start button check thread loop:
     sst_tracing_button = button.Button(16, "sst_tracing_button")
 
@@ -95,10 +98,6 @@ def main():
     indicator_led = led.Led(8, 10, 12)
     indicator_led.start()
     indicator_led.set_off()
-
-    # RTC module
-    # rtc = SDL_DS3231()
-    # system.set_time(rtc)
 
     sniffer_running = False
 
