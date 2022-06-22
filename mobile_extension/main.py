@@ -25,7 +25,6 @@ sys.path.append("/sniffer")
 
 # True: Sniffer start sniffle in process
 # False: Sniffer starts sniffle in thread
-process_thread = False
 
 
 def init():
@@ -131,6 +130,7 @@ def main():
 
     # automount usb drive and get usb_path:
     usb = usb_drive.USBDrive()
+    execution_mode = usb.config.execution_mode
 
     # start button check thread loop:
     sst_tracing_button = button.Button(16, "sst_tracing_button")
@@ -150,7 +150,7 @@ def main():
             if usb.mount_status():
                 # button state true and sniffer does not run: -> START SNIFFING
                 if sst_tracing_button.get_button_state() and not sniffer_running:
-                    if process_thread:
+                    if execution_mode == "process":
                         sniffle_process, safe_path, start_dt_opj = start_sniffle_in_process(usb, indicator_led, logger)
                     else:
                         sniffle_thread, safe_path, start_dt_opj = start_sniffle_in_thread(usb, indicator_led, logger)
@@ -158,7 +158,7 @@ def main():
 
                 # button state false and sniffer runs: -> STOP SNIFFING
                 if not sst_tracing_button.get_button_state() and sniffer_running:
-                    if process_thread:
+                    if execution_mode == "process":
                         stop_sniffle_in_process(sniffle_process, safe_path, indicator_led, logger)
                     else:
                         stop_sniffle_in_thread(sniffle_thread, safe_path, indicator_led, logger)
