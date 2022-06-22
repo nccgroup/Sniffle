@@ -15,7 +15,7 @@ def start_process(command: []) -> subprocess.Popen:
     logger.info(f"Executing command in subprocess: \n{command}")
     # sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
-        sniffle_process = subprocess.Popen(command, shell=False, stderr=subprocess.PIPE)
+        sniffle_process = subprocess.Popen(command, shell=False, close_fds=False)
         logger.info(f"Process with pid: {sniffle_process.pid} started!")
     except subprocess.TimeoutExpired:
         sniffle_process.kill()
@@ -38,7 +38,6 @@ def kill_process(sniffle_process: subprocess.Popen) -> bool:
     pid = sniffle_process.pid
     sniffle_process.kill()
     sniffle_process.poll()
-    sniffle_process.stderr.close()
     exit_status = sniffle_process.wait()
     if psutil.pid_exists(pid):
         logger.info(f"Process pid {pid} still running after kill! Exit status: {exit_status}!")

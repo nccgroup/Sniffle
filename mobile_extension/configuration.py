@@ -19,6 +19,7 @@ class Config:
             "-o"]  # output path can only be added when cmd command is called, because out path contains timestamp in blt_trace_name pcap
         self.optional_arguments = []  # filled from config file with init_config(config_path)
         self.sniffle_cmd_command_without_outpath = []  # filled from usb class if mounted
+        self.optional_argument_list = [] # needed for sniffer_receiver_adapter.py
         self.init_config(config_path)
 
     def init_config(self, config_path: pathlib.Path):
@@ -52,8 +53,10 @@ class Config:
             self.optional_arguments = self.config_dictionary["optional_arguments"]
             if self.optional_arguments:
                 self.sniffle_cmd_command_without_outpath = self.sniff_receiver_base_command + self.serial_port_command_argument + self.optional_arguments + self.output_argument
+                self.optional_argument_list = self.serial_port_command_argument + self.optional_arguments + self.output_argument
             else:
                 self.sniffle_cmd_command_without_outpath = self.sniff_receiver_base_command + self.serial_port_command_argument + self.output_argument
+                self.optional_argument_list = self.serial_port_command_argument + self.output_argument
             logger.info(f"CMD sniffle base command: {self.sniffle_cmd_command_without_outpath}")
         else:
             logger.error(
