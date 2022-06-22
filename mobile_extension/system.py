@@ -1,5 +1,6 @@
 import logging
 import os
+import signal
 import subprocess
 import sys
 
@@ -14,8 +15,15 @@ logger = logging.getLogger(__name__)
 def start_process(command: []) -> subprocess.Popen:
     logger.info(f"Executing command in subprocess: \n{command}")
     # sniffle_process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    # parse argumentlist to string
+    shell = True
+    if shell:
+        argString = ""
+        for arg in command:
+            argString = argString + " " + str(arg)
+        command = argString
     try:
-        sniffle_process = subprocess.Popen(command, shell=False, close_fds=False)
+        sniffle_process = subprocess.Popen(command, shell=shell, close_fds=True, preexec_fn=os.setsid)
         logger.info(f"Process with pid: {sniffle_process.pid} started!")
     except subprocess.TimeoutExpired:
         sniffle_process.kill()
@@ -36,7 +44,7 @@ def os_kill_pid(pid: int):
 
 def kill_process(sniffle_process: subprocess.Popen) -> bool:
     pid = sniffle_process.pid
-    sniffle_process.kill()
+    os.killpg(os.getpgid(pid), signal.SIGTERM)
     sniffle_process.poll()
     exit_status = sniffle_process.wait()
     if psutil.pid_exists(pid):

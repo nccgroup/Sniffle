@@ -160,7 +160,8 @@ def print_packet(pkt, quiet):
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
     if not (quiet and isinstance(dpkt, DataMessage) and dpkt.data_length == 0):
-        print(dpkt, end='\n\n')
+        #print(dpkt, end='\n\n')
+        pass
 
     # Record the packet if PCAP writing is enabled
     if pcwriter:

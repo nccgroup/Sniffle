@@ -8,8 +8,11 @@ class TestSystem(unittest.TestCase):
     def test_start_process(self):
 
         # precondition
-        trace_name = "close_stdout_second.pcap"
-        sniffle_command = ["sudo", "/bin/python3", "/sniffer/python_cli/sniff_receiver.py", "-s", "/dev/ttyACM0", "-o", ("/media/usb0/blt_traces/"+ trace_name)]
+        trace_name = "shell_true1.pcap"
+        # sniffle_command = ["sudo", "/bin/python3", "/sniffer/python_cli/sniff_receiver.py", "-s", "/dev/ttyACM0", "-o", ("/media/usb0/blt_traces/"+ trace_name)]
+        # sniffle_command = ["python3", "/sniffer/python_cli/sniff_receiver.py", "-s", "/dev/ttyACM0", "-o",
+        #                   ("/media/usb0/blt_traces/" + trace_name)]
+        sniffle_command = 'sudo /bin/python3 /sniffer/python_cli/sniff_receiver.py -s /dev/ttyACM0 -o /media/usb0/blt_traces/shell_true1.pcap'
         trace_path = "/media/usb0/blt_traces/" + trace_name
         if os.path.exists(trace_path):
             os.remove(trace_path)
