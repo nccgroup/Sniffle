@@ -80,6 +80,7 @@ typedef enum {
 struct RadioConfig {
     uint64_t chanMap;
     uint32_t hopIntervalTicks;
+    uint32_t connTimeoutTicks;
     uint16_t offset;
     uint16_t slaveLatency;
     PHY_Mode phy;

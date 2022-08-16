@@ -77,9 +77,10 @@ static uint8_t hopIncrement;
 static uint32_t crcInit;
 static uint32_t nextHopTime;
 uint32_t connEventCount; // global
-static uint32_t empty_hops = 0;
 static bool use_csa2;
 static bool ll_encryption;
+
+static uint32_t connTimeoutTime;
 
 static volatile bool gotLegacy;
 static volatile bool firstPacket;
@@ -290,12 +291,17 @@ static inline uint8_t getCurrChan()
 }
 
 // performs channel hopping "housekeeping"
-static void afterConnEvent(bool slave)
+static void afterConnEvent(bool slave, bool gotData)
 {
-    // we're done if we got lost
-    // the +3 on slaveLatency is to tolerate occasional missed packets
-    if (empty_hops > rconf.slaveLatency + 3)
+    // we're done if connection timed out
+    uint32_t curRadioTime = RF_getCurrentTime();
+    if (gotData)
+        connTimeoutTime = curRadioTime + rconf.connTimeoutTicks;
+    else if (connTimeoutTime - curRadioTime > 0x80000000)
+    {
         handleConnFinished();
+        return;
+    }
 
     if (!rconf.chanMapCertain && slave)
     {
@@ -352,7 +358,7 @@ static void afterConnEvent(bool slave)
         }
         // we can calculate median hop interval based on our measurements
         else if (!rconf.intervalCertain && rconf.winOffsetCertain &&
-            itInd >= ARR_SZ(intervalTicks) && itInd != 0xFFFFFFFF)
+                itInd >= ARR_SZ(intervalTicks) && itInd != 0xFFFFFFFF)
         {
             uint32_t medIntervalTicks = median(intervalTicks, ARR_SZ(intervalTicks));
             uint32_t interval = (medIntervalTicks + 2500) / 5000; // snap to nearest multiple of 1.25 ms
@@ -397,19 +403,10 @@ static void afterConnEvent(bool slave)
 
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
-    SnifferState lastState = snifferState;
-
     RadioWrapper_init();
 
     while (1)
     {
-        // zero empty_hops on state change to avoid possible confusion
-        if (snifferState != lastState)
-        {
-            empty_hops = 0;
-            lastState = snifferState;
-        }
-
         g_pkt_dir = 0;
 
         if (snifferState == STATIC)
@@ -511,10 +508,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
                     nextHopTime + timeExtension, indicatePacket);
 
-            if (!firstPacket) empty_hops = 0;
-            else empty_hops++;
-
-            afterConnEvent(true);
+            afterConnEvent(true, !firstPacket);
         } else if (snifferState == INITIATING) {
             uint32_t connTime;
             PHY_Mode connPhy;
@@ -588,16 +582,13 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 TXQueue_flush(numSent);
             }
 
-            if (status != 0) empty_hops++;
-            else empty_hops = 0;
-
             // Sleep till next event (till anchor offset before next anchor point)
             // 10us per tick for sleep, 0.25 us per radio tick
             uint32_t rticksRemaining = nextHopTime - RF_getCurrentTime();
             if (rticksRemaining < 0x7FFFFFFF && rticksRemaining > 2000)
                 Task_sleep(rticksRemaining / 40);
 
-            afterConnEvent(false);
+            afterConnEvent(false, status == 0);
         } else if (snifferState == SLAVE) {
             dataQueue_t txq, txq2;
             uint32_t numSent;
@@ -620,9 +611,6 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 TXQueue_flush(numSent);
             }
 
-            if (status != 0) empty_hops++;
-            else empty_hops = 0;
-
             // Sleep till next event (till anchor offset before next anchor point)
             // 10us per tick for sleep, 0.25 us per radio tick
             uint32_t rticksRemaining = nextHopTime - RF_getCurrentTime();
@@ -630,7 +618,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     !(ll_encryption && instaHop))
                 Task_sleep(rticksRemaining / 40);
 
-            afterConnEvent(true);
+            afterConnEvent(true, status == 0);
         } else if (snifferState == ADVERTISING) {
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
@@ -741,7 +729,7 @@ void reactToPDU(const BLE_Frame *frame)
         {
             // Hop to 38 (with a delay) after we get an anchor advertisement on 37
             if ( (frame->channel == 37) &&
-                ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
+                    ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
             {
                 /* Packet timestamps represent the start of the packet.
                  * I'm not sure if it's the time of the preamble or time of the access address.
@@ -979,14 +967,9 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             // Note:
             // On BLE 5.2+, it could also be LL_POWER_CONTROL_RSP or LL_POWER_CHANGE_IND.
             // To handle this, I provide an option to preload a specific PHY or ignore these PDUs.
-            next_rconf.chanMap = last_rconf->chanMap;
-            next_rconf.chanMapCertain = last_rconf->chanMapCertain;
+            next_rconf = *last_rconf;
             next_rconf.offset = 0;
-            next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
-            next_rconf.intervalCertain = last_rconf->intervalCertain;
-            next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
             next_rconf.phy = preloadedPhy;
-            next_rconf.slaveLatency = last_rconf->slaveLatency;
             nextInstant = (frame->eventCtr + 7) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
         } else if (datLen == 12 && snifferState != MASTER && last_rconf->intervalCertain) {
@@ -999,13 +982,12 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             // Note:
             // We can't reliably measure the map when we're a master because
             // slave latency may be non-zero
+            next_rconf = *last_rconf;
             next_rconf.chanMap = 0x1FFFFFFFFFULL;
             next_rconf.chanMapCertain = false;
             next_rconf.offset = 0;
-            next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
             next_rconf.intervalCertain = true; // interval test would conflict
             next_rconf.winOffsetCertain = true; // ditto
-            next_rconf.phy = last_rconf->phy;
             next_rconf.slaveLatency = 10; // tolerate sparse channel map
             nextInstant = (frame->eventCtr + 9) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
@@ -1019,14 +1001,12 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
                 else
                     preloadedParamIndex++;
 
-                next_rconf.chanMap = last_rconf->chanMap;
+                next_rconf = *last_rconf;
                 next_rconf.chanMapCertain = true; // chan map test would conflict
                 next_rconf.offset = 0;
                 next_rconf.hopIntervalTicks = connParamPairs[plInd*2] * 5000;
                 next_rconf.intervalCertain = true;
                 next_rconf.winOffsetCertain = false; // still need to measure this
-                next_rconf.phy = last_rconf->phy;
-                next_rconf.slaveLatency = last_rconf->slaveLatency;
                 nextInstant = (frame->eventCtr + connParamPairs[plInd*2 + 1]) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
             } else if (snifferState != MASTER && instaHop) {
@@ -1035,14 +1015,12 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
                 // usually the switch is 6-10 instants from now
                 // with instahop, setting an inaccurately long interval temporarily is OK
                 // we'll figure out the correct interval and update accordingly
-                next_rconf.chanMap = last_rconf->chanMap;
+                next_rconf = *last_rconf;
                 next_rconf.chanMapCertain = true; // chan map test would conflict
                 next_rconf.offset = 0;
                 next_rconf.hopIntervalTicks = 240 * 5000;
                 next_rconf.intervalCertain = false;
                 next_rconf.winOffsetCertain = false;
-                next_rconf.phy = last_rconf->phy;
-                next_rconf.slaveLatency = last_rconf->slaveLatency;
                 nextInstant = (frame->eventCtr + 6) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
             }
@@ -1056,14 +1034,13 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
     {
     case 0x00: // LL_CONNECTION_UPDATE_IND
         if (datLen != 12) break;
-        next_rconf.chanMap = last_rconf->chanMap;
-        next_rconf.chanMapCertain = last_rconf->chanMapCertain;
+        next_rconf = *last_rconf;
         next_rconf.offset = *(uint16_t *)(frame->pData + 4);
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
         next_rconf.intervalCertain = true;
         next_rconf.winOffsetCertain = true;
-        next_rconf.phy = last_rconf->phy;
         next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
+        next_rconf.connTimeoutTicks = *(uint16_t *)(frame->pData + 10) * 40000;
         nextInstant = *(uint16_t *)(frame->pData + 12);
         rconf_enqueue(nextInstant, &next_rconf);
 
@@ -1074,15 +1051,11 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         break;
     case 0x01: // LL_CHANNEL_MAP_IND
         if (datLen != 8) break;
+        next_rconf = *last_rconf;
         next_rconf.chanMap = 0;
         memcpy(&next_rconf.chanMap, frame->pData + 3, 5);
         next_rconf.chanMapCertain = true;
         next_rconf.offset = 0;
-        next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
-        next_rconf.intervalCertain = last_rconf->intervalCertain;
-        next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
-        next_rconf.phy = last_rconf->phy;
-        next_rconf.slaveLatency = last_rconf->slaveLatency;
         nextInstant = *(uint16_t *)(frame->pData + 8);
         rconf_enqueue(nextInstant, &next_rconf);
         break;
@@ -1095,12 +1068,8 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         break;
     case 0x18: // LL_PHY_UPDATE_IND
         if (datLen != 5) break;
-        next_rconf.chanMap = last_rconf->chanMap;
-        next_rconf.chanMapCertain = last_rconf->chanMapCertain;
+        next_rconf = *last_rconf;
         next_rconf.offset = 0;
-        next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
-        next_rconf.intervalCertain = last_rconf->intervalCertain;
-        next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
         // we don't handle different M->S and S->M PHYs, assume both match
         switch (frame->pData[3] & 0x7)
         {
@@ -1117,7 +1086,6 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             next_rconf.phy = last_rconf->phy;
             break;
         }
-        next_rconf.slaveLatency = last_rconf->slaveLatency;
         nextInstant = *(uint16_t *)(frame->pData + 5);
         rconf_enqueue(nextInstant, &next_rconf);
         break;
@@ -1304,6 +1272,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     else
         transmitWindowDelay = 10000;
     transmitWindowDelay -= AO_TARG; // account for latency
+
     WinOffset = *(uint16_t *)(llData + 8);
     Interval = *(uint16_t *)(llData + 10);
     nextHopTime = connTime + transmitWindowDelay + (WinOffset * 5000);
@@ -1313,6 +1282,11 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     rconf.winOffsetCertain = true;
     rconf.phy = phy;
     rconf.slaveLatency = *(uint16_t *)(llData + 12);
+    rconf.connTimeoutTicks = *(uint16_t *)(llData + 14) * 40000; // 4 MHz clock, 10 ms per unit
+
+    // spec allows 6 connection events from connection start till connection can be called dead
+    connTimeoutTime = nextHopTime + rconf.hopIntervalTicks*6;
+
     connEventCount = 0;
     preloadedParamIndex = 0;
     rconf_reset();
@@ -1494,16 +1468,12 @@ void setChanMap(uint64_t map)
     if (!last_rconf)
         last_rconf = &rconf;
 
+    next_rconf = *last_rconf;
     next_rconf.chanMap = 0;
     map &= 0x1FFFFFFFFF;
     memcpy(&next_rconf.chanMap, &map, 5);
     next_rconf.chanMapCertain = true;
     next_rconf.offset = 0;
-    next_rconf.hopIntervalTicks = last_rconf->hopIntervalTicks;
-    next_rconf.intervalCertain = last_rconf->intervalCertain;
-    next_rconf.winOffsetCertain = last_rconf->winOffsetCertain;
-    next_rconf.phy = last_rconf->phy;
-    next_rconf.slaveLatency = last_rconf->slaveLatency;
     nextInstant = (connEventCount + 1) & 0xFFFF;
     rconf_enqueue(nextInstant, &next_rconf);
 }
