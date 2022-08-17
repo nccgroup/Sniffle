@@ -532,7 +532,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             stateTransition(MASTER);
         } else if (snifferState == MASTER) {
             dataQueue_t txq, txq2;
-            uint32_t numSent;
+            uint32_t numSent = 0;
             uint8_t chan = getCurrChan();
             int status = 0;
             TXQueue_take(&txq);

@@ -364,7 +364,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
-    rfc_bleMasterSlaveOutput_t output;
+    rfc_bleMasterSlaveOutput_t output = {};
 
     if ((!configured) || (chan >= 37))
         return -EINVAL;
@@ -456,7 +456,7 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
-    rfc_bleMasterSlaveOutput_t output;
+    rfc_bleMasterSlaveOutput_t output = {};
 
     if ((!configured) || (chan >= 37))
         return -EINVAL;
