@@ -2,12 +2,9 @@ SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_6_20_00_29
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
-XDCPATH = $(SIMPLELINK_SDK_INSTALL_DIR)/source;$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages;
-
 CC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 
-CONFIGPKG = rtos_build
 NAME = sniffle
 
 CC26X2R1_PLATFORMS = CC2642R1F CC2652R1F
@@ -89,32 +86,49 @@ ifneq ($(filter $(PLATFORM), $(CC2651P3_PLATFORMS)),)
 endif
 
 ifeq ($(HARD_FLOAT),1)
-    XDCTARGET = gnu.targets.arm.M4F
+    CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
     LFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
-    LFLAGS += "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/hard"
 else
-    XDCTARGET = gnu.targets.arm.M4
+    CFLAGS += -mfloat-abi=soft
     LFLAGS += -mfloat-abi=soft
-    LFLAGS += "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages/gnu/targets/arm/libs/install-native/arm-none-eabi/lib/thumb/v7e-m/nofp"
 endif
 
+SYSCFG_CMD_STUB = $(SYSCONFIG_TOOL) --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json
+SYSCFG_CMD_STUB += --board $(SYSCFG_BOARD) --rtos tirtos7
+SYSCFG_GEN_FILES := $(shell $(SYSCFG_CMD_STUB) --listGeneratedFiles --output . $(NAME).syscfg)
+SYSCFG_REF_FILES := $(shell $(SYSCFG_CMD_STUB) --listReferencedFiles --output . $(NAME).syscfg)
+
+ifeq ($(OS),Windows_NT)
+	SYSCFG_FILES = $(subst \,/,$(SYSCFG_REF_FILES) $(SYSCFG_GEN_FILES))
+else
+	SYSCFG_FILES = $(SYSCFG_REF_FILES) $(SYSCFG_GEN_FILES)
+endif
+SYSCFG_C_FILES = $(filter %.c,$(SYSCFG_FILES))
+SYSCFG_H_FILES = $(filter %.h,$(SYSCFG_FILES))
+
 CFLAGS += -I. \
+    -O3 \
+    -mcpu=cortex-m4 \
+    -march=armv7e-m \
+    -mthumb \
     -D__STRICT_ANSI__ \
+    "-I$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
+    "-I$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos7/packages" \
     "-I$(SIMPLELINK_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
     -std=c99 \
     -ffunction-sections \
     -fdata-sections \
     -gstrict-dwarf \
-    -Wall
+    -Wall \
+    "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include/newlib-nano" \
+    "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include"
 
 LFLAGS += \
-    -Wl,-T,$(TI_PLAT_NAME)_tirtos.lds \
+    -Wl,-T,$(TI_PLAT_NAME)_tirtos7.lds \
     "-Wl,-Map,$(NAME).map" \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
-    -l:third_party/spiffs/lib/gcc/m4f/spiffs_cc26xx.a \
-    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos/packages" \
+    "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos7/packages" \
     ti_utils_build_linker.cmd.genlibs \
-    "-Wl,-T,$(CONFIGPKG)/linker.cmd" \
     -l:ti/devices/$(TI_PLAT_NAME)/driverlib/bin/gcc/driverlib.lib \
     -march=armv7e-m \
     -mthumb \
@@ -128,7 +142,7 @@ LFLAGS += \
     --specs=nano.specs
 
 # SysConfig generated
-SOURCES += ti_drivers_config.c ti_devices_config.c ti_radio_config.c
+SOURCES += $(SYSCFG_C_FILES)
 
 # Sniffle Code
 SOURCES += \
@@ -153,40 +167,32 @@ SOURCES += \
 
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
-.PRECIOUS: $(CONFIGPKG)/compiler.opt $(CONFIGPKG)/linker.cmd
-
 all: $(NAME).out
 
-$(CONFIGPKG)/compiler.opt: $(CONFIGPKG)/linker.cmd
-
-$(CONFIGPKG)/linker.cmd: sniffle.cfg
-	@ echo Running Configuro...
-	@ $(XDC_INSTALL_DIR)/xs --xdcpath="$(XDCPATH)" xdc.tools.configuro -c "$(GCC_ARMCOMPILER)" \
-        -t $(XDCTARGET) -p $(TI_PLTFRM) --compileOptions "$(CFLAGS)" -o "$(CONFIGPKG)" $<
-
 .INTERMEDIATE: syscfg
-ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h: syscfg
+$(SYSCFG_FILES): syscfg
+	@ echo generation complete
 
-syscfg: sniffle.syscfg
+syscfg: $(NAME).syscfg
 	@ echo Generating configuration files...
-	@ $(SYSCONFIG_TOOL) --board $(SYSCFG_BOARD) --rtos tirtos --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json --output $(@D) $<
+	@ $(SYSCFG_CMD_STUB) --output $(@D) $<
 ifneq ($(filter $(PLATFORM), $(CC2651P3_PLATFORMS)),)
 	@ echo Modifying ti_radio_config.c to remove bAcceptSyncInfo line \(CC2651P3 only\)
 	@ sed -i "s/.extFilterConfig.bAcceptSyncInfo = 0x0,*/\/\/.extFilterConfig.bAcceptSyncInfo = 0x0,/g" ti_radio_config.c
 endif
 
-%.obj: %.c $(CONFIGPKG)/compiler.opt syscfg
+%.obj: %.c $(SYSCFG_H_FILES)
 	@ echo Building $@
-	@ $(CC) $(CFLAGS) $< -c @$(CONFIGPKG)/compiler.opt -o $@
+	@ $(CC) $(CFLAGS) $< -c -o $@
 
-$(NAME).out: $(OBJECTS) $(CONFIGPKG)/linker.cmd
+$(NAME).out: $(OBJECTS)
 	@ echo linking...
-	@ $(LNK)  $(OBJECTS) $(LFLAGS) -o $(NAME).out
+	@ $(LNK) $(OBJECTS) $(LFLAGS) -o $(NAME).out
 
 .PHONY: load clean clean2
 
 clean: clean2
-	@ $(RM) -r $(CONFIGPKG) > $(DEVNULL) 2>&1
+	@ $(RM) $(SYSCFG_GEN_FILES)> $(DEVNULL) 2>&1
 
 # cleans everything except TI SDK and RTOS
 clean2:
@@ -194,7 +200,6 @@ clean2:
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
-	@ $(RM) ti_radio_config.c ti_drivers_config.c ti_devices_config.c ti_radio_config.h ti_drivers_config.h syscfg_c.rov.xs ti_utils_build_linker.cmd.exp ti_utils_build_linker.cmd.genlibs ti_utils_runtime_Makefile ti_utils_runtime_model.gv > $(DEVNULL) 2>&1
 
 load: $(NAME).out
 	@ echo Flashing...

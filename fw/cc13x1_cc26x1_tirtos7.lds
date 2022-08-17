@@ -30,8 +30,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-STACKSIZE = 1024;
+__TI_STACK_SIZE = 1024;
 HEAPSIZE = 0x2000; /* Size of heap buffer used by HeapMem */
+
+ENTRY(_c_int00)
 
 MEMORY
 {
@@ -207,16 +209,6 @@ SECTIONS {
         __bss_end__ = .;
     } > REGION_BSS AT> REGION_BSS
 
-    .heap : {
-        __heap_start__ = .;
-        end = __heap_start__;
-        _end = end;
-        __end = end;
-        KEEP(*(.heap))
-        __heap_end__ = .;
-        __HeapLimit = __heap_end__;
-    } > REGION_HEAP AT> REGION_HEAP
-
     /* Heap buffer used by HeapMem */
     .priheap : {
         . = ALIGN (8);
@@ -226,10 +218,9 @@ SECTIONS {
     } > REGION_HEAP AT> REGION_HEAP
 
     .stack (NOLOAD) : ALIGN(0x8) {
-        _stack = .;
-        __stack = .;
+        __TI_STACK_BASE = .;
         KEEP(*(.stack))
-        . += STACKSIZE;
+        . += __TI_STACK_SIZE;
     } > REGION_STACK AT> REGION_STACK
 
     .log_data (COPY) : {

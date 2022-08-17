@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018, Texas Instruments Incorporated
- * Copyright (c) 2020-2021, NCC Group plc
+ * Copyright (c) 2020-2022, NCC Group plc
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,11 +31,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ======== Board ======== */
-var board = system.deviceData.board.name;
+/* ======== TIRTOS7 ======== */
+if (system.getRTOS() === "tirtos7") {
+    const tirtos7_release_syscfg_js = system.getScript("tirtos7_release.syscfg.js");
+}
 
 /* ======== Components ======== */
 var Components = system.deviceData.board.components;
+
+/* ======== Timer ======== */
+var Timer = scripting.addModule("/ti/drivers/Timer");
+var timer0 = Timer.addInstance();
+timer0.timerType = "32 Bits";
+timer0.$name = "CONFIG_TIMER_0";
+var timer1 = Timer.addInstance();
+timer1.timerType = "32 Bits";
+timer1.$name = "CONFIG_TIMER_1";
 
 /* ======== RF ======== */
 var RF = scripting.addModule("/ti/drivers/RF");

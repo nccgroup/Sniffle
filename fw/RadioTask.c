@@ -534,7 +534,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             dataQueue_t txq, txq2;
             uint32_t numSent;
             uint8_t chan = getCurrChan();
-            int status;
+            int status = 0;
             TXQueue_take(&txq);
             txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = false; // no need for anchor offset calcs, since we're master
