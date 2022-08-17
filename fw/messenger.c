@@ -1,30 +1,23 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2020, NCC Group plc
+ * Copyright (c) 2018-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
 #include <stdbool.h>
-#include <ti/drivers/UART.h>
+#include <ti/drivers/UART2.h>
 #include "ti_drivers_config.h"
 #include "messenger.h"
 #include "base64.h"
 
-UART_Handle uart;
+UART2_Handle uart;
 
 int messenger_init()
 {
-    UART_init();
-    UART_Params uartParams;
-    UART_Params_init(&uartParams);
+    UART2_Params uartParams;
+    UART2_Params_init(&uartParams);
     uartParams.baudRate = 2000000;
-    uartParams.readMode = UART_MODE_BLOCKING;
-    uartParams.writeMode = UART_MODE_BLOCKING;
-    uartParams.writeDataMode = UART_DATA_BINARY;
-    uartParams.readDataMode = UART_DATA_BINARY;
-    uartParams.readReturnMode = UART_RETURN_FULL;
-    uartParams.readEcho = UART_ECHO_OFF;
-    uart = UART_open(CONFIG_UART_0, &uartParams);
+    uart = UART2_open(CONFIG_UART2_0, &uartParams);
     if (!uart)
         return -1;
 
@@ -32,18 +25,18 @@ int messenger_init()
 }
 
 // keep doing small inefficient reads till we hit a CRLF
-// sorry, gotos appear to be the most elegant and correct approach here
 static void _recv_crlf()
 {
     bool done = false;
     uint8_t b = 0;
+    size_t bytes_read;
 
     while (!done)
     {
-        UART_read(uart, &b, 1);
+        UART2_read(uart, &b, 1, &bytes_read);
         while (b == '\r')
         {
-            UART_read(uart, &b, 1);
+            UART2_read(uart, &b, 1, &bytes_read);
             if (b == '\n')
                 done = true;
         }
@@ -55,13 +48,14 @@ int messenger_recv(uint8_t *dst_buf)
 {
     uint32_t dec_len;
     int word_cnt, last_byte, dec_stat;
+    size_t bytes_read;
 
     // 2 bytes for CRLF
     static uint8_t b64_buf[((MESSAGE_MAX * 4) / 3) + 2];
 
     // first byte of b64 decoded data indicates number of 4 byte chunks
     // read 2 extra bytes for CRLF
-    UART_read(uart, b64_buf, 6);
+    UART2_read(uart, b64_buf, 6, &bytes_read);
 
     dec_len = base64_decode(dst_buf, b64_buf, 4, &dec_stat);
     if (dec_stat < 0)
@@ -80,7 +74,7 @@ int messenger_recv(uint8_t *dst_buf)
 
     if (word_cnt > 1)
     {
-        UART_read(uart, b64_buf + 6, (word_cnt - 1) << 2);
+        UART2_read(uart, b64_buf + 6, (word_cnt - 1) << 2, &bytes_read);
     }
 
     // make sure CRLF terminator is present
@@ -122,8 +116,8 @@ void messenger_send(const uint8_t *src_buf, unsigned src_len)
     {
         // sometimes, even in blocking mode, UART_write returns before the
         // complete buffer was sent, due to some queues being full
-        int sent = UART_write(uart, b64_buf + bytes_sent, bytes_remaining);
-        if (sent < 0) return; // error, shouldn't happen
+        size_t sent;
+        UART2_write(uart, b64_buf + bytes_sent, bytes_remaining, &sent);
         bytes_remaining -= sent;
         bytes_sent += sent;
     }

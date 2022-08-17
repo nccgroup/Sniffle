@@ -91,11 +91,11 @@ var led1 = LED.addInstance();
 led1.$hardware = Components.LED1;
 
 /* ======== UART ======== */
-var UART = scripting.addModule("/ti/drivers/UART");
-var uart = UART.addInstance();
-uart.$hardware = system.deviceData.board.components.XDS110UART;
-uart.$name = "CONFIG_UART_0";
-uart.ringBufferSize = 512;
+var UART2 = scripting.addModule("/ti/drivers/UART2");
+var uart2 = UART2.addInstance();
+uart2.$hardware = system.deviceData.board.components.XDS110UART;
+uart2.$name = "CONFIG_UART2_0";
+uart2.rxRingBufferSize = 512;
 
 /* ======== Device ======== */
 var device = scripting.addModule("ti/devices/CCFG");
