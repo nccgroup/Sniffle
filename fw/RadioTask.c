@@ -404,6 +404,7 @@ static void afterConnEvent(bool slave, bool gotData)
 static void radioTaskFunction(UArg arg0, UArg arg1)
 {
     RadioWrapper_init();
+    TXQueue_init();
 
     while (1)
     {
@@ -1421,6 +1422,7 @@ void initiateConn(bool isRandom, void *_peerAddr, void *llData)
 
     stateTransition(INITIATING);
     RadioWrapper_stop();
+    TXQueue_init();
 }
 
 /* Enter advertising state */
@@ -1432,6 +1434,7 @@ void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRsp
     memcpy(s_scanRspData, scanRspData, scanRspLen);
     stateTransition(ADVERTISING);
     RadioWrapper_stop();
+    TXQueue_init();
 }
 
 /* Enter active scanning state */

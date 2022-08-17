@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2020, NCC Group plc
+ * Copyright (c) 2020-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -14,6 +14,7 @@
 #include DeviceFamily_constructPath(driverlib/rf_data_entry.h)
 #include DeviceFamily_constructPath(driverlib/rf_mailbox.h)
 
+void TXQueue_init();
 bool TXQueue_insert(uint8_t len, uint8_t llid, void *data, uint16_t eventCtr);
 uint32_t TXQueue_take(dataQueue_t *pRFQueue);
 void TXQueue_flush(uint32_t numEntries);
