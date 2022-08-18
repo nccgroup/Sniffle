@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #
-#   Copyright 2018-2021, Jay Logue and NCC Group plc
+#   Copyright 2018-2022, Jay Logue and NCC Group plc
 #
 #   This file is part of Sniffle.
 #
@@ -166,8 +166,8 @@ class SniffleExtcapPlugin():
                                help="Sniffer serial port name")
         argParser.add_argument("--advchan", default='all',
                                help="Advertising channel to listen on (all, 37, 38, 39)")
-        argParser.add_argument("--rssi", default=-80,
-                               help="Filter packets by minimum RSSI (-100 to 0)")
+        argParser.add_argument("--rssi", default=-128,
+                               help="Filter packets by minimum RSSI (-128 to 0)")
         argParser.add_argument("--mac", default=None,
                                help="Filter packets by advertiser MAC (XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX)")
         argParser.add_argument("--irk", default=None,
@@ -280,9 +280,9 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=1}{call=--advchan}{type=selector}{default=all}'
                             '{display=Advertising channel}'
                             '{tooltip=Advertising channel to listen on}')
-        lines.append('arg {number=2}{call=--rssi}{type=integer}{range=-100,0}{default=-80}'
+        lines.append('arg {number=2}{call=--rssi}{type=integer}{range=-128,0}{default=-128}'
                             '{display=Minimum RSSI}'
-                            '{tooltip=Filter packets by minimum RSSI (-100 to 0)}')
+                            '{tooltip=Filter packets by minimum RSSI (-128 to 0)}')
         lines.append('arg {number=3}{call=--mac}{type=string}'
                             '{display=MAC Address}'
                             '{tooltip=Filter packets by advertiser MAC (XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX)}'
