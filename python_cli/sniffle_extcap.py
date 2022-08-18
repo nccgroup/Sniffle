@@ -182,6 +182,9 @@ class SniffleExtcapPlugin():
                                help="Use long range (coded) PHY for primary advertising")
         argParser.add_argument("--preload", default=None,
                                help="Preload expected encrypted connection parameter changes")
+        argParser.add_argument("--nophychange", action="store_true",
+                               help="Ignore encrypted PHY mode changes")
+
 
         self.args = argParser.parse_args(args=args)
 
@@ -307,6 +310,9 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=9}{call=--longrange}{type=boolflag}{default=no}'
                             '{display=Long range}'
                             '{tooltip=Use long range (coded) PHY for primary advertising}')
+        lines.append('arg {number=10}{call=--nophychange}{type=boolflag}{default=no}'
+                            '{display=Ignore encrypted PHY change}'
+                            '{tooltip=Ignore encrypted PHY mode changes}')
         for port in comports():
             if sys.platform == 'win32':
                 device = f'//./{port.device}'
@@ -379,6 +385,9 @@ class SniffleExtcapPlugin():
 
             # set preloaded encrypted connection interval changes
             self.hw.cmd_interval_preload(self.args.preload if self.args.preload is not None else [])
+
+            # preload change to 2M unless user requests encrypted PHY changes be ignored
+            self.hw.cmd_phy_preload(None if self.args.nophychange else 1)
 
             # configure RSSI filter
             self.hw.cmd_rssi(self.args.rssi)
