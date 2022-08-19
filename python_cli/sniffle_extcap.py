@@ -293,7 +293,7 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=4}{call=--irk}{type=string}'
                             '{display=IRK}'
                             '{tooltip=Filter packets by advertiser IRK (32 hex digits)}'
-                            '{validation=\\b[0-9a-fA-F]{16}\\b}')
+                            '{validation=\\b[0-9a-fA-F]{32}\\b}')
         lines.append('arg {number=5}{call=--preload}{type=string}'
                             '{display=Preloaded encrypted con intervals}'
                             '{tooltip=Preloaded encrypted connection interval changes (<interval>:<delta-instant>,...)}'
