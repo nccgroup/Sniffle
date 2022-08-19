@@ -138,7 +138,6 @@ LFLAGS += \
     -lgcc \
     -lc \
     -lm \
-    -lnosys \
     --specs=nano.specs
 
 # SysConfig generated

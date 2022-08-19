@@ -29,7 +29,7 @@ Sniffle has a number of useful features, including:
     * TI CC2652R7 Launchpad Board: <https://www.ti.com/tool/LP-CC2652R7>
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/tool/LP-CC2651P3>
-* GNU ARM Embedded Toolchain: <https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads>
+* ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
 * TI CC13xx/CC26xx SDK 6.20.00.29: <https://www.ti.com/tool/SIMPLELINK-CC13XX-CC26XX-SDK>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
@@ -65,7 +65,7 @@ and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index b8a3713..e814e6b 100644
+index b8a3713..e736e24 100644
 --- a/imports.mak
 +++ b/imports.mak
 @@ -18,13 +18,13 @@
@@ -81,7 +81,7 @@ index b8a3713..e814e6b 100644
  
  TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1120/ccs/tools/compiler/ti-cgt-armllvm_2.1.0.LTS-0
 -GCC_ARMCOMPILER        ?= /home/username/ti/ccs1120/ccs/tools/compiler/9.2019.q4.major-0
-+GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/gcc-arm-none-eabi-9-2019-q4-major
++GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi
  
  # The IAR compiler is not supported on Linux
  # IAR_ARMCOMPILER      ?=
