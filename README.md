@@ -379,6 +379,17 @@ As an alternative to copying files into the extcap folder, on Unix systems you c
 symbolic link in the extcap folder pointing to a copy of the plugin script stored elsewhere:
 
 ```
+mkdir -p ~/.config/wireshark/extcap
 ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
 ```
 
+On Mac OS, Wireshark may try to use the system Python included in Xcode rather than the Python in
+your PATH specified by your shell profile. Thus, the Sniffle plugin may fail to show up in extcap
+interfaces if PySerial is not installed for the Xcode Python. To fix this, you can install PySerial
+for the Xcode Python as such:
+
+```
+cd /Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/Current/Resources/Python.app/Contents/MacOS
+./Python -m ensurepip --default-pip
+./Python -m pip install --user pyserial
+```
