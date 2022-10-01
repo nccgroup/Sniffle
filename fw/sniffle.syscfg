@@ -104,3 +104,8 @@ for(var setting in ccfgSettings)
 {
     device[setting] = ccfgSettings[setting];
 }
+
+/* Set CCFG to allow flashing with bootloader so firmware updates are possible
+ * on devices without an on-board debugger */
+device.enableBootloader = true;
+device.enableBootloaderBackdoor = true;
