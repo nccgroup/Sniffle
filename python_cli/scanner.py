@@ -7,9 +7,11 @@
 import argparse, sys, signal
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
 from packet_decoder import *
+from pcap import PcapBleWriter
 
 # global variables
 hw = None
+pcwriter = None
 advertisers = {}
 done_scan = False
 
@@ -34,6 +36,7 @@ def main():
             help="Filter packets by minimum RSSI")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
+    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
     global hw
@@ -59,6 +62,10 @@ def main():
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()
+
+    global pcwriter
+    if not (args.output is None):
+        pcwriter = PcapBleWriter(args.output)
 
     # trap Ctrl-C
     signal.signal(signal.SIGINT, sigint_handler)
@@ -98,6 +105,11 @@ def handle_packet(pkt):
         print(dpkt)
         print()
         return
+
+    # Record the packet if PCAP writing is enabled
+    if pcwriter:
+        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
+                pkt.body, pkt.phy)
 
     global advertisers
 

@@ -252,6 +252,8 @@ optional arguments:
                         Advertising channel to listen on
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -l, --longrange       Use long range (coded) PHY for primary advertising
+  -o OUTPUT, --output OUTPUT
+                        PCAP output file name
 ```
 
 The scanner command line arguments work the same as the sniffer. The purpose of
