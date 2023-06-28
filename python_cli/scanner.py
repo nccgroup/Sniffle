@@ -24,8 +24,23 @@ class Advertiser:
     def __init__(self):
         self.adv = None
         self.scan_rsp = None
-        self.rssi = -128
+        self.rssi_min = -128
+        self.rssi_max = -128
+        self.rssi_avg = -128
         self.hits = 0
+
+    def add_hit(self, rssi):
+        if self.hits == 0:
+            self.rssi_min = rssi
+            self.rssi_max = rssi
+            self.rssi_avg = rssi
+        else:
+            if rssi < self.rssi_min:
+                self.rssi_min = rssi
+            elif rssi > self.rssi_max:
+                self.rssi_max = rssi
+            self.rssi_avg = (self.rssi_avg*self.hits + rssi) / (self.hits + 1)
+        self.hits += 1
 
 def main():
     aparse = argparse.ArgumentParser(description="Scanner utility for Sniffle BLE5 sniffer")
@@ -80,9 +95,11 @@ def main():
             handle_packet(msg)
 
     print("\n\nScan Results:")
-    for a in sorted(advertisers.keys(), key=lambda k: advertisers[k].rssi, reverse=True):
+    for a in sorted(advertisers.keys(), key=lambda k: advertisers[k].rssi_avg, reverse=True):
         print("="*80)
-        print("AdvA: %s RSSI: %i Hits: %i" % (a, advertisers[a].rssi, advertisers[a].hits))
+        print("AdvA: %s Avg/Min/Max RSSI: %.1f/%i/%i Hits: %i" % (
+                a, advertisers[a].rssi_avg, advertisers[a].rssi_min, advertisers[a].rssi_max,
+                advertisers[a].hits))
         if advertisers[a].adv:
             print("\nAdvertisement:")
             print(advertisers[a].adv)
@@ -121,8 +138,7 @@ def handle_packet(pkt):
             advertisers[adva] = Advertiser()
             print("Found %s..." % adva)
 
-        advertisers[adva].rssi = dpkt.rssi
-        advertisers[adva].hits += 1
+        advertisers[adva].add_hit(dpkt.rssi)
 
         if isinstance(dpkt, ScanRspMessage):
             advertisers[adva].scan_rsp = dpkt
