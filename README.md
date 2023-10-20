@@ -111,7 +111,7 @@ To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 `make load` within the `fw` directory. You can also flash the compiled
 `sniffle.out` binary using the UniFlash GUI.
 
-If building for or installing on a some variant of Launchpad orhter than CC26x2R,
+If building for or installing on a some variant of Launchpad other than CC26x2R,
 you must specify `PLATFORM=xxx`, either as an argument to make, or by defining
 it as an environment variable prior to invoking make. Supported values for `PLATFORM`
 are `CC2642R1F`, `CC2652R1F`, `CC1352R1F3`, `CC2652RB1F`, and `CC1352P1F3`.
