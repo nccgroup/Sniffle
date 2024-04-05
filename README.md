@@ -81,7 +81,7 @@ index b8a3713..e736e24 100644
  
  TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1120/ccs/tools/compiler/ti-cgt-armllvm_2.1.0.LTS-0
 -GCC_ARMCOMPILER        ?= /home/username/ti/ccs1120/ccs/tools/compiler/9.2019.q4.major-0
-+GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi
++GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-13.2.Rel1-x86_64-arm-none-eabi
  
  # The IAR compiler is not supported on Linux
  # IAR_ARMCOMPILER      ?=
