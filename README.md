@@ -121,12 +121,12 @@ Be sure to perform a `make clean` before building for a different platform.
 
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
-usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC]
-                         [-i IRK] [-a] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-o OUTPUT]
+usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC] [-i IRK]
+                         [-S STRING] [-a] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-n] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -s SERPORT, --serport SERPORT
                         Sniffer serial port name
@@ -136,6 +136,8 @@ optional arguments:
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -m MAC, --mac MAC     Filter packets by advertiser MAC
   -i IRK, --irk IRK     Filter packets by advertiser IRK
+  -S STRING, --string STRING
+                        Filter for advertisements containing the specified string
   -a, --advonly         Sniff only advertisements, don't follow connections
   -e, --extadv          Capture BT5 extended (auxiliary) advertising
   -H, --hop             Hop primary advertising channels in extended mode
@@ -193,6 +195,19 @@ format, with the most significant byte (MSB) first. Specifying an IRK allows
 Sniffle to channel hop with an advertiser the same way it does with a MAC filter.
 The IRK based MAC filtering feature (`-i`) is mutually exclusive with the static
 MAC filtering feature (`-m`).
+
+There is also a convenience feature to automatically identify the MAC address
+of the advertiser whose advertisement or scan response contains a specified
+string (series of bytes). This is useful for devices with RPAs where the IRK is
+unknown, but the advertisement contains a sufficiently unique static string suitable
+for identification. This feature uses the `-S` option, with the string specified
+using standard escape sequences. For example, to look for an advertiser whose
+advertisement contains the hex byte sequence DE AD BE EF, specify
+`-S "\xDE\xAD\xBE\xEF"`. To look for an advertiser with the string "hello",
+simply specify `-S "hello"`. When the string search feature is used, initially
+all MAC addresses will be accepted till an advertisement containing the search
+string is found. After that, a MAC filter will be set up with the corresponding
+advertiser's MAC address, and any RSSI filter would be automatically disabled.
 
 To enable following auxiliary pointers in Bluetooth 5 extended advertising,
 enable the `-e` option. To improve performance and reliability in extended

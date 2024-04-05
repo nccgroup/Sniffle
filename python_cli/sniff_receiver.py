@@ -21,6 +21,7 @@ pcwriter = None
 # triggered through "-m top" option
 # should be paired with an RSSI filter
 _delay_top_mac = False
+_delay_string_mac = None
 _rssi_min = 0
 _allow_hop3 = True
 
@@ -35,6 +36,8 @@ def main():
             help="Filter packets by minimum RSSI")
     aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
     aparse.add_argument("-i", "--irk", default=None, help="Filter packets by advertiser IRK")
+    aparse.add_argument("-S", "--string", default=None,
+            help="Filter for advertisements containing the specified string")
     aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
             help="Sniff only advertisements, don't follow connections")
     aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
@@ -53,7 +56,7 @@ def main():
     args = aparse.parse_args()
 
     # Sanity check argument combinations
-    if args.hop and args.mac is None and args.irk is None:
+    if args.hop and args.mac is None and args.irk is None and args.string is None:
         print("Primary adv. channel hop requires a MAC address or IRK specified!", file=sys.stderr)
         return
     if args.longrange and not args.extadv:
@@ -63,8 +66,8 @@ def main():
         # this would be pointless anyway, since long range always uses extended ads
         print("Primary ad channel hopping unsupported on long range PHY!", file=sys.stderr)
         return
-    if args.mac and args.irk:
-        print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
+    if (args.mac and args.irk) or (args.mac and args.string) or (args.irk and args.string):
+        print("MAC, IRK, and advertisement string filters are mutually exclusive!", file=sys.stderr)
         return
     if args.advchan != 40 and args.hop:
         print("Don't specify an advertising channel if you want advertising channel hopping!", file=sys.stderr)
@@ -117,14 +120,18 @@ def main():
         _allow_hop3 = False
 
     # configure MAC filter
-    global _delay_top_mac
-    if args.mac is None and args.irk is None:
+    global _delay_top_mac, _delay_string_mac
+    if args.mac is None and args.irk is None and args.string is None:
         hw.cmd_mac()
     elif args.irk:
         hw.cmd_irk(unhexlify(args.irk), _allow_hop3)
     elif args.mac == "top":
         hw.cmd_mac()
         _delay_top_mac = True
+    elif args.string:
+        hw.cmd_mac()
+        # hack to convert string argument to a byte string with escape codes
+        _delay_string_mac = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
     else:
         try:
             macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
@@ -174,7 +181,10 @@ def print_packet(pkt, quiet):
     # React to the packet
     if isinstance(dpkt, AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
             isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-        _dtm(dpkt.AdvA)
+        if _delay_top_mac:
+            _dtm(dpkt)
+        elif _delay_string_mac:
+            _dsm(dpkt)
 
     if isinstance(dpkt, ConnectIndMessage):
         # PCAP write is already done here, safe to update cur_aa
@@ -183,17 +193,24 @@ def print_packet(pkt, quiet):
 
 # If we are in _delay_top_mac mode and received a high RSSI advertisement,
 # lock onto it
-def _dtm(adva):
+def _dtm(dpkt):
     global _delay_top_mac
-    if _delay_top_mac:
-        hw.cmd_mac(adva, _allow_hop3)
+    hw.cmd_mac(dpkt.AdvA, _allow_hop3)
+    if _allow_hop3:
+        # RSSI filter is still useful for extended advertisements,
+        # as my MAC filtering logic is less effective
+        # Thus, only disable it when we're doing 37/38/39 hops
+        #   (ie. when we [also] want legacy advertisements)
+        hw.cmd_rssi()
+    _delay_top_mac = False
+
+def _dsm(dpkt):
+    global _delay_string_mac
+    if _delay_string_mac in dpkt.body:
+        hw.cmd_mac(dpkt.AdvA, _allow_hop3)
         if _allow_hop3:
-            # RSSI filter is still useful for extended advertisements,
-            # as my MAC filtering logic is less effective
-            # Thus, only disable it when we're doing 37/38/39 hops
-            #   (ie. when we [also] want legacy advertisements)
             hw.cmd_rssi()
-        _delay_top_mac = False
+        _delay_string_mac = None
 
 if __name__ == "__main__":
     main()
