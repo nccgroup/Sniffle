@@ -490,10 +490,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 } else {
                     // we need to force cancel recvAdv3 eventually
                     DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
-                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
+                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 3000, indicatePacket);
                 }
             } else {
-                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 3000, indicatePacket);
             }
 
             // state could have changed, so check again
@@ -805,11 +805,21 @@ void reactToPDU(const BLE_Frame *frame)
             }
         }
 
-        // hop interval gets temporarily stretched by 400 us if a scan request is received,
-        // since the advertiser needs to respond
+        /* Hop interval gets temporarily stretched if a scan request is received,
+         * since the advertiser needs to respond. There cannot be a CONNECT_IND after
+         * a SCAN_REQ/SCAN_RSP pair, so it will immediately hop to the next channel after
+         * sending SCAN_RSP.
+         *
+         * Amount of stretch is SCAN_REQ duration + T_IFS + SCAN_RSP duration
+         * For a typical 24 byte SCAN_RSP body, that is:
+         *  176 + 150 + 272 = 598 us
+         *
+         * Note: above duration calculations include:
+         *  1 octet preamble, 4 octet AA, 2 byte header, PDU body, and 3 octet CRC
+         */
         if (pduType == SCAN_REQ && frame->channel == 37 && snifferState == ADVERT_HOP && !postponed)
         {
-            DelayHopTrigger_postpone(400);
+            DelayHopTrigger_postpone(600);
             postponed = true;
         }
 
