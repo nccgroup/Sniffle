@@ -30,7 +30,7 @@ Sniffle has a number of useful features, including:
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/tool/LP-CC2651P3>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
-* TI CC13xx/CC26xx SDK 6.20.00.29: <https://www.ti.com/tool/SIMPLELINK-CC13XX-CC26XX-SDK>
+* TI CC13xx/CC26xx SDK 6.20.00.29: <https://www.ti.com/tool/download/SIMPLELINK-CC13XX-CC26XX-SDK/6.20.00.29>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
