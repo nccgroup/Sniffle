@@ -88,6 +88,7 @@ static uint32_t legacyLen;
 static uint32_t expectedLegacyLen;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
+static uint32_t sniffScanRspLen = 26;
 
 static uint32_t lastAnchorTicks;
 static uint32_t intervalTicks[3];
@@ -818,21 +819,33 @@ void reactToPDU(const BLE_Frame *frame)
             }
         }
 
+        if (pduType == SCAN_RSP)
+            sniffScanRspLen = frame->length;
+
         /* Hop interval gets temporarily stretched if a scan request is received,
          * since the advertiser needs to respond. There cannot be a CONNECT_IND after
          * a SCAN_REQ/SCAN_RSP pair, so it will immediately hop to the next channel after
          * sending SCAN_RSP.
          *
-         * Amount of stretch is SCAN_REQ duration + T_IFS + SCAN_RSP duration
-         * For a typical 24 byte SCAN_RSP body, that is:
-         *  176 + 150 + 272 = 598 us
+         * Amount of stretch is SCAN_REQ duration + T_IFS + SCAN_RSP duration - wait time
+         * Wait time (~80 us) is subtracted because after a scan response, there is no wait
+         * for a subsequent CONNECT_IND or SCAN_REQ on the same channel.
+         *
+         * For a typical 26 byte SCAN_RSP (24 byte body), the extension is:
+         *  176 + 150 + 272 - 80 = 518 us
          *
          * Note: above duration calculations include:
          *  1 octet preamble, 4 octet AA, 2 byte header, PDU body, and 3 octet CRC
+         *
+         * We can benefit from hopping a little early to give more time for latency
+         * retuning to channel 38. If we hop 40 us early, and calculate with the
+         * Sniffle frame length (including 2 byte header, excluding CRC, AA, preamble),
+         * the hop postponement in microseconds should be:
+         * 176 + 150 + (8 + scanRspLen)*8 - 80 - 40 = 270 + scanRspLen*8
          */
         if (pduType == SCAN_REQ && frame->channel == 37 && snifferState == ADVERT_HOP && !postponed)
         {
-            DelayHopTrigger_postpone(600);
+            DelayHopTrigger_postpone(270 + sniffScanRspLen*8);
             postponed = true;
         }
 
@@ -1393,6 +1406,7 @@ void advHopSeekMode()
 {
     stateTransition(ADVERT_SEEK);
     advHopEnabled = true;
+    sniffScanRspLen = 26;
     RadioWrapper_stop();
 }
 
