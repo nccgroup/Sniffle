@@ -458,10 +458,23 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 continue;
             }
 
-            // based on my experiments, for connectable or scannable legacy advertisements,
-            // the advertising hop interval (without scan requests) is always:
-            //      ad_len*8 + 432 us
-            // thus, no need for measurements and medians, just figure it out based on ad len
+            /* Based on my experiments, for connectable or scannable legacy advertisements,
+             * the advertising hop interval (without scan requests) for Broadcom controllers
+             * that are ubiquitous in mobile devices is always:
+             *      ad_len*8 + 432 us
+             * Thus, for Broadcom controllers you can figure it out just based on ad len.
+             *
+             * However, this can vary for other Bluetooth controllers. For example:
+             * - Apple AirTags have a hop inteval of 690 us with ad length 16,
+             *   i.e. 16*8 + 562 us
+             * - Qualcomm FastConnect controllers usually have a hop interval of
+             *   ad_len*8 + 518 us
+             *
+             * In practice, this isn't a problem because we can still spend enough time
+             * on channels 38 and 39 to capture CONNECT_IND for longer hop intervals.
+             * We'll just miss the initial ADV_IND but that doesn't matter since we already
+             * got the same advertisement on channel 37.
+             */
             if (gotLegacy)
             {
                 rconf.hopIntervalTicks = legacyLen*32 + 432*4;
@@ -490,10 +503,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 } else {
                     // we need to force cancel recvAdv3 eventually
                     DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
-                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 3000, indicatePacket);
+                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
                 }
             } else {
-                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 3000, indicatePacket);
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
             }
 
             // state could have changed, so check again
@@ -740,7 +753,7 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * The latency in 4 MHz radio ticks between end of transmission and now is:
                  * RF_getCurrentTime() - ((frame->timestamp << 2) + (frame->length + 8)*32)
-                 * I've measured this to be typically around 165 us
+                 * I've measured this to be typically 150 us (+- 25 ms)
                  *
                  * There's a 150 us inter-frame separation as per BLE spec.
                  * A scan request needs approximately 176 us of transmission time.
@@ -756,8 +769,8 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * To be sure there's no scan request or conn request, we need to wait this
                  * long after the timestamp of our advertisement on 37:
-                 * frame duration + 150 us T_IFS + 176 us scan request + 165 us latency
-                 * = frame duration + 491 us
+                 * frame duration + 150 us T_IFS + 176 us scan request + 150 us latency
+                 * = frame duration + 476 us
                  *
                  * If there's a connection request on 38, and there was no scan on 37, the
                  * connection request will start the following amount of time after 37 timestamp:
@@ -770,12 +783,12 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * When following connections, at latest, we must hop 240 us (aforementioned
                  * latency) before the scan or connect request on 38. That is at:
-                 * timestamp_37 + frame duration + hop interval + 150 us T_IFS - 240 us latency
-                 * = timestamp_37 + frame duration + hop interval - 90 us
+                 * timestamp_37 + hop_interval + frame duration + 150 us T_IFS - 240 us latency
+                 * = timestamp_37 + hop_interval + frame duration - 90 us
                  *
-                 * Usually, hop interval - 90 us > 491 us, so we can just use a fixed hop delay
-                 * after the end of the advertisement on 37. Instead of setting the timer at 491
-                 * us after the advert end, we set it at 530 us to give us some time to postpone
+                 * Usually, hop interval - 90 us > 476 us, so we can just use a fixed hop delay
+                 * after the end of the advertisement on 37. Instead of setting the timer at 476
+                 * us after the advert end, we set it at 510 us to give us some time to postpone
                  * the radio trigger.
                  */
 
@@ -790,9 +803,9 @@ void reactToPDU(const BLE_Frame *frame)
                     // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
                     uint32_t targHopTime, timeRemaining;
 
-                    // we should hop around 530 us (2120 radio ticks) after frame end
+                    // we should hop around 510 us (2040 radio ticks) after frame end
                     // this should give us enough time to postpone hop if necessary
-                    targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2120;
+                    targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2040;
 
                     timeRemaining = targHopTime - RF_getCurrentTime();
                     if (timeRemaining >= 0x80000000)

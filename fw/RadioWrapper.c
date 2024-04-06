@@ -150,8 +150,8 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 /* sniff 37 -> wait for trigger -> wait 38 -> wait delay1 -> snif 39 -> wait delay2 -> done
  *
  * Notes on latency:
- * - Time from packet end transmitted to handling by software is around 480 us,
- *   though it varies, and is sometimes as low as 400 us
+ * - Time from packet end transmitted to handling by software is around 150 us,
+ *   though it varies, I've seen values from 128 to 168
  * - Time from triggering next channel to actually receiving on next channel is 160 us
  *   (sometimes it's better, as low as 100 us, but 160 is a good worst case value)
  * - The 160 us latency consists of the CMD_TRIGGER actually stopping the last operation,
