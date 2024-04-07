@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <ti/drivers/UART2.h>
+#include <ti/sysbios/knl/Clock.h>
 #include "ti_drivers_config.h"
 #include "messenger.h"
 #include "base64.h"
@@ -55,13 +56,22 @@ int messenger_recv(uint8_t *dst_buf)
 
     // first byte of b64 decoded data indicates number of 4 byte chunks
     // read 2 extra bytes for CRLF
-    UART2_read(uart, b64_buf, 6, &bytes_read);
+    UART2_read(uart, b64_buf, 1, &bytes_read);
+    UART2_readTimeout(uart, b64_buf + 1, 5, &bytes_read,
+            1000 / Clock_tickPeriod);
+    if (bytes_read < 5)
+    {
+        // incomplete message
+        _recv_crlf();
+        return -1;
+    }
 
     dec_len = base64_decode(dst_buf, b64_buf, 4, &dec_stat);
     if (dec_stat < 0)
     {
+        // invalid characters
         _recv_crlf();
-        return -1;
+        return -2;
     }
 
     word_cnt = dst_buf[0];
@@ -69,12 +79,21 @@ int messenger_recv(uint8_t *dst_buf)
     {
         // too big or some sync issue
         _recv_crlf();
-        return -2;
+        return -3;
     }
 
     if (word_cnt > 1)
     {
-        UART2_read(uart, b64_buf + 6, (word_cnt - 1) << 2, &bytes_read);
+        // 4000 us timeout is enough for MESSAGE_MAX even at 1M baud
+        uint32_t bytes_to_read = (word_cnt - 1) << 1;
+        UART2_readTimeout(uart, b64_buf + 6, bytes_to_read, &bytes_read,
+                4000 / Clock_tickPeriod);
+        if (bytes_read < bytes_to_read)
+        {
+            // message came too slow, truncated
+            _recv_crlf();
+            return -4;
+        }
     }
 
     // make sure CRLF terminator is present
@@ -83,7 +102,7 @@ int messenger_recv(uint8_t *dst_buf)
     {
         // malformed data/sync error
         _recv_crlf();
-        return -3;
+        return -5;
     }
 
     // convert to binary
