@@ -18,6 +18,7 @@ int messenger_init()
     UART2_Params uartParams;
     UART2_Params_init(&uartParams);
     uartParams.baudRate = 2000000;
+    uartParams.readReturnMode = UART2_ReadReturnMode_FULL;
     uart = UART2_open(CONFIG_UART2_0, &uartParams);
     if (!uart)
         return -1;
@@ -85,7 +86,7 @@ int messenger_recv(uint8_t *dst_buf)
     if (word_cnt > 1)
     {
         // 4000 us timeout is enough for MESSAGE_MAX even at 1M baud
-        uint32_t bytes_to_read = (word_cnt - 1) << 1;
+        uint32_t bytes_to_read = (word_cnt - 1) << 2;
         UART2_readTimeout(uart, b64_buf + 6, bytes_to_read, &bytes_read,
                 4000 / Clock_tickPeriod);
         if (bytes_read < bytes_to_read)
