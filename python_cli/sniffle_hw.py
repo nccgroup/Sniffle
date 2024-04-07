@@ -194,8 +194,6 @@ class SniffleHW:
                 try:
                     data = b64decode(pkt.rstrip())
                 except BAError as e:
-                    self.logger.warning("Ignoring message due to decode error: %s", e)
-                    self.logger.warning("Message: %s", pkt)
                     continue
                 if len(data) < 2:
                     continue
