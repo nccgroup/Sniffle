@@ -684,6 +684,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  *  advLen      Advertisement data length
  *  scanRspData Scan response data
  *  scanRspLen  Scan response data length
+ *  mode        Advertisement type
  *
  * Returns:
  *  -1 if no connection request or error
@@ -692,7 +693,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  */
 int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advAddr,
     bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
-    uint8_t scanRspLen)
+    uint8_t scanRspLen, ADV_Mode mode)
 {
     rfc_bleAdvPar_t params;
     rfc_CMD_BLE_ADV_t adv37;
@@ -706,7 +707,23 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
     ble4_cmd = true;
 
     memset(&adv37, 0, sizeof(adv37));
-    adv37.commandNo = 0x1803;
+
+    switch (mode)
+    {
+    case LEGACY_CONNECTABLE:
+        adv37.commandNo = 0x1803;
+        break;
+    case LEGACY_NON_CONNECTABLE:
+        adv37.commandNo = 0x1805;
+        break;
+    case LEGACY_SCANNABLE:
+        adv37.commandNo = 0x1806;
+        break;
+    default:
+        // LEGACY_DIRECT not supported for now
+        return -EINVAL;
+    }
+
     adv37.condition.rule = COND_STOP_ON_FALSE;
     adv37.pParams = &params;
 

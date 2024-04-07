@@ -24,6 +24,14 @@ typedef enum
     PHY_CODED_S2
 } PHY_Mode;
 
+typedef enum
+{
+    LEGACY_CONNECTABLE = 0, // ADV_IND
+    LEGACY_DIRECT,          // ADV_DIRECT_IND
+    LEGACY_NON_CONNECTABLE, // ADV_NONCONN_IND
+    LEGACY_SCANNABLE        // ADV_SCAN_IND
+} ADV_Mode;
+
 typedef struct
 {
     uint32_t timestamp; // microseconds
@@ -91,7 +99,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
 // Legacy advertise on all three primary channels
 int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advAddr,
     bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
-    uint8_t scanRspLen);
+    uint8_t scanRspLen, ADV_Mode mode);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();

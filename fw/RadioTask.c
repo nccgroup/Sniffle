@@ -638,7 +638,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
             RadioWrapper_advertise3(indicatePacket, ourAddr, ourAddrRandom,
-                    s_advData, s_advLen, s_scanRspData, s_scanRspLen);
+                    s_advData, s_advLen, s_scanRspData, s_scanRspLen, LEGACY_CONNECTABLE);
             // don't sleep if we had a connection established
             if (snifferState == ADVERTISING)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
