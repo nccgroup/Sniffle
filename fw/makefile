@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_6_20_00_29
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_7_40_00_77
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -175,10 +175,6 @@ $(SYSCFG_FILES): syscfg
 syscfg: $(NAME).syscfg
 	@ echo Generating configuration files...
 	@ $(SYSCFG_CMD_STUB) --output $(@D) $<
-ifneq ($(filter $(PLATFORM), $(CC2651P3_PLATFORMS)),)
-	@ echo Modifying ti_radio_config.c to remove bAcceptSyncInfo line \(CC2651P3 only\)
-	@ sed -i "s/.extFilterConfig.bAcceptSyncInfo = 0x0,*/\/\/.extFilterConfig.bAcceptSyncInfo = 0x0,/g" ti_radio_config.c
-endif
 
 %.obj: %.c $(SYSCFG_H_FILES)
 	@ echo Building $@

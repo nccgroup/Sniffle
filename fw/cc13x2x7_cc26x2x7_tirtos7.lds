@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, Texas Instruments Incorporated
+ * Copyright (c) 2020-2023, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-__TI_STACK_SIZE = 1024;
+__TI_STACK_SIZE = 0x600;
 HEAPSIZE = 0x4000; /* Size of heap buffer used by HeapMem */
 
 ENTRY(_c_int00)
@@ -42,7 +42,7 @@ MEMORY
      * Customer Configuration Area and Bootloader Backdoor configuration in
      * flash, 40 bytes
      */
-    FLASH_CCFG (RX) : ORIGIN = 0x000affa8, LENGTH = 0x00000058
+    FLASH_CCFG (R)  : ORIGIN = 0x000affa8, LENGTH = 0x00000058
     SRAM (RWX)      : ORIGIN = 0x20000000, LENGTH = 0x00024000
     GPRAM (RWX)     : ORIGIN = 0x11000000, LENGTH = 0x00002000
     /* Explicitly placed off target for the storage of logging data.
@@ -51,7 +51,8 @@ MEMORY
      * ARM memory map can be found here:
      * https://developer.arm.com/documentation/ddi0337/e/memory-map/about-the-memory-map
      */
-    LOG_DATA (R) : ORIGIN = 0x90000000, LENGTH = 0x40000
+    LOG_DATA     (R) : ORIGIN = 0x90000000, LENGTH = 0x40000
+    LOG_PTR      (R) : ORIGIN = 0x94000008, LENGTH = 0x40000
 }
 
 REGION_ALIAS("REGION_TEXT", FLASH);
@@ -68,15 +69,12 @@ SECTIONS {
     PROVIDE (_intvecs_base_address =
         DEFINED(_intvecs_base_address) ? _intvecs_base_address : 0x0);
 
-    .intvecs (_intvecs_base_address) : AT (_intvecs_base_address) {
-        KEEP (*(.intvecs))
+    .resetVecs (_intvecs_base_address) : AT (_intvecs_base_address) {
+        KEEP (*(.resetVecs))
     } > REGION_TEXT
 
-    PROVIDE (_vtable_base_address =
-        DEFINED(_vtable_base_address) ? _vtable_base_address : 0x20000000);
-
-    .vtable (_vtable_base_address) (NOLOAD) : {
-        KEEP (*(.vtable))
+    .ramVecs (NOLOAD) : ALIGN(256) {
+        KEEP (*(.ramVecs))
     } > REGION_DATA
 
     /* if a ROM-only symbol is present, then ROM is being used.
@@ -224,6 +222,7 @@ SECTIONS {
         *(.rodata)
         *(.rodata.*)
         *(.rodata_*)
+        KEEP (*(.timestampPFormat))
     } > REGION_TEXT AT> REGION_TEXT
 
     .data : ALIGN(4) {
@@ -280,4 +279,7 @@ SECTIONS {
     .log_data (COPY) : {
         KEEP (*(.log_data))
     } > REGION_LOG
+    .log_ptr (COPY) : {
+        KEEP (*(.log_ptr*))
+    } > LOG_PTR
 }

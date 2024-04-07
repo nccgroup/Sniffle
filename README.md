@@ -30,7 +30,7 @@ Sniffle has a number of useful features, including:
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/tool/LP-CC2651P3>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
-* TI CC13xx/CC26xx SDK 6.20.00.29: <https://www.ti.com/tool/download/SIMPLELINK-CC13XX-CC26XX-SDK/6.20.00.29>
+* TI SimpleLink Low Power F2 SDK 7.40.00.77: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.40.00.77>
 * TI DSLite Programmer Software: see below
 * Python 3.5+ with PySerial installed
 
@@ -57,7 +57,7 @@ expect this path, so I suggest just going with the default here. The same
 applies for the TI SysConfig tool.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_6_20_00_29`
+your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_7_40_00_77`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
 The only paths that need to be set here to build Sniffle are for GCC, XDC, and
 SysConfig. We don't need the CCS compiler. See the diff below as an example,
@@ -65,26 +65,28 @@ and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index b8a3713..e736e24 100644
+index d3900b5b6..d5f765b92 100644
 --- a/imports.mak
 +++ b/imports.mak
-@@ -18,13 +18,13 @@
+@@ -18,14 +18,14 @@
  # will build using each non-empty *_ARMCOMPILER cgtool.
  #
  
 -XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_62_01_15_core
--SYSCONFIG_TOOL         ?= /home/username/ti/ccs1120/ccs/utils/sysconfig_1.13.0/sysconfig_cli.sh
+-SYSCONFIG_TOOL         ?= /home/username/ti/ccs1230/ccs/utils/sysconfig_1.18.1/sysconfig_cli.sh
 +XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_62_01_15_core
-+SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.13.0/sysconfig_cli.sh
++SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.18.1/sysconfig_cli.sh
  
- FREERTOS_INSTALL_DIR   ?= /home/username/FreeRTOSv202104.00
+-CMAKE                  ?= /home/username/cmake-3.21.3/bin/cmake
++CMAKE                  ?= cmake
+ PYTHON                 ?= python3
  
- TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1120/ccs/tools/compiler/ti-cgt-armllvm_2.1.0.LTS-0
--GCC_ARMCOMPILER        ?= /home/username/ti/ccs1120/ccs/tools/compiler/9.2019.q4.major-0
+ TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1230/ccs/tools/compiler/ti-cgt-armllvm_3.2.0.LTS-0
+-GCC_ARMCOMPILER        ?= /home/username/arm-none-eabi-gcc/9.2019.q4.major-0
 +GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-13.2.Rel1-x86_64-arm-none-eabi
+ IAR_ARMCOMPILER        ?= /home/username/iar9.40.2
  
- # The IAR compiler is not supported on Linux
- # IAR_ARMCOMPILER      ?=
+ # Uncomment this to enable the TFM build
 ```
 
 ### Obtaining DSLite

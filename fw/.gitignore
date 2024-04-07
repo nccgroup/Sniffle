@@ -11,6 +11,7 @@ ti_drivers_config.h
 ti_radio_config.c
 ti_radio_config.h
 syscfg_c.rov.xs
+ti_utils_build_compiler.opt
 ti_utils_build_linker.cmd.exp
 ti_utils_build_linker.cmd.genlibs
 ti_utils_runtime_Makefile
