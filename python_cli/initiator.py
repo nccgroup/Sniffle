@@ -6,7 +6,8 @@
 
 import argparse, sys
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
-from packet_decoder import DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage, str_mac
+from packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
+                            ScanRspMessage, str_mac)
 from binascii import unhexlify
 
 # global variable to access hardware
@@ -20,6 +21,8 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-m", "--mac", default=None, help="Specify target MAC address")
     aparse.add_argument("-i", "--irk", default=None, help="Specify target IRK")
+    aparse.add_argument("-S", "--string", default=None,
+            help="Specify target by advertisement search string")
     aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
             help="Use long range (coded) PHY for primary advertising")
     aparse.add_argument("-P", "--public", action="store_const", default=False, const=True,
@@ -29,14 +32,19 @@ def main():
     global hw
     hw = SniffleHW(args.serport)
 
-    if args.mac is None and args.irk is None:
-        print("Must specify target MAC address or IRK", file=sys.stderr)
+    targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
+    if targ_specs < 1:
+        print("Must specify target MAC address, IRK, or advertisement string", file=sys.stderr)
         return
-    if args.mac and args.irk:
-        print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
+    elif targ_specs > 1:
+        print("IRK, MAC, and advertisement string filters are mutually exclusive!", file=sys.stderr)
         return
+
     if args.public and args.irk:
         print("IRK only works on RPAs, not public addresses!", file=sys.stderr)
+        return
+    elif args.public and args.string:
+        print("Can't specify string search target MAC publicness", file=sys.stderr)
         return
 
     # set the advertising channel (and return to ad-sniffing mode)
@@ -51,6 +59,9 @@ def main():
     # turn off RSSI filter
     hw.cmd_rssi()
 
+    # initiator doesn't care about this setting, it always accepts aux
+    hw.cmd_auxadv(True)
+
     if args.mac:
         try:
             macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
@@ -60,20 +71,18 @@ def main():
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
         hw.cmd_mac(macBytes, False)
+    elif args.irk:
+        macBytes = get_mac_from_irk(unhexlify(args.irk))
     else:
-        hw.cmd_irk(unhexlify(args.irk), False)
-
-    # initiator doesn't care about this setting, it always accepts aux
-    hw.cmd_auxadv(False)
+        searchBytes = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
+        macBytes, args.public = get_mac_from_string(searchBytes)
+        hw.cmd_mac(macBytes, False)
 
     # initiator needs a MAC address
     hw.random_addr()
 
     # reset preloaded encrypted connection interval changes
     hw.cmd_interval_preload()
-
-    if args.irk:
-        macBytes = get_mac_from_irk()
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()
@@ -86,8 +95,8 @@ def main():
         msg = hw.recv_and_decode()
         print_message(msg)
 
-# assumes sniffer is already configured to receive ads with IRK filter
-def get_mac_from_irk():
+def get_mac_from_irk(irk):
+    hw.cmd_irk(irk, False)
     hw.mark_and_flush()
     print("Waiting for advertisement with suitable RPA...")
     while True:
@@ -100,6 +109,24 @@ def get_mac_from_irk():
                 (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
             print("Found target MAC: %s" % str_mac(dpkt.AdvA))
             return dpkt.AdvA
+
+def get_mac_from_string(s):
+    hw.cmd_mac()
+    hw.cmd_scan()
+    hw.mark_and_flush()
+    print("Waiting for advertisement containing specified string...")
+    while True:
+        msg = hw.recv_and_decode()
+        if not isinstance(msg, PacketMessage):
+            continue
+        dpkt = DPacketMessage.decode(msg)
+        if isinstance(dpkt, AdvaMessage) or \
+                isinstance(dpkt, AdvDirectIndMessage) or \
+                isinstance(dpkt, ScanRspMessage) or \
+                (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
+            if s in dpkt.body:
+                print("Found target MAC: %s" % str_mac(dpkt.AdvA))
+                return dpkt.AdvA, not dpkt.TxAdd
 
 def print_message(msg):
     if isinstance(msg, PacketMessage):

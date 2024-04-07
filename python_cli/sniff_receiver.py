@@ -56,8 +56,10 @@ def main():
     args = aparse.parse_args()
 
     # Sanity check argument combinations
-    if args.hop and args.mac is None and args.irk is None and args.string is None:
-        print("Primary adv. channel hop requires a MAC address or IRK specified!", file=sys.stderr)
+    targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
+    if args.hop and targ_specs < 1:
+        print("Primary adv. channel hop requires a target MAC, IRK, or ad string specified!",
+              file=sys.stderr)
         return
     if args.longrange and not args.extadv:
         print("Long-range PHY only supported in extended advertising!", file=sys.stderr)
@@ -66,11 +68,12 @@ def main():
         # this would be pointless anyway, since long range always uses extended ads
         print("Primary ad channel hopping unsupported on long range PHY!", file=sys.stderr)
         return
-    if (args.mac and args.irk) or (args.mac and args.string) or (args.irk and args.string):
+    if targ_specs > 1:
         print("MAC, IRK, and advertisement string filters are mutually exclusive!", file=sys.stderr)
         return
     if args.advchan != 40 and args.hop:
-        print("Don't specify an advertising channel if you want advertising channel hopping!", file=sys.stderr)
+        print("Don't specify an advertising channel if you want advertising channel hopping!",
+              file=sys.stderr)
         return
 
     global hw
@@ -121,7 +124,7 @@ def main():
 
     # configure MAC filter
     global _delay_top_mac, _delay_string_mac
-    if args.mac is None and args.irk is None and args.string is None:
+    if targ_specs < 1:
         hw.cmd_mac()
     elif args.irk:
         hw.cmd_irk(unhexlify(args.irk), _allow_hop3)
