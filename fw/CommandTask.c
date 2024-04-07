@@ -128,11 +128,13 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             break;
         case COMMAND_ADVERTISE:
             // 1 byte len, 1 byte opcode,
+            // 1 byte adv type
             // 1 byte adv len, 31 byte adv, 1 byte scanRsp len, 31 byte scanRsp
-            if (ret != 66) continue;
-            if (msgBuf[2] > 31) continue;
-            if (msgBuf[34] > 31) continue;
-            advertise(msgBuf + 3, msgBuf[2], msgBuf + 35, msgBuf[34]);
+            if (ret != 67) continue;
+            if (msgBuf[2] > LEGACY_SCANNABLE) continue;
+            if (msgBuf[3] > 31) continue;
+            if (msgBuf[35] > 31) continue;
+            advertise(msgBuf[2], msgBuf + 4, msgBuf[3], msgBuf + 36, msgBuf[35]);
             break;
         case COMMAND_ADVINTRVL:
         {

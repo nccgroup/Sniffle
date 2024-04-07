@@ -135,6 +135,7 @@ static uint8_t s_advData[31];
 static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
 static uint16_t s_advIntervalMs = 100;
+static ADV_Mode s_advMode;
 
 uint8_t g_pkt_dir = 0;
 
@@ -638,7 +639,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
             RadioWrapper_advertise3(indicatePacket, ourAddr, ourAddrRandom,
-                    s_advData, s_advLen, s_scanRspData, s_scanRspLen, LEGACY_CONNECTABLE);
+                    s_advData, s_advLen, s_scanRspData, s_scanRspLen, s_advMode);
             // don't sleep if we had a connection established
             if (snifferState == ADVERTISING)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
@@ -1463,8 +1464,10 @@ void initiateConn(bool isRandom, void *_peerAddr, void *llData)
 }
 
 /* Enter advertising state */
-void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen)
+void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
+        void *scanRspData, uint8_t scanRspLen)
 {
+    s_advMode = mode;
     s_advLen = advLen;
     s_scanRspLen = scanRspLen;
     memcpy(s_advData, advData, advLen);

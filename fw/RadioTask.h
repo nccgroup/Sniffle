@@ -45,7 +45,8 @@ void setAddr(bool isRandom, void *addr);
 void initiateConn(bool isRandom, void *peerAddr, void *llData);
 
 /* Enter advertising state */
-void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen);
+void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
+        void *scanRspData, uint8_t scanRspLen);
 
 /* Enter active scanning state */
 void scan();
