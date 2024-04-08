@@ -437,12 +437,6 @@ class SniffleExtcapPlugin():
         self.logger.info('Capture stopped')
 
     def open_pipes(self):
-        # open the capture output FIFO and initialize the PCAP writer to write to it
-        if self.args.fifo is not None:
-            self.logger.info('Opening capture output FIFO')
-            self.captureStream = open(self.args.fifo, 'wb', buffering=0)
-            self.pcapWriter = PcapBleWriter(self.captureStream)
-
         # if a control-out FIFO has been given, open it for writing
         if self.args.extcap_control_out is not None:
             self.logger.info('Opening control-out FIFO')
@@ -456,6 +450,13 @@ class SniffleExtcapPlugin():
             self.logger.info('Opening control-in FIFO')
             self.controlReadStream = open(self.args.extcap_control_in, 'rb', 0)
 
+        # open the capture output FIFO and initialize the PCAP writer to write to it
+        if self.args.fifo is not None:
+            self.logger.info('Opening capture output FIFO')
+            self.captureStream = open(self.args.fifo, 'wb', buffering=0)
+            self.pcapWriter = PcapBleWriter(self.captureStream)
+
+        if self.controlReadStream:
             # start a thread to read control messages
             self.logger.info('Staring control thread')
             self.controlThread = threading.Thread(target=self.controlThreadMain, daemon=True)
