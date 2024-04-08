@@ -71,7 +71,6 @@ class SniffleExtcapPlugin():
         self.controlsInitialized = False
 
     def main(self, args=None):
-
         # initialize logging
         #
         # add a log handler to pass internal log messages back to Wireshark
@@ -91,10 +90,17 @@ class SniffleExtcapPlugin():
 
         self.logger = logging.getLogger('sniffle_extcap')
 
-        try:
+        ret = 0
 
-            # Parse the given arguments
-            self.parseArgs(args)
+        try:
+            # Load the given arguments
+            self.loadArgs(args)
+
+            # FIFO and control pipes must be opened, else Wireshark will freeze
+            self.open_pipes()
+
+            # Parse and validate the arguments
+            self.parseArgs()
 
             # Perform the requested operation
             if self.args.op == 'extcap-interfaces':
@@ -112,34 +118,24 @@ class SniffleExtcapPlugin():
                 # Should not get here
                 raise RuntimeError('Operation not specified')
 
-            return 0
-
         except UsageError as ex:
             print(f'{ex}', file=os.sys.stderr)
-            return 1
+            ret = 1
 
         except KeyboardInterrupt:
-            return 1
+            ret = 1
 
         except SystemExit as ex:
-            return ex.code
+            ret = ex.code
 
         except:
             self.logger.exception('INTERNAL ERROR')
-            return 1
+            ret = 1
 
-        finally:
-            # If the --fifo argument was specified, ensure that the named fifo
-            # gets opened and subsequently closed at least once.  In cases where an
-            # error occurs before we get to actually capturing packets this ensures
-            # that Wireshark knows that the plugin has exited.
-            if not self.captureStream and self.args is not None and self.args.fifo is not None:
-                try:
-                    open(self.args.fifo, 'wb').close()
-                except:
-                    pass
+        self.close_pipes()
+        return ret
 
-    def parseArgs(self, args=None):
+    def loadArgs(self, args=None):
         argParser = ArgumentParser(prog=scriptName)
         argParser.add_argument("--extcap-interfaces", dest='op', action="append_const", const='extcap-interfaces',
                                help="List available capture interfaces")
@@ -188,9 +184,9 @@ class SniffleExtcapPlugin():
         argParser.add_argument("--nophychange", action="store_true",
                                help="Ignore encrypted PHY mode changes")
 
-
         self.args = argParser.parse_args(args=args)
 
+    def parseArgs(self):
         # Determine the operation being performed
         if not self.args.op or len(self.args.op) != 1:
             raise UsageError('Please specify exactly one of --capture, --extcap-version, --extcap-interfaces, --extcap-dlts or --extcap-config')
@@ -343,135 +339,136 @@ class SniffleExtcapPlugin():
         return '\n'.join(lines)
 
     def capture(self):
-        try:
-            # open the capture output FIFO and initialize the PCAP writer to write to it
+        # Wait for the INITIALIZED message from Wireshark
+        #    NOTE that Wireshark on Windows will delay sending the INITIALIZED message
+        #    until after it receives the PCAP header.  Thus this loop must happen
+        #    *after* the PcapBleWriter has been initialized to avoid a deadlock.
+        if self.controlReadStream:
+            self.logger.info('Waiting for INITIALIZED message from Wireshark')
+            while not self.controlsInitialized:
+                time.sleep(0.1)
+
+        self.logger.info('Initializing Sniffle hardware interface')
+
+        # initialize the Sniffle hardware interface
+        self.hw = SniffleHW(self.args.serport, logger=logging.getLogger('sniffle_hw'))
+
+        # if a channel was explicitly specified, don't hop
+        if self.args.advchan == 'all':
+            self.args.advchan = 37
+            hop3 = True
+        else:
+            hop3 = False
+
+        # set the advertising channel (and return to ad-sniffing mode)
+        self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
+
+        # set up whether or not to follow connections
+        self.hw.cmd_follow(not self.args.advonly)
+
+        # set preloaded encrypted connection interval changes
+        self.hw.cmd_interval_preload(self.args.preload if self.args.preload is not None else [])
+
+        # preload change to 2M unless user requests encrypted PHY changes be ignored
+        self.hw.cmd_phy_preload(None if self.args.nophychange else 1)
+
+        # configure RSSI filter
+        self.hw.cmd_rssi(self.args.rssi)
+
+        # disable 37/38/39 hop in extended mode unless overridden
+        if self.args.extadv and not self.args.hop:
+            hop3 = False
+
+        # configure BT5 extended (aux/secondary) advertising
+        self.hw.cmd_auxadv(self.args.extadv)
+
+        # configure MAC or IRK filter
+        targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
+        if targ_specs == 0:
+            self.hw.cmd_mac()
+        elif self.args.string:
+            mac = self.get_mac_from_string(self.args.string)
+            self.hw.cmd_mac(mac, hop3)
+        elif self.args.irk:
+            self.hw.cmd_irk(self.args.irk, hop3)
+        else:
+            self.hw.cmd_mac(self.args.mac, hop3)
+
+        # zero timestamps and flush old packets
+        self.hw.mark_and_flush()
+
+        self.logger.info('Starting capture')
+
+        # Arrange to exit gracefully on a signal from Wireshark. NOTE that this
+        # has no effect under Windows.
+        signal.signal(signal.SIGINT, lambda sig, frame : self.stopCapture())
+        signal.signal(signal.SIGTERM, lambda sig, frame : self.stopCapture())
+
+        # capture packets and write to the capture output until signaled to stop
+        while not self.captureStopped:
+
+            # wait for a capture packet
+            pkt = self.hw.recv_and_decode()
+            if isinstance(pkt, PacketMessage):
+
+                # decode the packet
+                dpkt = DPacketMessage.decode(pkt)
+
+                # write the packet to the PCAP writer
+                if isinstance(dpkt, DataMessage):
+                    pdu_type = 3 if dpkt.data_dir else 2
+                else:
+                    pdu_type = 0
+                try:
+                    self.pcapWriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan,
+                                                pkt.rssi, pkt.body, pkt.phy, pdu_type)
+                except IOError: # Windows will raise this when the other end of the FIFO is closed
+                    self.captureStopped = True
+                    break
+
+                # update cur_aa
+                if isinstance(dpkt, ConnectIndMessage):
+                    self.hw.decoder_state.cur_aa = dpkt.aa_conn
+                    self.hw.decoder_state.last_chan = -1
+
+        self.logger.info('Capture stopped')
+
+        # wait for the control thread to exit
+        if self.controlThread:
+            self.controlThread.join()
+
+    def open_pipes(self):
+        # open the capture output FIFO and initialize the PCAP writer to write to it
+        if self.args.fifo is not None:
             self.logger.info('Opening capture output FIFO')
             self.captureStream = open(self.args.fifo, 'wb', buffering=0)
-            pcapWriter = PcapBleWriter(self.captureStream)
+            self.pcapWriter = PcapBleWriter(self.captureStream)
 
-            # if a control-out FIFO has been given, open it for writing
-            if self.args.extcap_control_out is not None:
-                self.logger.info('Opening control-out FIFO')
-                self.controlWriteStream = open(self.args.extcap_control_out, 'wb', 0)
+        # if a control-out FIFO has been given, open it for writing
+        if self.args.extcap_control_out is not None:
+            self.logger.info('Opening control-out FIFO')
+            self.controlWriteStream = open(self.args.extcap_control_out, 'wb', 0)
 
-                # Clear the logger control in preparation for writing new messages
-                self.writeControlMessage(CTRL_CMD_SET, CTRL_NUM_LOGGER, '')
+            # Clear the logger control in preparation for writing new messages
+            self.writeControlMessage(CTRL_CMD_SET, CTRL_NUM_LOGGER, '')
 
-            # if a control-in FIFO has been given, open it for reading
-            if self.args.extcap_control_in is not None:
-                self.logger.info('Opening control-in FIFO')
-                self.controlReadStream = open(self.args.extcap_control_in, 'rb', 0)
+        # if a control-in FIFO has been given, open it for reading
+        if self.args.extcap_control_in is not None:
+            self.logger.info('Opening control-in FIFO')
+            self.controlReadStream = open(self.args.extcap_control_in, 'rb', 0)
 
-                # start a thread to read control messages
-                self.logger.info('Staring control thread')
-                self.controlThread = threading.Thread(target=self.controlThreadMain)
-                self.controlThread.start()
+            # start a thread to read control messages
+            self.logger.info('Staring control thread')
+            self.controlThread = threading.Thread(target=self.controlThreadMain)
+            self.controlThread.start()
 
-            # Wait for the INITIALIZED message from Wireshark
-            #    NOTE that Wireshark on Windows will delay sending the INITIALIZED message
-            #    until after it receives the PCAP header.  Thus this loop must happen
-            #    *after* the PcapBleWriter has been initialized to avoid a deadlock.
-            if self.controlReadStream:
-                self.logger.info('Waiting for INITIALIZED message from Wireshark')
-                while not self.controlsInitialized:
-                    time.sleep(0.1)
-
-            self.logger.info('Initializing Sniffle hardware interface')
-
-            # initialize the Sniffle hardware interface
-            self.hw = SniffleHW(self.args.serport, logger=logging.getLogger('sniffle_hw'))
-
-            # if a channel was explicitly specified, don't hop
-            if self.args.advchan == 'all':
-                self.args.advchan = 37
-                hop3 = True
-            else:
-                hop3 = False
-
-            # set the advertising channel (and return to ad-sniffing mode)
-            self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
-
-            # set up whether or not to follow connections
-            self.hw.cmd_follow(not self.args.advonly)
-
-            # set preloaded encrypted connection interval changes
-            self.hw.cmd_interval_preload(self.args.preload if self.args.preload is not None else [])
-
-            # preload change to 2M unless user requests encrypted PHY changes be ignored
-            self.hw.cmd_phy_preload(None if self.args.nophychange else 1)
-
-            # configure RSSI filter
-            self.hw.cmd_rssi(self.args.rssi)
-
-            # disable 37/38/39 hop in extended mode unless overridden
-            if self.args.extadv and not self.args.hop:
-                hop3 = False
-
-            # configure BT5 extended (aux/secondary) advertising
-            self.hw.cmd_auxadv(self.args.extadv)
-
-            # configure MAC or IRK filter
-            targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
-            if targ_specs == 0:
-                self.hw.cmd_mac()
-            elif self.args.string:
-                mac = self.get_mac_from_string(self.args.string)
-                self.hw.cmd_mac(mac, hop3)
-            elif self.args.irk:
-                self.hw.cmd_irk(self.args.irk, hop3)
-            else:
-                self.hw.cmd_mac(self.args.mac, hop3)
-
-            # zero timestamps and flush old packets
-            self.hw.mark_and_flush()
-
-            self.logger.info('Starting capture')
-
-            # Arrange to exit gracefully on a signal from Wireshark. NOTE that this
-            # has no effect under Windows.
-            signal.signal(signal.SIGINT, lambda sig, frame : self.stopCapture())
-            signal.signal(signal.SIGTERM, lambda sig, frame : self.stopCapture())
-
-            # capture packets and write to the capture output until signaled to stop
-            while not self.captureStopped:
-
-                # wait for a capture packet
-                pkt = self.hw.recv_and_decode()
-                if isinstance(pkt, PacketMessage):
-
-                    # decode the packet
-                    dpkt = DPacketMessage.decode(pkt)
-
-                    # write the packet to the PCAP writer
-                    if isinstance(dpkt, DataMessage):
-                        pdu_type = 3 if dpkt.data_dir else 2
-                    else:
-                        pdu_type = 0
-                    try:
-                        pcapWriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
-                                                    pkt.body, pkt.phy, pdu_type)
-                    except IOError: # Windows will raise this when the other end of the FIFO is closed
-                        self.captureStopped = True
-                        break
-
-                    # update cur_aa
-                    if isinstance(dpkt, ConnectIndMessage):
-                        self.hw.decoder_state.cur_aa = dpkt.aa_conn
-                        self.hw.decoder_state.last_chan = -1
-
-            self.logger.info('Capture stopped')
-
-            # wait for the control thread to exit
-            if self.controlThread:
-                self.controlThread.join()
-
-        finally:
-            if self.captureStream is not None:
-                self.captureStream.close()
-            if self.controlReadStream is not None:
-                self.controlReadStream.close()
-            if self.controlWriteStream is not None:
-                self.controlWriteStream.close()
+    def close_pipes(self):
+        if self.captureStream is not None:
+            self.captureStream.close()
+        if self.controlReadStream is not None:
+            self.controlReadStream.close()
+        if self.controlWriteStream is not None:
+            self.controlWriteStream.close()
 
     def get_mac_from_string(self, search_str):
         self.hw.cmd_mac()
