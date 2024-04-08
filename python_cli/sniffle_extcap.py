@@ -86,7 +86,10 @@ class SniffleExtcapPlugin():
         if logFile:
             logHandlers.append(logging.FileHandler(logFile))
         logLevel = os.environ.get('SNIFFLE_LOG_LEVEL', 'DEBUG' if logFile else 'WARNING').upper()
-        logging.basicConfig(handlers=logHandlers, level=logLevel)
+        logging.basicConfig(handlers=logHandlers,
+                            level=logLevel,
+                            format='%(asctime)s %(levelname)-8s %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
 
         self.logger = logging.getLogger('sniffle_extcap')
 
