@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2022, NCC Group plc
+ * Copyright (c) 2018-2024, NCC Group plc
  * Released as open source under GPLv3
  */
 
