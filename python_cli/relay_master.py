@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020, NCC Group plc
+# Copyright (c) 2020-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys
@@ -81,6 +81,8 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-m", "--mac", default=None, help="Specify target MAC address")
     aparse.add_argument("-i", "--irk", default=None, help="Specify target IRK")
+    aparse.add_argument("-S", "--string", default=None,
+            help="Specify target by advertisement search string")
     aparse.add_argument("-P", "--public", action="store_const", default=False, const=True,
             help="Supplied MAC address is public")
     aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
@@ -99,14 +101,19 @@ def main():
     global hw
     hw = SniffleHW(args.serport)
 
-    if args.mac is None and args.irk is None:
-        print("Must specify target MAC address or IRK", file=sys.stderr)
+    targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
+    if targ_specs < 1:
+        print("Must specify target MAC address, IRK, or advertisement string", file=sys.stderr)
         return
-    if args.mac and args.irk:
-        print("IRK and MAC filters are mutually exclusive!", file=sys.stderr)
+    elif targ_specs > 1:
+        print("IRK, MAC, and advertisement string filters are mutually exclusive!", file=sys.stderr)
         return
+
     if args.public and args.irk:
         print("IRK only works on RPAs, not public addresses!", file=sys.stderr)
+        return
+    elif args.public and args.string:
+        print("Can't specify string search target MAC publicness", file=sys.stderr)
         return
 
     # wait for relay slave to connect to us
@@ -131,18 +138,21 @@ def main():
         conn.send_msg(MessageType.PRELOAD, b'')
 
     if args.irk:
-        macBytes = get_mac_from_irk(unhexlify(args.irk), args.advchan)
+        mac_bytes = get_mac_from_irk(unhexlify(args.irk), args.advchan)
+    elif args.string:
+        search_str = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
+        mac_bytes, args.public = get_mac_from_string(search_str, args.advchan)
     else:
         try:
-            macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
-            if len(macBytes) != 6:
+            mac_bytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
+            if len(mac_bytes) != 6:
                 raise Exception("Wrong length!")
         except:
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
 
     # obtain the target's advertisement and scan response, share it with relay slave
-    adv, scan_rsp = scan_target(macBytes)
+    adv, scan_rsp = scan_target(mac_bytes)
     conn.send_msg(MessageType.ADVERT, adv.body)
     conn.send_msg(MessageType.SCAN_RSP, scan_rsp.body)
 
@@ -194,7 +204,7 @@ def main():
             preloads.append(tup)
 
     # connect to real target, impersonating who connected to relay slave
-    connect_target(macBytes, args.advchan, not args.public, connector_addr,
+    connect_target(mac_bytes, args.advchan, not args.public, connector_addr,
             connector_random, connector_interval, connector_latency, preloads)
 
     # wait for transition to master state
@@ -281,7 +291,6 @@ def print_message(msg, quiet=False):
             isinstance(msg, MeasurementMessage):
         print(msg, end='\n\n')
 
-# assumes sniffer is already configured to receive ads with IRK filter
 def get_mac_from_irk(irk, chan=37):
     hw.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
     hw.cmd_pause_done(True)
@@ -300,6 +309,28 @@ def get_mac_from_irk(irk, chan=37):
         if isinstance(dpkt, AdvIndMessage) or isinstance(dpkt, AdvDirectIndMessage):
             print("Found target MAC: %s" % str_mac(dpkt.AdvA))
             return dpkt.AdvA
+
+def get_mac_from_string(s, chan=37):
+    hw.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
+    hw.cmd_pause_done(True)
+    hw.cmd_follow(False) # capture advertisements only
+    hw.cmd_rssi(-128)
+    hw.cmd_mac()
+    hw.cmd_auxadv(False)
+    hw.random_addr()
+    hw.cmd_scan()
+    hw.mark_and_flush()
+
+    print("Waiting for advertisement containing specified string...")
+    while True:
+        msg = hw.recv_and_decode()
+        if not isinstance(msg, PacketMessage):
+            continue
+        dpkt = DPacketMessage.decode(msg)
+        if isinstance(dpkt, (AdvIndMessage, AdvDirectIndMessage, ScanRspMessage)):
+            if s in dpkt.body:
+                print("Found target MAC: %s" % str_mac(dpkt.AdvA))
+                return dpkt.AdvA, not dpkt.TxAdd
 
 def scan_target(mac):
     advPkt = None
