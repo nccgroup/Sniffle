@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #
-#   Copyright 2018-2022, Jay Logue and NCC Group plc
+#   Copyright 2018-2024, Jay Logue and NCC Group plc
 #
 #   This file is part of Sniffle.
 #
@@ -37,7 +37,8 @@ import time
 import signal
 import traceback
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage
-from packet_decoder import DPacketMessage, DataMessage, ConnectIndMessage
+from packet_decoder import (DPacketMessage, DataMessage, ConnectIndMessage, AdvaMessage,
+                            AdvDirectIndMessage, ScanRspMessage, AdvExtIndMessage, str_mac)
 from pcap import PcapBleWriter
 from serial.tools.list_ports import comports
 
@@ -172,6 +173,8 @@ class SniffleExtcapPlugin():
                                help="Filter packets by advertiser MAC (XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX)")
         argParser.add_argument("--irk", default=None,
                                help="Filter packets by advertiser IRK (32 hex digits)")
+        argParser.add_argument("--string", default=None,
+                               help="Filter packets by advertiser string search")
         argParser.add_argument("--advonly", action="store_true",
                                help="Sniff only advertisements, don't follow connections")
         argParser.add_argument("--extadv", action="store_true",
@@ -227,6 +230,10 @@ class SniffleExtcapPlugin():
                 raise UsageError('Invalid value specified for IRK filter option: %s' % (self.args.irk))
             self.args.irk = bytes.fromhex(self.args.irk)
 
+        # Parse --string argument
+        if self.args.string:
+            self.args.string = self.args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
+
         # Parse --preload argument
         if self.args.preload:
             preload = []
@@ -245,14 +252,15 @@ class SniffleExtcapPlugin():
             self.args.preload = preload
 
         # Sanity check argument combinations
-        if self.args.hop and self.args.mac is None and self.args.irk is None:
+        targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
+        if self.args.hop and targ_specs < 1:
             raise UsageError('When using the hop option, a MAC address or IRK must be specified')
         if self.args.longrange and not self.args.extadv:
             raise UsageError('Long-range PHY only supported in extended advertising')
         if self.args.longrange and self.args.hop:
             raise UsageError('Advertising channel hopping is unsupported on long range PHY')
-        if self.args.mac and self.args.irk:
-            raise UsageError('Please specify only one of MAC or IRK filtering')
+        if targ_specs > 1:
+            raise UsageError('Please specify only one of MAC, IRK, or advertisement string filtering')
         if self.args.advchan != 'all' and self.args.hop:
             raise UsageError('Please select advertising channel \'all\' when using the hop option')
         if self.args.op == 'capture' and not self.args.extcap_interface:
@@ -294,23 +302,26 @@ class SniffleExtcapPlugin():
                             '{display=IRK}'
                             '{tooltip=Filter packets by advertiser IRK (32 hex digits)}'
                             '{validation=\\b[0-9a-fA-F]{32}\\b}')
-        lines.append('arg {number=5}{call=--preload}{type=string}'
+        lines.append('arg {number=5}{call=--string}{type=string}'
+                            '{display=Advertisement String}'
+                            '{tooltip=Filter packets by advertiser string search}')
+        lines.append('arg {number=6}{call=--preload}{type=string}'
                             '{display=Preloaded encrypted con intervals}'
                             '{tooltip=Preloaded encrypted connection interval changes (<interval>:<delta-instant>,...)}'
                             '{validation=^(?:\\s*\\d+\\s*:\\s*\\d+\\s*,?){1,4}$}')
-        lines.append('arg {number=6}{call=--advonly}{type=boolflag}{default=no}'
+        lines.append('arg {number=7}{call=--advonly}{type=boolflag}{default=no}'
                             '{display=Advertisements only}'
                             '{tooltip=Sniff for advertisements only, don\'t follow connections}')
-        lines.append('arg {number=7}{call=--extadv}{type=boolflag}{default=no}'
+        lines.append('arg {number=8}{call=--extadv}{type=boolflag}{default=no}'
                             '{display=Extended advertisements}'
                             '{tooltip=Capture BT5 extended (auxiliary) advertisements}')
-        lines.append('arg {number=8}{call=--hop}{type=boolflag}{default=no}'
+        lines.append('arg {number=9}{call=--hop}{type=boolflag}{default=no}'
                             '{display=Hop channels}'
                             '{tooltip=Hop primary advertising channels in extended mode}')
-        lines.append('arg {number=9}{call=--longrange}{type=boolflag}{default=no}'
+        lines.append('arg {number=10}{call=--longrange}{type=boolflag}{default=no}'
                             '{display=Long range}'
                             '{tooltip=Use long range (coded) PHY for primary advertising}')
-        lines.append('arg {number=10}{call=--nophychange}{type=boolflag}{default=no}'
+        lines.append('arg {number=11}{call=--nophychange}{type=boolflag}{default=no}'
                             '{display=Ignore encrypted PHY change}'
                             '{tooltip=Ignore encrypted PHY mode changes}')
         for port in comports():
@@ -396,16 +407,20 @@ class SniffleExtcapPlugin():
             if self.args.extadv and not self.args.hop:
                 hop3 = False
 
+            # configure BT5 extended (aux/secondary) advertising
+            self.hw.cmd_auxadv(self.args.extadv)
+
             # configure MAC or IRK filter
-            if self.args.mac is None and self.args.irk is None:
+            targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
+            if targ_specs == 0:
                 self.hw.cmd_mac()
+            elif self.args.string:
+                mac = self.get_mac_from_string(self.args.string)
+                self.hw.cmd_mac(mac, hop3)
             elif self.args.irk:
                 self.hw.cmd_irk(self.args.irk, hop3)
             else:
                 self.hw.cmd_mac(self.args.mac, hop3)
-
-            # configure BT5 extended (aux/secondary) advertising
-            self.hw.cmd_auxadv(self.args.extadv)
 
             # zero timestamps and flush old packets
             self.hw.mark_and_flush()
@@ -457,6 +472,30 @@ class SniffleExtcapPlugin():
                 self.controlReadStream.close()
             if self.controlWriteStream is not None:
                 self.controlWriteStream.close()
+
+    def get_mac_from_string(self, search_str):
+        self.hw.cmd_mac()
+        self.hw.cmd_scan()
+        self.hw.mark_and_flush()
+        self.logger.info("Waiting for advertisement containing specified string...")
+
+        dpkt = None
+        while not self.captureStopped:
+            msg = self.hw.recv_and_decode()
+            if not isinstance(msg, PacketMessage):
+                continue
+            dpkt = DPacketMessage.decode(msg)
+            if isinstance(dpkt, AdvaMessage) or \
+                    isinstance(dpkt, AdvDirectIndMessage) or \
+                    isinstance(dpkt, ScanRspMessage) or \
+                    (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
+                if search_str in dpkt.body: break
+
+        # return to passive sniffing after active scan
+        self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
+
+        self.logger.info("Found target MAC: %s" % str_mac(dpkt.AdvA))
+        return dpkt.AdvA
 
     def controlThreadMain(self):
         self.logger.info('Control thread started')
