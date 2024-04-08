@@ -8,7 +8,7 @@ import argparse, sys
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
-        ConnectIndMessage, DataMessage)
+        ConnectIndMessage, DataMessage, str_mac)
 from binascii import unhexlify
 
 # global variable to access hardware
@@ -16,14 +16,6 @@ hw = None
 
 # global variable for pcap writer
 pcwriter = None
-
-# if true, filter on the first advertiser MAC seen
-# triggered through "-m top" option
-# should be paired with an RSSI filter
-_delay_top_mac = False
-_delay_string_mac = None
-_rssi_min = 0
-_allow_hop3 = True
 
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
@@ -80,20 +72,64 @@ def main():
     hw = SniffleHW(args.serport)
 
     # if a channel was explicitly specified, don't hop
-    global _allow_hop3
+    allow_hop3 = True
     if args.advchan == 40:
         args.advchan = 37
     else:
-        _allow_hop3 = False
+        allow_hop3 = False
+
+    # disable 37/38/39 hop in extended mode unless overridden
+    if args.extadv and not args.hop:
+        allow_hop3 = False
 
     # set the advertising channel (and return to ad-sniffing mode)
     hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
+
+    # configure RSSI filter
+    hw.cmd_rssi(args.rssi)
 
     # set whether or not to pause after sniffing
     hw.cmd_pause_done(args.pause)
 
     # set up whether or not to follow connections
     hw.cmd_follow(not args.advonly)
+
+    # configure BT5 extended (aux/secondary) advertising
+    hw.cmd_auxadv(args.extadv)
+
+    # set up target filter
+    if targ_specs < 1:
+        hw.cmd_mac()
+    elif args.irk:
+        hw.cmd_irk(unhexlify(args.irk), allow_hop3)
+    elif args.mac == "top":
+        mac_bytes = get_first_matching_mac()
+        hw.cmd_mac(mac_bytes, allow_hop3)
+    elif args.string:
+        hw.cmd_scan()
+        search_str = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
+        mac_bytes = get_first_matching_mac(search_str)
+        # return to passive sniffing after active scanning
+        hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
+        hw.cmd_mac(mac_bytes, allow_hop3)
+    else:
+        try:
+            mac_bytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
+            if len(mac_bytes) != 6:
+                raise Exception("Wrong length!")
+        except:
+            print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
+            return
+        hw.cmd_mac(mac_bytes, allow_hop3)
+
+    if allow_hop3:
+        # If we're locked onto a MAC address and will be hopping with
+        # its advertisements, RSSI filter is useless and should be disabled.
+        # However,  RSSI filter is still useful for extended advertisements,
+        # as my MAC filtering logic is less effective there.
+        # Thus, only disable it when we're doing 37/38/39 hops
+        #   (ie. when we [also] want legacy advertisements)
+        hw.cmd_rssi()
 
     if args.preload:
         # expect colon separated pairs, separated by commas
@@ -112,41 +148,6 @@ def main():
     else:
         # preload change to 2M
         hw.cmd_phy_preload(1)
-
-    # configure RSSI filter
-    global _rssi_min
-    _rssi_min = args.rssi
-    hw.cmd_rssi(args.rssi)
-
-    # disable 37/38/39 hop in extended mode unless overridden
-    if args.extadv and not args.hop:
-        _allow_hop3 = False
-
-    # configure MAC filter
-    global _delay_top_mac, _delay_string_mac
-    if targ_specs < 1:
-        hw.cmd_mac()
-    elif args.irk:
-        hw.cmd_irk(unhexlify(args.irk), _allow_hop3)
-    elif args.mac == "top":
-        hw.cmd_mac()
-        _delay_top_mac = True
-    elif args.string:
-        hw.cmd_mac()
-        # hack to convert string argument to a byte string with escape codes
-        _delay_string_mac = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
-    else:
-        try:
-            macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
-            if len(macBytes) != 6:
-                raise Exception("Wrong length!")
-        except:
-            print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
-            return
-        hw.cmd_mac(macBytes, _allow_hop3)
-
-    # configure BT5 extended (aux/secondary) advertising
-    hw.cmd_auxadv(args.extadv)
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()
@@ -181,39 +182,31 @@ def print_packet(pkt, quiet):
         pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
                 pkt.body, pkt.phy, pdu_type)
 
-    # React to the packet
-    if isinstance(dpkt, AdvaMessage) or isinstance(dpkt, AdvDirectIndMessage) or (
-            isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-        if _delay_top_mac:
-            _dtm(dpkt)
-        elif _delay_string_mac:
-            _dsm(dpkt)
-
     if isinstance(dpkt, ConnectIndMessage):
         # PCAP write is already done here, safe to update cur_aa
         hw.decoder_state.cur_aa = dpkt.aa_conn
         hw.decoder_state.last_chan = -1
 
-# If we are in _delay_top_mac mode and received a high RSSI advertisement,
-# lock onto it
-def _dtm(dpkt):
-    global _delay_top_mac
-    hw.cmd_mac(dpkt.AdvA, _allow_hop3)
-    if _allow_hop3:
-        # RSSI filter is still useful for extended advertisements,
-        # as my MAC filtering logic is less effective
-        # Thus, only disable it when we're doing 37/38/39 hops
-        #   (ie. when we [also] want legacy advertisements)
-        hw.cmd_rssi()
-    _delay_top_mac = False
+def get_first_matching_mac(search_str = None):
+    hw.cmd_mac()
+    hw.mark_and_flush()
+    if search_str:
+        print("Waiting for advertisement containing specified string...")
+    else:
+        print("Waiting for advertisement...")
 
-def _dsm(dpkt):
-    global _delay_string_mac
-    if _delay_string_mac in dpkt.body:
-        hw.cmd_mac(dpkt.AdvA, _allow_hop3)
-        if _allow_hop3:
-            hw.cmd_rssi()
-        _delay_string_mac = None
+    while True:
+        msg = hw.recv_and_decode()
+        if not isinstance(msg, PacketMessage):
+            continue
+        dpkt = DPacketMessage.decode(msg)
+        if isinstance(dpkt, AdvaMessage) or \
+                isinstance(dpkt, AdvDirectIndMessage) or \
+                isinstance(dpkt, ScanRspMessage) or \
+                (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
+            if search_str is None or search_str in dpkt.body:
+                print("Found target MAC: %s" % str_mac(dpkt.AdvA))
+                return dpkt.AdvA
 
 if __name__ == "__main__":
     main()

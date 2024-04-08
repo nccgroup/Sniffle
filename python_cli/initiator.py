@@ -64,19 +64,19 @@ def main():
 
     if args.mac:
         try:
-            macBytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
-            if len(macBytes) != 6:
+            mac_bytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
+            if len(mac_bytes) != 6:
                 raise Exception("Wrong length!")
         except:
             print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
             return
-        hw.cmd_mac(macBytes, False)
+        hw.cmd_mac(mac_bytes, False)
     elif args.irk:
-        macBytes = get_mac_from_irk(unhexlify(args.irk))
+        mac_bytes = get_mac_from_irk(unhexlify(args.irk))
     else:
-        searchBytes = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
-        macBytes, args.public = get_mac_from_string(searchBytes)
-        hw.cmd_mac(macBytes, False)
+        search_str = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
+        mac_bytes, args.public = get_mac_from_string(search_str)
+        hw.cmd_mac(mac_bytes, False)
 
     # initiator needs a MAC address
     hw.random_addr()
@@ -89,7 +89,7 @@ def main():
 
     # now enter initiator mode
     global _aa
-    _aa = hw.initiate_conn(macBytes, not args.public)
+    _aa = hw.initiate_conn(mac_bytes, not args.public)
 
     while True:
         msg = hw.recv_and_decode()
