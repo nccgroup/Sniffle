@@ -475,6 +475,7 @@ class SniffleExtcapPlugin():
 
     def get_mac_from_string(self, search_str):
         self.hw.cmd_mac()
+        self.hw.random_addr()
         self.hw.cmd_scan()
         self.hw.mark_and_flush()
         self.logger.info("Waiting for advertisement containing specified string...")

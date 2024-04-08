@@ -106,6 +106,7 @@ def main():
         mac_bytes = get_first_matching_mac()
         hw.cmd_mac(mac_bytes, allow_hop3)
     elif args.string:
+        hw.random_addr()
         hw.cmd_scan()
         search_str = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
         mac_bytes = get_first_matching_mac(search_str)
