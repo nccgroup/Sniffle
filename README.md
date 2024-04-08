@@ -365,8 +365,9 @@ from the Wireshark GUI by selecting the 'Sniffle' capture interface.
 
 To install the Sniffle plugin, first find the location of your Personal Extcap folder in the
 'About Wireshark' dialog (*Help* > *About Wireshark* > *Folders* > *Personal Extcap path*).
-On Unix systems, this folder is typically located at `~/.config/wireshark/extcap`. Under
-Windows, it can be found at `%USERPROFILE%\AppData\Roaming\Wireshark\extcap`.
+On Linux systems, this folder is typically located at `~/.config/wireshark/extcap`. On Mac OS,
+this, this folder may be located at `~/.local/lib/wireshark/extcap`. Under Windows, it can be
+found at `%USERPROFILE%\AppData\Roaming\Wireshark\extcap`.
 
 Copy the following files from the python_cli directory into your Personal Extcap folder:
 
@@ -391,6 +392,12 @@ the python interpreter if the installation directory is not included in the PATH
 C:\my_python_install\python.exe "%~dp0sniffle_extcap.py" %*
 ```
 
+On Mac OS, Wireshark may try to use the Xcode Python rather than the Python in your PATH specified
+by your shell profile. Thus, the Sniffle plugin may fail to show up in extcap interfaces if PySerial
+is not installed for the Xcode Python. To fix this, you can edit the shebang line of
+`sniffle_extcap.py` to directly point to the Python with PySerial installed, for example the
+Homebrew Python at `/opt/homebrew/bin/python3`, rather than `/usr/bin/env python3`.
+
 Once the plugin has been installed, restart Wireshark or choose *Capture* > *Refresh Interfaces*
 to enable the Sniffle interface.
 
@@ -400,17 +407,6 @@ symbolic link in the extcap folder pointing to a copy of the plugin script store
 ```
 mkdir -p ~/.config/wireshark/extcap
 ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
-```
-
-On Mac OS, Wireshark may try to use the system Python included in Xcode rather than the Python in
-your PATH specified by your shell profile. Thus, the Sniffle plugin may fail to show up in extcap
-interfaces if PySerial is not installed for the Xcode Python. To fix this, you can install PySerial
-for the Xcode Python as such:
-
-```
-cd /Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/Current/Resources/Python.app/Contents/MacOS
-./Python -m ensurepip --default-pip
-./Python -m pip install --user pyserial
 ```
 
 ## Transmit Functionality
