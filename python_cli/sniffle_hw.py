@@ -58,6 +58,8 @@ class SniffleHW:
         msg = b64encode(cmd) + b'\r\n'
         self.ser.write(msg)
 
+    # Passively listen on specified channel and PHY for PDUs with specified access address
+    # Expect PDU CRCs to use the specified initial CRC
     def cmd_chan_aa_phy(self, chan=37, aa=0x8E89BED6, phy=0, crci=0x555555):
         if not (0 <= chan <= 39):
             raise ValueError("Channel must be between 0 and 39")
@@ -65,46 +67,55 @@ class SniffleHW:
             raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
         self._send_cmd([0x10, *list(pack("<BLBL", chan, aa, phy, crci))])
 
+    # Should the sniffer stop after a connection ends, or return to ad sniffing
     def cmd_pause_done(self, pause_when_done=False):
         if pause_when_done:
             self._send_cmd([0x11, 0x01])
         else:
             self._send_cmd([0x11, 0x00])
 
+    # Specify minimum RSSI for received advertisements
     def cmd_rssi(self, rssi=-128):
         self._send_cmd([0x12, rssi & 0xFF])
 
-    def cmd_mac(self, mac_byte_list=None, hop3=True):
-        if mac_byte_list is None:
+    # Specify (or clear) a MAC address filter for received advertisements.
+    # If hop3 == True and a MAC filter is specified, hop betweeen 37/38/39 when
+    # listening for connection establishment.
+    def cmd_mac(self, mac_bytes=None, hop3=True):
+        if mac_bytes is None:
             self._send_cmd([0x13])
         else:
-            if len(mac_byte_list) != 6:
+            if len(mac_bytes) != 6:
                 raise ValueError("MAC must be 6 bytes!")
-            self._send_cmd([0x13, *mac_byte_list])
+            self._send_cmd([0x13, *mac_bytes])
             if hop3:
                 # hop with advertisements between 37/38/39
                 # unnecessary/detrimental with extended advertising
                 self._send_cmd([0x14])
 
+    # Should CONNECT_IND PDUs cause the sniffer to follow the connection
     def cmd_follow(self, enable=True):
         if enable:
             self._send_cmd([0x15, 0x01])
         else:
             self._send_cmd([0x15, 0x00])
 
+    # Should the sniffer follow auxiliary pointers in extended advertising
     def cmd_auxadv(self, enable=True):
         if enable:
             self._send_cmd([0x16, 0x01])
         else:
             self._send_cmd([0x16, 0x00])
 
+    # Reboot the sniffer firmware
     def cmd_reset(self):
         self._send_cmd([0x17])
 
+    # Sniffer will send back a MarkerMessage, to facilitate synchronization
     def cmd_marker(self):
         self._send_cmd([0x18])
 
-    # for master or slave modes
+    # Provide a PDU to transmit, when in master or slave modes
     def cmd_transmit(self, llid, pdu, event=0):
         if not (0 <= llid <= 3):
             raise ValueError("Out of bounds LLID")
@@ -114,6 +125,8 @@ class SniffleHW:
             raise ValueError("Out of bounds event counter")
         self._send_cmd([0x19, event & 0xFF, event >> 8, llid, len(pdu), *pdu])
 
+    # Initiate a connection by transmitting a CONNECT_IND PDU to the specified peer,
+    # then transitioning to a connected master state
     def cmd_connect(self, peerAddr, llData, is_random=True):
         if len(peerAddr) != 6:
             raise ValueError("Invalid peer address")
@@ -121,12 +134,16 @@ class SniffleHW:
             raise ValueError("Invalid LLData")
         self._send_cmd([0x1A, 1 if is_random else 0, *peerAddr, *llData])
 
+    # The the sniffer's own MAC address to use when advertising, scanning, or initiating
     def cmd_setaddr(self, addr, is_random=True):
         if len(addr) != 6:
             raise ValueError("Invalid MAC address")
         self._send_cmd([0x1B, 1 if is_random else 0, *addr])
 
-    def cmd_advertise(self, advData, scanRspData, mode=0):
+    # Transmit legacy advertisements on channels 37/38/39
+    # advData and scanRspData don't include the MAC address (specified with cmd_setaddr)
+    # Supported ad type modes are ADV_IND (0), ADV_NONCONN_IND (2), and ADV_SCAN_IND (3)
+    def cmd_advertise(self, advData, scanRspData=b'', mode=0):
         if len(advData) > 31:
             raise ValueError("advData too long!")
         if len(scanRspData) > 31:
@@ -137,11 +154,13 @@ class SniffleHW:
         paddedScnData = [len(scanRspData), *scanRspData] + [0]*(31 - len(scanRspData))
         self._send_cmd([0x1C, mode, *paddedAdvData, *paddedScnData])
 
+    # Set how frequently advertising events should occur
     def cmd_adv_interval(self, intervalMs):
         if not (20 < intervalMs < 0xFFFF):
             raise ValueError("Advertising interval out of bounds")
         self._send_cmd([0x1D, intervalMs & 0xFF, intervalMs >> 8])
 
+    # Specify an Identity Resolving Key to identify RPAs of the target
     def cmd_irk(self, irk=None, hop3=True):
         if irk is None:
             self._send_cmd([0x1E])
@@ -152,19 +171,26 @@ class SniffleHW:
             if hop3:
                 self._send_cmd([0x14])
 
+    # Should the sniffer immediately hop to the next channel in the connection hop sequence
+    # when master and slave stop talking in the current connection event, rather than waiting
+    # till the hop interval ends. Useful when hop interval is unknown in an encrypted connection.
     def cmd_instahop(self, enable=True):
         if enable:
             self._send_cmd([0x1F, 0x01])
         else:
             self._send_cmd([0x1F, 0x00])
 
+    # Manually specify a channel map to use when hopping with a connection.
+    # This is mainly for encrypted connections, as with unencrypted connections the sniffer
+    # will see all channel map updates and automatically adopt them.
     def cmd_setmap(self, chmap=b'\xFF\xFF\xFF\xFF\x1F'):
         if len(chmap) != 5:
             raise ValueError("Invalid channel map length!")
         self._send_cmd([0x20] + list(chmap))
 
-    # pairs should be a list of 2-tuples of integers
-    # each 2-tuple is (Interval, delta_Instant)
+    # Preload expected hop interval changes for encrypted connections.
+    # pairs should be a list of 2-tuples of integers, where each 2-tuple is:
+    #   (Interval, delta_Instant)
     def cmd_interval_preload(self, pairs=[]):
         if len(pairs) > SniffleHW.max_interval_preload_pairs:
             raise ValueError("Too many preload pairs")
@@ -175,9 +201,12 @@ class SniffleHW:
             cmd_bytes.extend(list(pack("<HH", *p)))
         self._send_cmd(cmd_bytes)
 
+    # Switch to active scanning mode
+    # This will scan on whichever channel and PHY was previously set by cmd_chan_aa_phy
     def cmd_scan(self):
         self._send_cmd([0x22])
 
+    # Preload an expected PHY change for encrypted connections
     def cmd_phy_preload(self, phy=1):
         if phy is None:
             # ignore encrypted PHY changes
@@ -284,13 +313,13 @@ class SniffleHW:
                     recvd_mark = True
                     break
 
+    # Generate a random static address and set it
     def random_addr(self):
-        # generate a random static address, set it
         addr = [randint(0, 255) for i in range(6)]
         addr[5] |= 0xC0 # make it static
         self.cmd_setaddr(bytes(addr))
 
-    # automatically generate sane LLData
+    # Initiate a connection to a peer, with sane auto-generated LLData
     def initiate_conn(self, peerAddr, is_random=True, interval=24, latency=1):
         llData = []
 
