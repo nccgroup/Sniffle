@@ -436,10 +436,6 @@ class SniffleExtcapPlugin():
 
         self.logger.info('Capture stopped')
 
-        # wait for the control thread to exit
-        if self.controlThread:
-            self.controlThread.join()
-
     def open_pipes(self):
         # open the capture output FIFO and initialize the PCAP writer to write to it
         if self.args.fifo is not None:
@@ -462,7 +458,7 @@ class SniffleExtcapPlugin():
 
             # start a thread to read control messages
             self.logger.info('Staring control thread')
-            self.controlThread = threading.Thread(target=self.controlThreadMain)
+            self.controlThread = threading.Thread(target=self.controlThreadMain, daemon=True)
             self.controlThread.start()
 
     def close_pipes(self):
