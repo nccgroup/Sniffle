@@ -6,18 +6,20 @@
 
 #include <stdbool.h>
 #include <ti/drivers/UART2.h>
-#include <ti/sysbios/knl/Clock.h>
 #include "ti_drivers_config.h"
+#include "ti_sysbios_config.h"
 #include "messenger.h"
 #include "base64.h"
 
 UART2_Handle uart;
 
+static const uint32_t BAUD_RATE = 2000000;
+
 int messenger_init()
 {
     UART2_Params uartParams;
     UART2_Params_init(&uartParams);
-    uartParams.baudRate = 2000000;
+    uartParams.baudRate = BAUD_RATE;
     uartParams.readReturnMode = UART2_ReadReturnMode_FULL;
     uart = UART2_open(CONFIG_UART2_0, &uartParams);
     if (!uart)
@@ -55,11 +57,14 @@ int messenger_recv(uint8_t *dst_buf)
     // 2 bytes for CRLF
     static uint8_t b64_buf[((MESSAGE_MAX * 4) / 3) + 2];
 
+    // 10 symbols per byte in 8-N-1 UART
+    const uint32_t us_per_byte = 10 * 1000000 / BAUD_RATE;
+
     // first byte of b64 decoded data indicates number of 4 byte chunks
     // read 2 extra bytes for CRLF
     UART2_read(uart, b64_buf, 1, &bytes_read);
     UART2_readTimeout(uart, b64_buf + 1, 5, &bytes_read,
-            1000 / Clock_tickPeriod);
+            10 * us_per_byte / Clock_tickPeriod_D);
     if (bytes_read < 5)
     {
         // incomplete message
@@ -85,10 +90,9 @@ int messenger_recv(uint8_t *dst_buf)
 
     if (word_cnt > 1)
     {
-        // 4000 us timeout is enough for MESSAGE_MAX even at 1M baud
         uint32_t bytes_to_read = (word_cnt - 1) << 2;
         UART2_readTimeout(uart, b64_buf + 6, bytes_to_read, &bytes_read,
-                4000 / Clock_tickPeriod);
+                (sizeof(b64_buf) + 20) * us_per_byte / Clock_tickPeriod_D);
         if (bytes_read < bytes_to_read)
         {
             // message came too slow, truncated
