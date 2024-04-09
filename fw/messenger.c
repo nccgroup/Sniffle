@@ -81,7 +81,7 @@ int messenger_recv(uint8_t *dst_buf)
     }
 
     word_cnt = dst_buf[0];
-    if (word_cnt > (MESSAGE_MAX >> 2))
+    if (word_cnt * 3 > MESSAGE_MAX)
     {
         // too big or some sync issue
         _recv_crlf();
