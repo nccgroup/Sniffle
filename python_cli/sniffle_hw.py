@@ -3,7 +3,7 @@
 # Released as open source under GPLv3
 
 import sys
-from serial import Serial
+from serial import Serial, SerialTimeoutException
 from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
@@ -42,12 +42,13 @@ def find_xds110_serport():
 class SniffleHW:
     max_interval_preload_pairs = 4
 
-    def __init__(self, serport=None, logger=None):
+    def __init__(self, serport=None, logger=None, timeout=None):
         if serport is None:
             serport = find_xds110_serport()
 
+        self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
-        self.ser = Serial(serport, 2000000)
+        self.ser = Serial(serport, 2000000, timeout=timeout)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
         self.logger = logger if logger else _TrivialLogger()
@@ -234,7 +235,10 @@ class SniffleHW:
 
                 # avoid error in case read was aborted
                 if len(pkt) < 6:
-                    continue
+                    if self.timeout:
+                        raise SerialTimeoutException()
+                    else:
+                        continue
 
                 # decode header to get length byte
                 try:
