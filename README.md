@@ -430,3 +430,48 @@ self-explanatory when looking at its host-side implementation in `sniffle_hw.py`
 (that transmits scan requests) is activated by `cmd_scan`. Connection initiation is triggered by
 `cmd_connect`, though it's easiest to use the `initiate_conn` wrapper. Advertising (optionally
 connectable) is activated by `cmd_advertise`.
+
+## XDS110 UART Latency
+
+At least at the time of writing, the TI XDS110 debugger included in Launchpad boards has some
+undesirable behaviour in its USB to UART bridge, where at high baud rates, there can be severe
+latency, especially with frequent small writes as done by the Sniffle firmware. This issue has
+been present for years, and is still present as of April 2024 with the XDS110 firmare 3.0.0.28
+bundled with UniFlash 8.6.0. The root cause is that in DMA based operation, the XDS110 firmware
+accumulates UART data in a buffer whose size is proportional to baud rate, and waits for this
+buffer to fill before transferring the data. There is logic to flush this buffer if no new data
+has arrived over the last 15 milliseconds, but this flushing logic is never triggered when Sniffle
+is frequently adding small packets from connection events every few milliseconds. As a result of
+this suboptimal behaviour, sniffed data can appear in delayed bursts on the host.
+
+The XDS110 firmware also has an alternate mode for UART operation, where every UART receive
+triggers an interrupt that results in data immediately being passed to the host. This
+interrupt-based mode of operation has much lower latency. However, the firmware only uses it for
+baud rates below 230400. As a workaround to the high latency of DMA mode operation with frequent
+small data chunks, you can modify the firmware to use interrupt-based USB-UART bridging even at
+high baud rates (like 2M baud as used by Sniffle). In firmware 3.0.0.28 (included with Uniflash
+8.6.0), you can hex edit the bytes at offset 0x0A14 from 61 3F to 00 1F. This will change the
+baud rate for switching to DMA-based UART operation from 230400 to 0x200000 (2097152).
+
+Be aware that the offsets and byte modifications described above are only for firmware 3.0.0.28,
+and will be different for different firmware versions. Flashing invalid firmware onto your debugger
+may damage it, and we assume no responsibility for any damage that may occur.
+
+The following commands can be used on Linux to modify the XDS110 firmware for low latency UART
+at high baud rates:
+
+```
+cd ~/ti/uniflash_8.6.0/deskdb/content/TICloudAgent/linux/ccs_base/common/uscif/xds110/
+cp firmware_3.0.0.28.bin firmware_3.0.0.28_fastuart.bin
+printf '\x00\x1f' | dd of=firmware_3.0.0.28_fastuart.bin bs=1 seek=$((0x0A14)) conv=notrunc
+sha256sum firmware_3.0.0.28_fastuart.bin
+```
+
+Before flashing, verify that the SHA256 sum of the modified firmware is
+`c226f2e9cb2b9f0bc111ca11f2903d58d4065293468623428c0e8eeb22086dcf`. After verifying this,
+run the following commands to flash the modified XDS110 debugger firmware:
+
+```
+./xdsdfu -m
+./xdsdfu -f firmware_3.0.0.28_fastuart.bin -r
+```
