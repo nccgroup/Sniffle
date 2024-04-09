@@ -131,6 +131,10 @@ static void sendPacket(BLE_Frame *frame)
         // bytes 1-4 are timestamp (little endian)
         memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
         msg_ptr += sizeof(frame->timestamp);
+
+        // bytes 5+ are marker data
+        memcpy(msg_ptr, frame->pData, frame->length);
+        msg_ptr += frame->length;
     } else if (frame->channel == MSGCHAN_STATE) {
         // byte 0 is message type
         *msg_ptr++ = MESSAGE_STATE;

@@ -112,8 +112,8 @@ class SniffleHW:
         self._send_cmd([0x17])
 
     # Sniffer will send back a MarkerMessage, to facilitate synchronization
-    def cmd_marker(self):
-        self._send_cmd([0x18])
+    def cmd_marker(self, data=b''):
+        self._send_cmd([0x18, *data])
 
     # Provide a PDU to transmit, when in master or slave modes
     def cmd_transmit(self, llid, pdu, event=0):
@@ -442,7 +442,8 @@ class DebugMessage:
 
 class MarkerMessage:
     def __init__(self, raw_msg, dstate):
-        ts, = unpack("<L", raw_msg)
+        ts, = unpack("<L", raw_msg[:4])
+        self.marker_data = raw_msg[4:]
 
         # these messages are intended to mark the zero time
         dstate.first_epoch_time = time()

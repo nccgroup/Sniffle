@@ -36,7 +36,7 @@ void setFollowConnections(bool follow);
 void setAuxAdvEnabled(bool enable);
 
 /* Send marker message indicating current radio time */
-void sendMarker(void);
+void sendMarker(const uint8_t *markerData, uint16_t len);
 
 /* Set Sniffle's MAC address for advertising/scanning/initiating */
 void setAddr(bool isRandom, void *addr);

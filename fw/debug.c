@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2019, NCC Group plc
+ * Copyright (c) 2018-2024, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -20,6 +20,7 @@ void dprintf(const char *fmt, ...)
     frame.channel = MSGCHAN_DEBUG;
     frame.phy = PHY_1M;
     frame.direction = 0;
+    frame.eventCtr = 0;
     frame.pData = (uint8_t *)buf;
 
     va_start (args, fmt);

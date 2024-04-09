@@ -199,6 +199,7 @@ static void stateTransition(SnifferState newState)
     frame.phy = PHY_1M;
     frame.pData = &buf;
     frame.length = 1;
+    frame.eventCtr = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
@@ -214,6 +215,7 @@ static void reportMeasurement(uint8_t *buf, uint8_t len)
     frame.phy = PHY_1M;
     frame.pData = buf;
     frame.length = len;
+    frame.eventCtr = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
@@ -1428,7 +1430,8 @@ void setAuxAdvEnabled(bool enable)
 
 // this command is useful to get the radio time after a series of config
 // commands were handled by the firmware (as a "zero" time)
-void sendMarker()
+// markerData can be used to make the marker unique or to echo test data
+void sendMarker(const uint8_t *markerData, uint16_t len)
 {
     BLE_Frame frame;
 
@@ -1436,9 +1439,10 @@ void sendMarker()
     frame.rssi = 0;
     frame.channel = MSGCHAN_MARKER;
     frame.phy = PHY_1M;
-    frame.pData = NULL;
-    frame.length = 0;
+    frame.pData = (uint8_t *)markerData;
+    frame.length = len;
     frame.direction = 0;
+    frame.eventCtr = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
