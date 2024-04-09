@@ -1,5 +1,5 @@
 # Written by Sultan Qasim Khan
-# Copyright (c) 2019-2021, NCC Group plc
+# Copyright (c) 2019-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import sys
@@ -9,7 +9,7 @@ from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from time import time
 from enum import Enum
-from random import randint
+from random import randint, randbytes
 from serial.tools.list_ports import comports
 from traceback import format_exception
 
@@ -307,13 +307,14 @@ class SniffleHW:
     def mark_and_flush(self):
         # use marker to zero time, flush every packet before marker
         # also tolerate errors from incomplete lines in UART buffer
+        marker_data = randbytes(4)
+        self.cmd_marker(marker_data)
         recvd_mark = False
         while not recvd_mark:
-            self.cmd_marker()
-            timeout = time() + 0.5
-            while time() < timeout:
-                mtype, _, _ = self._recv_msg(True)
-                if mtype == 0x12: # MarkerMessage
+            mtype, mbody, _ = self._recv_msg(True)
+            if mtype == 0x12: # MarkerMessage
+                msg = MarkerMessage(mbody, self.decoder_state)
+                if msg.marker_data == marker_data:
                     recvd_mark = True
                     break
 

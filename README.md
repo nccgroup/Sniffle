@@ -32,7 +32,7 @@ Sniffle has a number of useful features, including:
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
 * TI SimpleLink Low Power F2 SDK 7.40.00.77: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.40.00.77>
 * TI DSLite Programmer Software: see below
-* Python 3.5+ with PySerial installed
+* Python 3.9+ with PySerial installed
 
 **If you don't want to go through the effort of setting up a build
 environment for the firmware, you can just flash prebuilt firmware binaries
