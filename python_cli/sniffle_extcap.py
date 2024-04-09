@@ -458,7 +458,7 @@ class SniffleExtcapPlugin():
 
         if self.controlReadStream:
             # start a thread to read control messages
-            self.logger.info('Staring control thread')
+            self.logger.info('Starting control thread')
             self.controlThread = threading.Thread(target=self.controlThreadMain, daemon=True)
             self.controlThread.start()
 
