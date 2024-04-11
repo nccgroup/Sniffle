@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2016-2024, NCC Group plc
+ * Copyright (c) 2016-2022, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -54,7 +54,8 @@ typedef enum
     MASTER,
     SLAVE,
     ADVERTISING,
-    SCANNING
+    SCANNING,
+    WAIT_AUX_CONNECT_RSP
 } SnifferState;
 
 /***** Variable declarations *****/
@@ -83,13 +84,11 @@ static bool ll_encryption;
 static uint32_t connTimeoutTime;
 
 static volatile bool gotLegacy;
-static volatile bool gotAuxConnReq;
 static volatile bool firstPacket;
 static uint32_t legacyLen;
 static uint32_t expectedLegacyLen;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
-static uint32_t sniffScanRspLen = 26;
 
 static uint32_t lastAnchorTicks;
 static uint32_t intervalTicks[3];
@@ -136,7 +135,6 @@ static uint8_t s_advData[31];
 static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
 static uint16_t s_advIntervalMs = 100;
-static ADV_Mode s_advMode;
 
 uint8_t g_pkt_dir = 0;
 
@@ -200,7 +198,6 @@ static void stateTransition(SnifferState newState)
     frame.phy = PHY_1M;
     frame.pData = &buf;
     frame.length = 1;
-    frame.eventCtr = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
@@ -216,7 +213,6 @@ static void reportMeasurement(uint8_t *buf, uint8_t len)
     frame.phy = PHY_1M;
     frame.pData = buf;
     frame.length = len;
-    frame.eventCtr = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
@@ -414,7 +410,6 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
     while (1)
     {
         g_pkt_dir = 0;
-        gotAuxConnReq = false;
 
         if (snifferState == STATIC)
         {
@@ -434,6 +429,9 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     aa = accessAddress;
                 }
                 RadioWrapper_recvFrames(phy, chan, aa, statCRCI, etime, indicatePacket);
+                if (snifferState == WAIT_AUX_CONNECT_RSP)
+                    stateTransition(DATA);
+
             } else {
                 /* receive forever (until stopped) */
                 RadioWrapper_recvFrames(statPHY, statChan, accessAddress, statCRCI, 0xFFFFFFFF,
@@ -464,23 +462,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 continue;
             }
 
-            /* Based on my experiments, for connectable or scannable legacy advertisements,
-             * the advertising hop interval (without scan requests) for Broadcom controllers
-             * that are ubiquitous in mobile devices is always:
-             *      ad_len*8 + 432 us
-             * Thus, for Broadcom controllers you can figure it out just based on ad len.
-             *
-             * However, this can vary for other Bluetooth controllers. For example:
-             * - Apple AirTags have a hop inteval of 690 us with ad length 16,
-             *   i.e. 16*8 + 562 us
-             * - Qualcomm FastConnect controllers usually have a hop interval of
-             *   ad_len*8 + 518 us
-             *
-             * In practice, this isn't a problem because we can still spend enough time
-             * on channels 38 and 39 to capture CONNECT_IND for longer hop intervals.
-             * We'll just miss the initial ADV_IND but that doesn't matter since we already
-             * got the same advertisement on channel 37.
-             */
+            // based on my experiments, for connectable or scannable legacy advertisements,
+            // the advertising hop interval (without scan requests) is always:
+            //      ad_len*8 + 432 us
+            // thus, no need for measurements and medians, just figure it out based on ad len
             if (gotLegacy)
             {
                 rconf.hopIntervalTicks = legacyLen*32 + 432*4;
@@ -643,7 +628,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
             RadioWrapper_advertise3(indicatePacket, ourAddr, ourAddrRandom,
-                    s_advData, s_advLen, s_scanRspData, s_scanRspLen, s_advMode);
+                    s_advData, s_advLen, s_scanRspData, s_scanRspLen);
             // don't sleep if we had a connection established
             if (snifferState == ADVERTISING)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
@@ -651,6 +636,9 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             /* scan forever (until stopped) */
             RadioWrapper_scan(statPHY, statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
                     indicatePacket);
+        } else if (snifferState == WAIT_AUX_CONNECT_RSP) {
+            // Showldn't be here
+            snifferState = STATIC;
         }
     }
 }
@@ -759,7 +747,7 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * The latency in 4 MHz radio ticks between end of transmission and now is:
                  * RF_getCurrentTime() - ((frame->timestamp << 2) + (frame->length + 8)*32)
-                 * I've measured this to be typically 150 us (+- 25 ms)
+                 * I've measured this to be typically around 165 us
                  *
                  * There's a 150 us inter-frame separation as per BLE spec.
                  * A scan request needs approximately 176 us of transmission time.
@@ -775,8 +763,8 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * To be sure there's no scan request or conn request, we need to wait this
                  * long after the timestamp of our advertisement on 37:
-                 * frame duration + 150 us T_IFS + 176 us scan request + 150 us latency
-                 * = frame duration + 476 us
+                 * frame duration + 150 us T_IFS + 176 us scan request + 165 us latency
+                 * = frame duration + 491 us
                  *
                  * If there's a connection request on 38, and there was no scan on 37, the
                  * connection request will start the following amount of time after 37 timestamp:
@@ -789,12 +777,12 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * When following connections, at latest, we must hop 240 us (aforementioned
                  * latency) before the scan or connect request on 38. That is at:
-                 * timestamp_37 + hop_interval + frame duration + 150 us T_IFS - 240 us latency
-                 * = timestamp_37 + hop_interval + frame duration - 90 us
+                 * timestamp_37 + frame duration + hop interval + 150 us T_IFS - 240 us latency
+                 * = timestamp_37 + frame duration + hop interval - 90 us
                  *
-                 * Usually, hop interval - 90 us > 476 us, so we can just use a fixed hop delay
-                 * after the end of the advertisement on 37. Instead of setting the timer at 476
-                 * us after the advert end, we set it at 510 us to give us some time to postpone
+                 * Usually, hop interval - 90 us > 491 us, so we can just use a fixed hop delay
+                 * after the end of the advertisement on 37. Instead of setting the timer at 491
+                 * us after the advert end, we set it at 530 us to give us some time to postpone
                  * the radio trigger.
                  */
 
@@ -809,9 +797,9 @@ void reactToPDU(const BLE_Frame *frame)
                     // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
                     uint32_t targHopTime, timeRemaining;
 
-                    // we should hop around 510 us (2040 radio ticks) after frame end
+                    // we should hop around 530 us (2120 radio ticks) after frame end
                     // this should give us enough time to postpone hop if necessary
-                    targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2040;
+                    targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2120;
 
                     timeRemaining = targHopTime - RF_getCurrentTime();
                     if (timeRemaining >= 0x80000000)
@@ -824,33 +812,11 @@ void reactToPDU(const BLE_Frame *frame)
             }
         }
 
-        if (pduType == SCAN_RSP)
-            sniffScanRspLen = frame->length;
-
-        /* Hop interval gets temporarily stretched if a scan request is received,
-         * since the advertiser needs to respond. There cannot be a CONNECT_IND after
-         * a SCAN_REQ/SCAN_RSP pair, so it will immediately hop to the next channel after
-         * sending SCAN_RSP.
-         *
-         * Amount of stretch is SCAN_REQ duration + T_IFS + SCAN_RSP duration - wait time
-         * Wait time (~80 us) is subtracted because after a scan response, there is no wait
-         * for a subsequent CONNECT_IND or SCAN_REQ on the same channel.
-         *
-         * For a typical 26 byte SCAN_RSP (24 byte body), the extension is:
-         *  176 + 150 + 272 - 80 = 518 us
-         *
-         * Note: above duration calculations include:
-         *  1 octet preamble, 4 octet AA, 2 byte header, PDU body, and 3 octet CRC
-         *
-         * We can benefit from hopping a little early to give more time for latency
-         * retuning to channel 38. If we hop 40 us early, and calculate with the
-         * Sniffle frame length (including 2 byte header, excluding CRC, AA, preamble),
-         * the hop postponement in microseconds should be:
-         * 176 + 150 + (8 + scanRspLen)*8 - 80 - 40 = 270 + scanRspLen*8
-         */
+        // hop interval gets temporarily stretched by 400 us if a scan request is received,
+        // since the advertiser needs to respond
         if (pduType == SCAN_REQ && frame->channel == 37 && snifferState == ADVERT_HOP && !postponed)
         {
-            DelayHopTrigger_postpone(270 + sniffScanRspLen*8);
+            DelayHopTrigger_postpone(400);
             postponed = true;
         }
 
@@ -881,6 +847,7 @@ void reactToPDU(const BLE_Frame *frame)
         }
 
         // handle CONNECT_IND or AUX_CONNECT_REQ (0x5)
+        // TODO: deal with AUX_CONNECT_RSP (wait for it? require it? need to decide)
         if ((pduType == CONNECT_IND) && followConnections)
         {
             bool isAuxReq = frame->channel < 37;
@@ -913,20 +880,15 @@ void reactToPDU(const BLE_Frame *frame)
                 RadioWrapper_resetSeqStat();
                 stateTransition(SLAVE);
                 RadioWrapper_stop();
-            } else if (isAuxReq) {
-                gotAuxConnReq = true;
             } else {
-                stateTransition(DATA);
-                RadioWrapper_stop();
+                // In extended mode keep RadioWrapper running to receive AUX_CONNECT_RSP
+                if (!isAuxReq) {
+                    stateTransition(DATA);
+                    RadioWrapper_stop();
+                } else {
+                    stateTransition(WAIT_AUX_CONNECT_RSP);
+                }
             }
-        }
-
-        // gotAuxConnReq can only be true if followConnections was true
-        // and we're currently on a secondary advertising channel
-        if (gotAuxConnReq && (pduType == AUX_CONNECT_RSP))
-        {
-            stateTransition(DATA);
-            RadioWrapper_stop();
         }
     } else {
         reactToDataPDU(frame, false);
@@ -1279,7 +1241,10 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         else if (phy == PHY_2M)
             auxPeriod = (AUX_OFF_TARG_USEC + 2000) * 4;
         else // (phy == PHY_CODED_S8 || phy == PHY_CODED_S2)
-            auxPeriod = (AUX_OFF_TARG_USEC + 20000) * 4;
+            // PHY_CODED_S2:  6534us =  4542 + 150 + 1006 + 150 +  686
+            // PHY_CODED_S8: 21852us = 17040 + 150 + 2896 + 150 + 1616
+            // 22000 >= 21852
+            auxPeriod = (AUX_OFF_TARG_USEC + 22000) * 4;
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, auxPeriod);
 
         // schedule a scheduler invocation in 5 ms or sooner if needed
@@ -1421,7 +1386,6 @@ void advHopSeekMode()
 {
     stateTransition(ADVERT_SEEK);
     advHopEnabled = true;
-    sniffScanRspLen = 26;
     RadioWrapper_stop();
 }
 
@@ -1442,8 +1406,7 @@ void setAuxAdvEnabled(bool enable)
 
 // this command is useful to get the radio time after a series of config
 // commands were handled by the firmware (as a "zero" time)
-// markerData can be used to make the marker unique or to echo test data
-void sendMarker(const uint8_t *markerData, uint16_t len)
+void sendMarker()
 {
     BLE_Frame frame;
 
@@ -1451,10 +1414,9 @@ void sendMarker(const uint8_t *markerData, uint16_t len)
     frame.rssi = 0;
     frame.channel = MSGCHAN_MARKER;
     frame.phy = PHY_1M;
-    frame.pData = (uint8_t *)markerData;
-    frame.length = len;
+    frame.pData = NULL;
+    frame.length = 0;
     frame.direction = 0;
-    frame.eventCtr = 0;
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
@@ -1480,10 +1442,8 @@ void initiateConn(bool isRandom, void *_peerAddr, void *llData)
 }
 
 /* Enter advertising state */
-void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
-        void *scanRspData, uint8_t scanRspLen)
+void advertise(void *advData, uint8_t advLen, void *scanRspData, uint8_t scanRspLen)
 {
-    s_advMode = mode;
     s_advLen = advLen;
     s_scanRspLen = scanRspLen;
     memcpy(s_advData, advData, advLen);
