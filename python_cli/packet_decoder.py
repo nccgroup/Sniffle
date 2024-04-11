@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2019, NCC Group plc
+# Copyright (c) 2019-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import struct
 from sniffle_hw import BLE_ADV_AA, PacketMessage
-
-def _safe_asciify(c):
-    if 32 <= c <= 126:
-        return chr(c)
-    return " "
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
@@ -28,6 +23,33 @@ def _str_atype(addr, is_random):
 def str_mac2(mac, is_random):
     return "%s (%s)" % (str_mac(mac), _str_atype(mac, is_random))
 
+def printable(s):
+    pchar = lambda a: chr(a) if 32 <= a < 127 else '.'
+    return ''.join([pchar(a) for a in s])
+
+def hexline(s, bytes_per_group=8):
+    chunks = []
+    for i in range(0, len(s), bytes_per_group):
+        chunks.append(' '.join([f'{c:02x}' for c in s[i:i+bytes_per_group]]))
+    return '  '.join(chunks)
+
+def hexdump(s, bytes_per_line=16, bytes_per_group=8):
+    prev_chunk = None
+    in_repeat = False
+    hexline_len = 3*bytes_per_line + bytes_per_line//bytes_per_group - 2
+    lines = []
+    for i in range(0, len(s), bytes_per_line):
+        chunk = s[i:i+bytes_per_line]
+        if chunk == prev_chunk and i + bytes_per_line < len(s):
+            if not in_repeat:
+                lines.append('*')
+                in_repeat = True
+        else:
+            lines.append(f'0x{i:04x}:  {hexline(chunk):{hexline_len}}  {printable(chunk)}')
+            in_repeat = False
+        prev_chunk = chunk
+    return '\n'.join(lines)
+
 class DPacketMessage(PacketMessage):
     pdutype = "RFU"
 
@@ -44,9 +66,7 @@ class DPacketMessage(PacketMessage):
         self.event = pkt.event
 
     def hexdump(self):
-        hexstr = " ".join(["%02X" % b for b in self.body])
-        ascstr = "  ".join([_safe_asciify(b) for b in self.body])
-        return "\n".join([hexstr, ascstr])
+        return hexdump(self.body)
 
     def __str__(self):
         return "\n".join([self.str_header(), self.hexdump()])
