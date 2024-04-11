@@ -45,7 +45,7 @@ def hexdump(s, bytes_per_line=16, bytes_per_group=8):
                 lines.append('*')
                 in_repeat = True
         else:
-            lines.append(f'0x{i:04x}:  {hexline(chunk):{hexline_len}}  {printable(chunk)}')
+            lines.append(f'0x{i:04x}:  {hexline(chunk, bytes_per_group):{hexline_len}}  {printable(chunk)}')
             in_repeat = False
         prev_chunk = chunk
     return '\n'.join(lines)
