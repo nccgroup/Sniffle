@@ -931,8 +931,6 @@ void reactToPDU(const BLE_Frame *frame)
         // and we're currently on a secondary advertising channel
         if (gotAuxConnReq && (pduType == AUX_CONNECT_RSP))
         {
-            gotAuxConnReq = false;
-            stateTransition(DATA);
             RadioWrapper_stop();
         }
     } else {
