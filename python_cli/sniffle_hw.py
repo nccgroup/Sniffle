@@ -370,6 +370,10 @@ class SniffleDecoderState:
         # access address tracking
         self.cur_aa = 0 if is_data else BLE_ADV_AA
 
+        # in case of AUX_CONNECT_REQ, we are waiting for AUX_CONNECT_RSP
+        # temporarily hold the access address of the pending connection here
+        self.aux_pending_aa = None
+
         # state tracking
         self.last_state = SnifferState.STATIC
 

@@ -75,7 +75,8 @@ typedef enum {
     SCAN_RSP,
     CONNECT_IND,
     ADV_SCAN_IND,
-    ADV_EXT_IND
+    ADV_EXT_IND,
+    AUX_CONNECT_RSP
 } AdvPDUType;
 
 struct RadioConfig {

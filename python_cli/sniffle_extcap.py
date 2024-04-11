@@ -38,7 +38,8 @@ import signal
 import traceback
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage
 from packet_decoder import (DPacketMessage, DataMessage, ConnectIndMessage, AdvaMessage,
-                            AdvDirectIndMessage, ScanRspMessage, AdvExtIndMessage, str_mac)
+                            AdvDirectIndMessage, ScanRspMessage, AdvExtIndMessage, str_mac,
+                            AuxConnectRspMessage)
 from pcap import PcapBleWriter
 from serial.tools.list_ports import comports
 
@@ -409,7 +410,6 @@ class SniffleExtcapPlugin():
 
         # capture packets and write to the capture output until signaled to stop
         while not self.captureStopped:
-
             # wait for a capture packet
             pkt = self.hw.recv_and_decode()
             if isinstance(pkt, PacketMessage):
@@ -431,8 +431,12 @@ class SniffleExtcapPlugin():
 
                 # update cur_aa
                 if isinstance(dpkt, ConnectIndMessage):
-                    self.hw.decoder_state.cur_aa = dpkt.aa_conn
-                    self.hw.decoder_state.last_chan = -1
+                    if dpkt.chan < 37:
+                        self.hw.decoder_state.aux_pending_aa = dpkt.aa_conn
+                    else:
+                        self.hw.decoder_state.cur_aa = dpkt.aa_conn
+                elif isinstance(dpkt, AuxConnectRspMessage):
+                    self.hw.decoder_state.cur_aa = self.hw.decoder_state.aux_pending_aa
 
         self.logger.info('Capture stopped')
 

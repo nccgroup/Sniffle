@@ -125,6 +125,8 @@ class AdvertMessage(DPacketMessage):
                 tc = AuxConnectReqMessage
             elif pdu_type == 7:
                 tc = AuxAdvIndMessage
+            elif pdu_type == 8:
+                tc = AuxConnectRspMessage
             else:
                 tc = AdvertMessage
 
@@ -445,3 +447,6 @@ class AdvExtIndMessage(AdvertMessage):
 
 class AuxAdvIndMessage(AdvExtIndMessage):
     pdutype = "AUX_ADV_IND"
+
+class AuxConnectRspMessage(AdvExtIndMessage):
+    pdutype = "AUX_CONNECT_RSP"

@@ -83,6 +83,7 @@ static bool ll_encryption;
 static uint32_t connTimeoutTime;
 
 static volatile bool gotLegacy;
+static volatile bool gotAuxConnReq;
 static volatile bool firstPacket;
 static uint32_t legacyLen;
 static uint32_t expectedLegacyLen;
@@ -413,6 +414,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
     while (1)
     {
         g_pkt_dir = 0;
+        gotAuxConnReq = false;
 
         if (snifferState == STATIC)
         {
@@ -879,7 +881,6 @@ void reactToPDU(const BLE_Frame *frame)
         }
 
         // handle CONNECT_IND or AUX_CONNECT_REQ (0x5)
-        // TODO: deal with AUX_CONNECT_RSP (wait for it? require it? need to decide)
         if ((pduType == CONNECT_IND) && followConnections)
         {
             bool isAuxReq = frame->channel < 37;
@@ -911,9 +912,20 @@ void reactToPDU(const BLE_Frame *frame)
             {
                 RadioWrapper_resetSeqStat();
                 stateTransition(SLAVE);
+                RadioWrapper_stop();
+            } else if (isAuxReq) {
+                gotAuxConnReq = true;
             } else {
                 stateTransition(DATA);
+                RadioWrapper_stop();
             }
+        }
+
+        // gotAuxConnReq can only be true if followConnections was true
+        // and we're currently on a secondary advertising channel
+        if (gotAuxConnReq && (pduType == AUX_CONNECT_RSP))
+        {
+            stateTransition(DATA);
             RadioWrapper_stop();
         }
     } else {
