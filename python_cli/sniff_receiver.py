@@ -185,7 +185,7 @@ def print_packet(pkt, quiet):
 
     # PCAP write is already done here, safe to update cur_aa
     if isinstance(dpkt, ConnectIndMessage):
-        hw.decoder_state.aa_conn = dpkt.aa_conn
+        hw.decoder_state.aux_pending_aa = dpkt.aa_conn
         hw.decoder_state.last_chan = -1
 
 def get_first_matching_mac(search_str = None):
