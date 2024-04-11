@@ -469,7 +469,6 @@ class SnifferState(Enum):
     SLAVE = 7
     ADVERTISING = 8
     SCANNING = 9
-    WAIT_AUX_CONNECT_RSP = 10
 
 class StateMessage:
     def __init__(self, raw_msg, dstate):
