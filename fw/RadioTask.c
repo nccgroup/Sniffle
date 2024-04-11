@@ -1271,15 +1271,25 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         // multiply by 4 to convert from usec to radio ticks
         uint32_t radioTimeStart = (frame->timestamp + auxOffsetUs) * 4;
 
-        // wait for a little longer than the expected aux packet start time
-        // it will actually remain till packet completion if a packet is detected
+        /* Wait for a little longer than the expected aux packet start time.
+         * It will actually remain till packet completion if a packet is detected.
+         * Let's wait till at least the two PDU header bytes are received.
+         *
+         * We want to stay long enough to capture the start of AUX_CONNECT_RSP or
+         * AUX_SCAN_RSP, coming after the longest possible AUX_ADV_IND and a
+         * corresponding AUX_CONNECT_REQ or AUX_SCAN_REQ.
+         */
         uint32_t auxPeriod;
         if (phy == PHY_1M)
+            // at least 2128 + 150 + 360 + 150 + 64 = 2852 us
             auxPeriod = (AUX_OFF_TARG_USEC + 3000) * 4;
         else if (phy == PHY_2M)
-            auxPeriod = (AUX_OFF_TARG_USEC + 2000) * 4;
+            // at least 1064 + 150 + 180 + 150 + 32 = 1576 us
+            auxPeriod = (AUX_OFF_TARG_USEC + 1800) * 4;
         else // (phy == PHY_CODED_S8 || phy == PHY_CODED_S2)
-            auxPeriod = (AUX_OFF_TARG_USEC + 20000) * 4;
+            // S=2: at least 4542 + 150 + 1006 + 150 + 380 = 6228 us
+            // S=8: at least 17040 + 150 + 2896 + 150 + 392 = 20628 us
+            auxPeriod = (AUX_OFF_TARG_USEC + 21000) * 4;
         AuxAdvScheduler_insert(chan, phy, radioTimeStart, auxPeriod);
 
         // schedule a scheduler invocation in 5 ms or sooner if needed
