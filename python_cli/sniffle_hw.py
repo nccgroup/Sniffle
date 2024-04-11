@@ -469,12 +469,15 @@ class SnifferState(Enum):
     SLAVE = 7
     ADVERTISING = 8
     SCANNING = 9
+    WAIT_AUX_CONNECT_RSP = 10
 
 class StateMessage:
     def __init__(self, raw_msg, dstate):
         self.last_state = dstate.last_state
         self.new_state = SnifferState(raw_msg[0])
         dstate.last_state = self.new_state
+        if self.new_state == SnifferState.DATA:
+        	dstate.cur_aa = dstate.aux_pending_aa
 
     def __repr__(self):
         return "%s(new=%s, old=%s)" % (type(self).__name__,
