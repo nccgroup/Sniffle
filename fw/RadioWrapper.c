@@ -283,7 +283,7 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_cmdBle5Scanner.channel = chan;
     RF_cmdBle5Scanner.whitening.init = 0x40 + chan;
     RF_cmdBle5Scanner.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
-    RF_cmdBle5Scanner.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
+    RF_cmdBle5Scanner.phyMode.coding = (phy == PHY_CODED_S2) ? 6 : 4;
     RF_cmdBle5Scanner.pParams->pRxQ = &dataQueue;
 
     RF_cmdBle5Scanner.pParams->scanConfig.scanFilterPolicy = 0; // scan everything
@@ -593,7 +593,7 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_cmdBle5Initiator.channel = chan;
     RF_cmdBle5Initiator.whitening.init = 0x40 + chan;
     RF_cmdBle5Initiator.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
-    RF_cmdBle5Initiator.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
+    RF_cmdBle5Initiator.phyMode.coding = (phy == PHY_CODED_S2) ? 6 : 4;
     RF_cmdBle5Initiator.pParams->pRxQ = &dataQueue;
 
     RF_cmdBle5Initiator.pParams->rxConfig.bAutoFlushIgnored = 1;
