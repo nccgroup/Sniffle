@@ -805,6 +805,11 @@ void reactToPDU(const BLE_Frame *frame)
                 if (snifferState == ADVERT_SEEK) {
                     // we can switch to ADVERT_HOP mode immediately
                     RadioWrapper_stop();
+                } else if (!followConnections) {
+                    // hop to 38 right away to capture ads on 38 and 39
+                    // we need to hop ASAP due to latency and tuning time
+                    // we can still capture scan requests and responses on 39
+                    DelayHopTrigger_trig(0);
                 } else {
                     // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
                     uint32_t targHopTime, timeRemaining;
