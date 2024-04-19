@@ -225,7 +225,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     sniff39 = sniff37;
 
     // sniff 37, wait for trigger, sniff 38, sniff 39
-    sniff37.pNextOp = (RF_Op *)&sniff38;
+    sniff37.pNextOp = delay1 > 0 ? (RF_Op *)&sniff38 : (RF_Op *)&sniff39;
     sniff37.pParams = &para37;
     sniff37.channel = 37;
     para37.endTrigger.triggerType = TRIG_NEVER;

@@ -82,11 +82,10 @@ static bool ll_encryption;
 
 static uint32_t connTimeoutTime;
 
-static volatile bool gotLegacy;
+static volatile bool gotLegacy39;
 static volatile bool gotAuxConnReq;
 static volatile bool firstPacket;
-static uint32_t legacyLen;
-static uint32_t expectedLegacyLen;
+static uint32_t timestamp37 = 0;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 static uint32_t sniffScanRspLen = 26;
@@ -444,54 +443,37 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
              * extended advertising, then just jump to ADVERT_HOP with an assumed legacy ad
              * hop interval. If legacy advertising starts later, we can correct the hopping then.
              */
-            gotLegacy = false;
+            gotLegacy39 = false;
             if (auxAdvEnabled)
                 DelayStopTrigger_trig(3 * 1000000);
 
-            RadioWrapper_recvFrames(PHY_1M, 37, BLE_ADV_AA, 0x555555,
-                    RF_getCurrentTime() + 3*4000000, indicatePacket);
+            // Jump straight to 39 after 37, to catch ads in case of very fast hopping
+            RadioWrapper_recvAdv3(0, 22*4000, indicatePacket);
 
             // break out early if we cancelled
             if (snifferState != ADVERT_SEEK) continue;
 
             // Timeout case
-            if (!gotLegacy && auxAdvEnabled) {
+            if (!gotLegacy39 && auxAdvEnabled) {
                 // assume 688 us hop interval
                 rconf.hopIntervalTicks = 688 * 4;
-                expectedLegacyLen = 32;
                 dprintf("No legacy ads, jumping to ADVERT_HOP");
                 stateTransition(ADVERT_HOP);
                 continue;
             }
 
-            /* Based on my experiments, for connectable or scannable legacy advertisements,
-             * the advertising hop interval (without scan requests) for Broadcom controllers
-             * that are ubiquitous in mobile devices is always:
-             *      ad_len*8 + 432 us
-             * Thus, for Broadcom controllers you can figure it out just based on ad len.
-             *
-             * However, this can vary for other Bluetooth controllers. For example:
-             * - Apple AirTags have a hop inteval of 690 us with ad length 16,
-             *   i.e. 16*8 + 562 us
-             * - Qualcomm FastConnect controllers usually have a hop interval of
-             *   ad_len*8 + 518 us
-             *
-             * In practice, this isn't a problem because we can still spend enough time
-             * on channels 38 and 39 to capture CONNECT_IND for longer hop intervals.
-             * We'll just miss the initial ADV_IND but that doesn't matter since we already
-             * got the same advertisement on channel 37.
-             */
-            if (gotLegacy)
-            {
-                rconf.hopIntervalTicks = legacyLen*32 + 432*4;
-                reportMeasAdvHop(rconf.hopIntervalTicks >> 2);
-                expectedLegacyLen = legacyLen;
+            // keep track of how many times we measured hop interval
+            if (gotLegacy39)
+                connEventCount++;
 
+            // assume that in 5 measurements, at least one is without scans on 37 and 38
+            if (connEventCount >= 5)
+            {
+                reportMeasAdvHop(rconf.hopIntervalTicks >> 2);
                 stateTransition(ADVERT_HOP);
             }
         } else if (snifferState == ADVERT_HOP) {
             // hop between 37/38/39 targeting a particular MAC
-            gotLegacy = false;
             postponed = false;
 
             if (auxAdvEnabled)
@@ -514,10 +496,6 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             } else {
                 RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
             }
-
-            // state could have changed, so check again
-            if (snifferState == ADVERT_HOP && gotLegacy && legacyLen != expectedLegacyLen)
-                advHopSeekMode(); // interval changed
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
         } else if (snifferState == DATA) {
@@ -747,10 +725,7 @@ void reactToPDU(const BLE_Frame *frame)
             pduType == ADV_NONCONN_IND ||
             pduType == ADV_SCAN_IND)
         {
-            // Hop to 38 (with a delay) after we get an anchor advertisement on 37
-            if ( (frame->channel == 37) &&
-                    ((snifferState == ADVERT_HOP) || (snifferState == ADVERT_SEEK)) )
-            {
+            if (frame->channel == 37) {
                 /* Packet timestamps represent the start of the packet.
                  * I'm not sure if it's the time of the preamble or time of the access address.
                  *
@@ -798,34 +773,40 @@ void reactToPDU(const BLE_Frame *frame)
                  * the radio trigger.
                  */
 
-                // Let main loop know we got a legacy adv on 37
-                gotLegacy = true;
-                legacyLen = frame->length;
-
                 if (snifferState == ADVERT_SEEK) {
-                    // we can switch to ADVERT_HOP mode immediately
-                    RadioWrapper_stop();
-                } else if (!followConnections) {
-                    // hop to 38 right away to capture ads on 38 and 39
-                    // we need to hop ASAP due to latency and tuning time
-                    // we can still capture scan requests and responses on 39
+                    // record timestamp and hop to 39
+                    timestamp37 = frame->timestamp;
                     DelayHopTrigger_trig(0);
-                } else {
-                    // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
-                    uint32_t targHopTime, timeRemaining;
+                } else if (snifferState == ADVERT_HOP) {
+                    if (!followConnections) {
+                        // hop to 38 right away to capture ads on 38 and 39
+                        // we need to hop ASAP due to latency and tuning time
+                        // we can still capture scan requests and responses on 39
+                        DelayHopTrigger_trig(0);
+                    } else {
+                        // Hop to 38 (with a delay) after we get an anchor advertisement on 37
+                        // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
+                        uint32_t targHopTime, timeRemaining;
 
-                    // we should hop around 510 us (2040 radio ticks) after frame end
-                    // this should give us enough time to postpone hop if necessary
-                    targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2040;
+                        // we should hop around 510 us (2040 radio ticks) after frame end
+                        // this should give us enough time to postpone hop if necessary
+                        targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2040;
 
-                    timeRemaining = targHopTime - RF_getCurrentTime();
-                    if (timeRemaining >= 0x80000000)
-                        timeRemaining = 0; // should not happen given typical latency
-                    else
-                        timeRemaining >>= 2; // convert to microseconds from radio ticks
+                        timeRemaining = targHopTime - RF_getCurrentTime();
+                        if (timeRemaining >= 0x80000000)
+                            timeRemaining = 0; // should not happen given typical latency
+                        else
+                            timeRemaining >>= 2; // convert to microseconds from radio ticks
 
-                    DelayHopTrigger_trig(timeRemaining);
+                        DelayHopTrigger_trig(timeRemaining);
+                    }
                 }
+            } else if (frame->channel == 39 && snifferState == ADVERT_SEEK && !gotLegacy39) {
+                // divide by 2 since 37->39 is two hops
+                uint32_t hopIntervalTicks = ((frame->timestamp << 2) - (timestamp37 << 2)) >> 1;
+                gotLegacy39 = true;
+                if (hopIntervalTicks < rconf.hopIntervalTicks)
+                    rconf.hopIntervalTicks = hopIntervalTicks;
             }
         }
 
@@ -1434,6 +1415,8 @@ void setFollowConnections(bool follow)
 // the CONNECT_IND request. This only works when MAC filtering is active.
 void advHopSeekMode()
 {
+    rconf.hopIntervalTicks = 10 * 4000;
+    connEventCount = 0;
     stateTransition(ADVERT_SEEK);
     advHopEnabled = true;
     sniffScanRspLen = 26;
