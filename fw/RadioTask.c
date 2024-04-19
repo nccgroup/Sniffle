@@ -727,10 +727,12 @@ void reactToPDU(const BLE_Frame *frame)
         {
             if (frame->channel == 37) {
                 /* Packet timestamps represent the start of the packet.
-                 * I'm not sure if it's the time of the preamble or time of the access address.
+                 * I'm not sure if it's the time of the preamble, time of the access address,
+                 * or start of the header (after the access address).
                  *
                  * Regardless, the time it takes from advertisement start to advertisement
-                 * end (frame duration) is approximately (frame->length + 8)*8 microseconds.
+                 * end (ad duration) is approximately (frame->length + 8)*8 microseconds.
+                 * This includes 1 octet preamble, 4 octet AA (sync word), and 3 octet CRC.
                  *
                  * The latency in 4 MHz radio ticks between end of transmission and now is:
                  * RF_getCurrentTime() - ((frame->timestamp << 2) + (frame->length + 8)*32)
@@ -744,33 +746,39 @@ void reactToPDU(const BLE_Frame *frame)
                  * to completion.
                  *
                  * If nothing was received around T_IFS, an advertisement will be sent on the
-                 * next channel in typically 200-300 us after T_IFS. This exact time (let's
-                 * call it turnaround time) can be calculated as:
-                 * hop interval - frame duration - 150 us T_IFS
+                 * next channel typically 200-300 us after T_IFS. This exact time (let's call
+                 * it turnaround time) varies between controllers, and can be calculated as:
+                 * hop interval - ad duration - 150 us T_IFS
                  *
                  * To be sure there's no scan request or conn request, we need to wait this
                  * long after the timestamp of our advertisement on 37:
-                 * frame duration + 150 us T_IFS + 176 us scan request + 150 us latency
-                 * = frame duration + 476 us
+                 * ad duration + 150 us T_IFS + 176 us scan request + 150 us latency
+                 * = ad duration + 476 us
+                 *
+                 * There's also some software trigger latency and jitter, so in practice
+                 * reliable postponement needs us to schedule the hop to 38 at 510 us after
+                 * the end of the ad on 37. This works for slower hopping peripherals or long
+                 * ads, but we might not have this luxury with fast hopping peripherals with
+                 * short ads.
                  *
                  * If there's a connection request on 38, and there was no scan on 37, the
                  * connection request will start the following amount of time after 37 timestamp:
-                 * frame duration + hop interval + 150 us T_IFS
+                 * ad duration + hop interval + 150 us T_IFS
                  *
                  * Our listener needs to be running on 38 before this. There's also software
                  * latency in the delay trigger, and latency in tuning/configuring the radio.
-                 * Let's say this combined latency is 240 us. It's a bit tricky to measure, but
-                 * it really does seem this long.
+                 * I've measured this combined latency as 280-300 us. It's really that slow
+                 * unfortunately.
                  *
-                 * When following connections, at latest, we must hop 240 us (aforementioned
-                 * latency) before the scan or connect request on 38. That is at:
-                 * timestamp_37 + hop_interval + frame duration + 150 us T_IFS - 240 us latency
-                 * = timestamp_37 + hop_interval + frame duration - 90 us
+                 * When following connections, at latest, we must schedule a hop 300 us
+                 * (aforementioned latency) before the connect request on 38. That is at:
+                 * timestamp_37 + hop interval + ad duration + 150 us T_IFS - 300 us latency
+                 * = timestamp_37 + hop interval + ad duration - 150 us
                  *
-                 * Usually, hop interval - 90 us > 476 us, so we can just use a fixed hop delay
-                 * after the end of the advertisement on 37. Instead of setting the timer at 476
-                 * us after the advert end, we set it at 510 us to give us some time to postpone
-                 * the radio trigger.
+                 * If we're focused on advertisements instead, and either don't care about or
+                 * don't expect connection requests or scan requests, then we need to schedule
+                 * the hop to 38 at 300 us before the ad on 38. That is at:
+                 * timestamp_37 + hop interval - 300 us latency
                  */
 
                 if (snifferState == ADVERT_SEEK) {
@@ -778,28 +786,26 @@ void reactToPDU(const BLE_Frame *frame)
                     timestamp37 = frame->timestamp;
                     DelayHopTrigger_trig(0);
                 } else if (snifferState == ADVERT_HOP) {
-                    if (!followConnections) {
-                        // hop to 38 right away to capture ads on 38 and 39
-                        // we need to hop ASAP due to latency and tuning time
-                        // we can still capture scan requests and responses on 39
-                        DelayHopTrigger_trig(0);
+                    // Hop to 38 (with a delay) after we get an anchor advertisement on 37
+                    // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
+                    uint32_t targHopTime, timeRemaining;
+
+                    if (!followConnections || pduType == ADV_NONCONN_IND) {
+                        // schedule hop to 38 at 300 us before the ad on 38
+                        targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks - 300*4;
                     } else {
-                        // Hop to 38 (with a delay) after we get an anchor advertisement on 37
-                        // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
-                        uint32_t targHopTime, timeRemaining;
-
-                        // we should hop around 510 us (2040 radio ticks) after frame end
-                        // this should give us enough time to postpone hop if necessary
-                        targHopTime = frame->timestamp*4 + (frame->length + 8)*32 + 2040;
-
-                        timeRemaining = targHopTime - RF_getCurrentTime();
-                        if (timeRemaining >= 0x80000000)
-                            timeRemaining = 0; // should not happen given typical latency
-                        else
-                            timeRemaining >>= 2; // convert to microseconds from radio ticks
-
-                        DelayHopTrigger_trig(timeRemaining);
+                        // schedule hop to 38 at 300 us before connect (or scan) request on 38
+                        targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks +
+                            (frame->length + 8)*32 - 150*4;
                     }
+
+                    timeRemaining = targHopTime - RF_getCurrentTime();
+                    if (timeRemaining >= 0x80000000)
+                        timeRemaining = 0; // interger underflow
+                    else
+                        timeRemaining >>= 2; // convert to microseconds from radio ticks
+
+                    DelayHopTrigger_trig(timeRemaining);
                 }
             } else if (frame->channel == 39 && snifferState == ADVERT_SEEK && !gotLegacy39) {
                 // divide by 2 since 37->39 is two hops
