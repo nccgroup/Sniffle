@@ -129,8 +129,9 @@ static void sendPacket(BLE_Frame *frame)
         *msg_ptr++ = MESSAGE_MARKER;
 
         // bytes 1-4 are timestamp (little endian)
-        memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
-        msg_ptr += sizeof(frame->timestamp);
+        uint32_t timestamp_us = frame->timestamp >> 2;
+        memcpy(msg_ptr, &timestamp_us, sizeof(timestamp_us));
+        msg_ptr += sizeof(timestamp_us);
 
         // bytes 5+ are marker data
         memcpy(msg_ptr, frame->pData, frame->length);
@@ -156,8 +157,9 @@ static void sendPacket(BLE_Frame *frame)
         *msg_ptr++ = MESSAGE_BLEFRAME;
 
         // bytes 1-4 are timestamp (little endian)
-        memcpy(msg_ptr, &frame->timestamp, sizeof(frame->timestamp));
-        msg_ptr += sizeof(frame->timestamp);
+        uint32_t timestamp_us = frame->timestamp >> 2;
+        memcpy(msg_ptr, &timestamp_us, sizeof(timestamp_us));
+        msg_ptr += sizeof(timestamp_us);
 
         // bytes 5-6 are length (little endian), MSB is direction
         uint16_t len_dir = frame->length;

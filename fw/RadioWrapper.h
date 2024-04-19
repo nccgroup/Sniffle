@@ -34,7 +34,7 @@ typedef enum
 
 typedef struct
 {
-    uint32_t timestamp; // microseconds
+    uint32_t timestamp; // 4 MHz radio ticks
     uint16_t length:15;
     uint16_t direction:1; // 0 is M->S, 1 is S->M
     uint16_t eventCtr;

@@ -825,9 +825,6 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
             memcpy(&frame.timestamp, packetPointer + frame.length + 3, 4);
         }
 
-        /* 4 MHz clock, so divide by 4 to get microseconds */
-        frame.timestamp >>= 2;
-
         /* gets overwritten with actual value in user callback */
         frame.direction = 0;
         frame.eventCtr = 0;

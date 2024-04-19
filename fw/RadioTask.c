@@ -735,7 +735,7 @@ void reactToPDU(const BLE_Frame *frame)
                  * This includes 1 octet preamble, 4 octet AA (sync word), and 3 octet CRC.
                  *
                  * The latency in 4 MHz radio ticks between end of transmission and now is:
-                 * RF_getCurrentTime() - ((frame->timestamp << 2) + (frame->length + 8)*32)
+                 * RF_getCurrentTime() - (frame->timestamp + (frame->length + 8)*32)
                  * I've measured this to be typically 150 us (+- 25 ms)
                  *
                  * There's a 150 us inter-frame separation as per BLE spec.
@@ -792,10 +792,10 @@ void reactToPDU(const BLE_Frame *frame)
 
                     if (!followConnections || pduType == ADV_NONCONN_IND) {
                         // schedule hop to 38 at 300 us before the ad on 38
-                        targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks - 310*4;
+                        targHopTime = frame->timestamp + rconf.hopIntervalTicks - 310*4;
                     } else {
                         // schedule hop to 38 at 300 us before connect (or scan) request on 38
-                        targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks +
+                        targHopTime = frame->timestamp + rconf.hopIntervalTicks +
                             (frame->length + 8)*32 - 160*4;
                     }
 
@@ -809,7 +809,7 @@ void reactToPDU(const BLE_Frame *frame)
                 }
             } else if (frame->channel == 39 && snifferState == ADVERT_SEEK && !gotLegacy39) {
                 // divide by 2 since 37->39 is two hops
-                uint32_t hopIntervalTicks = ((frame->timestamp << 2) - (timestamp37 << 2)) >> 1;
+                uint32_t hopIntervalTicks = (frame->timestamp - timestamp37) >> 1;
                 gotLegacy39 = true;
                 if (hopIntervalTicks < rconf.hopIntervalTicks)
                     rconf.hopIntervalTicks = hopIntervalTicks;
@@ -897,7 +897,7 @@ void reactToPDU(const BLE_Frame *frame)
             }
 
             // use_csa2 needs to be set before calling this
-            handleConnReq(frame->phy, frame->timestamp << 2, frame->pData + 14,
+            handleConnReq(frame->phy, frame->timestamp, frame->pData + 14,
                     isAuxReq);
 
             if (snifferState == ADVERTISING)
@@ -942,16 +942,14 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
      */
     if (firstPacket && !transmit)
     {
-        uint32_t curTicks = frame->timestamp << 2;
-
         // compute anchor point offset from start of receive window
-        anchorOffset[aoInd] = curTicks + rconf.hopIntervalTicks - nextHopTime;
+        anchorOffset[aoInd] = frame->timestamp + rconf.hopIntervalTicks - nextHopTime;
         aoInd = (aoInd + 1) & (ARR_SZ(anchorOffset) - 1);
         firstPacket = false;
 
         if (instaHop)
         {
-            uint32_t timeDeltaTicks = curTicks - lastAnchorTicks;
+            uint32_t timeDeltaTicks = frame->timestamp - lastAnchorTicks;
             if (!rconf.winOffsetCertain)
                 timeDelta = (timeDeltaTicks + 2500) / 5000;
             else if (!rconf.intervalCertain && rconf.winOffsetCertain)
@@ -961,7 +959,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
                 itInd++;
             }
         }
-        lastAnchorTicks = curTicks;
+        lastAnchorTicks = frame->timestamp;
     }
 
     if (snifferState == DATA)
@@ -1260,8 +1258,8 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         else
             auxOffsetUs -= AUX_OFF_TARG_USEC;
 
-        // multiply by 4 to convert from usec to radio ticks
-        uint32_t radioTimeStart = (frame->timestamp + auxOffsetUs) * 4;
+        // multiply auxOffsetUs by 4 to convert from usec to radio ticks
+        uint32_t radioTimeStart = frame->timestamp + auxOffsetUs*4;
 
         /* Wait for a little longer than the expected aux packet start time.
          * It will actually remain till packet completion if a packet is detected.
@@ -1359,7 +1357,7 @@ static void reactToTransmitted(dataQueue_t *pTXQ, uint32_t numEntries)
     BLE_Frame f;
     uint8_t pduBody[40]; // all control PDUs should be under 40 bytes
 
-    f.timestamp = RF_getCurrentTime() >> 2;
+    f.timestamp = RF_getCurrentTime();
     f.rssi = 0;
     f.channel = getCurrChan();
     f.phy = rconf.phy;
@@ -1451,7 +1449,7 @@ void sendMarker(const uint8_t *markerData, uint16_t len)
 {
     BLE_Frame frame;
 
-    frame.timestamp = RF_getCurrentTime() >> 2;
+    frame.timestamp = RF_getCurrentTime();
     frame.rssi = 0;
     frame.channel = MSGCHAN_MARKER;
     frame.phy = PHY_1M;
