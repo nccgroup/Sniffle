@@ -63,7 +63,7 @@ Task_Struct radioTask; /* not static so you can see in ROV */
 static uint8_t radioTaskStack[RADIO_TASK_STACK_SIZE];
 static uint8_t mapping_table[37];
 
-static volatile SnifferState snifferState = STATIC;
+static SnifferState snifferState = STATIC;
 static SnifferState sniffDoneState = STATIC;
 
 static uint8_t statChan = 37;
@@ -82,9 +82,9 @@ static bool ll_encryption;
 
 static uint32_t connTimeoutTime;
 
-static volatile bool gotLegacy39;
-static volatile bool gotAuxConnReq;
-static volatile bool firstPacket;
+static bool gotLegacy39;
+static bool gotAuxConnReq;
+static bool firstPacket;
 static uint32_t timestamp37 = 0;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
