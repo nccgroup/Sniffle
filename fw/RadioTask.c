@@ -767,18 +767,18 @@ void reactToPDU(const BLE_Frame *frame)
                  *
                  * Our listener needs to be running on 38 before this. There's also software
                  * latency in the delay trigger, and latency in tuning/configuring the radio.
-                 * I've measured this combined latency as 280-300 us. It's really that slow
+                 * I've measured this combined latency as 280-310 us. It's really that slow
                  * unfortunately.
                  *
-                 * When following connections, at latest, we must schedule a hop 300 us
+                 * When following connections, at latest, we must schedule a hop 310 us
                  * (aforementioned latency) before the connect request on 38. That is at:
-                 * timestamp_37 + hop interval + ad duration + 150 us T_IFS - 300 us latency
-                 * = timestamp_37 + hop interval + ad duration - 150 us
+                 * timestamp_37 + hop interval + ad duration + 150 us T_IFS - 310 us latency
+                 * = timestamp_37 + hop interval + ad duration - 160 us
                  *
                  * If we're focused on advertisements instead, and either don't care about or
                  * don't expect connection requests or scan requests, then we need to schedule
-                 * the hop to 38 at 300 us before the ad on 38. That is at:
-                 * timestamp_37 + hop interval - 300 us latency
+                 * the hop to 38 at 310 us before the ad on 38. That is at:
+                 * timestamp_37 + hop interval - 310 us latency
                  */
 
                 if (snifferState == ADVERT_SEEK) {
@@ -792,11 +792,11 @@ void reactToPDU(const BLE_Frame *frame)
 
                     if (!followConnections || pduType == ADV_NONCONN_IND) {
                         // schedule hop to 38 at 300 us before the ad on 38
-                        targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks - 300*4;
+                        targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks - 310*4;
                     } else {
                         // schedule hop to 38 at 300 us before connect (or scan) request on 38
                         targHopTime = (frame->timestamp << 2) + rconf.hopIntervalTicks +
-                            (frame->length + 8)*32 - 150*4;
+                            (frame->length + 8)*32 - 160*4;
                     }
 
                     timeRemaining = targHopTime - RF_getCurrentTime();
