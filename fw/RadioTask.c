@@ -496,10 +496,12 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 } else {
                     // we need to force cancel recvAdv3 eventually
                     DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
-                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
+                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200,
+                            rconf.hopIntervalTicks + 5000, indicatePacket);
                 }
             } else {
-                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200, 8000, indicatePacket);
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200,
+                        rconf.hopIntervalTicks + 5000, indicatePacket);
             }
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
