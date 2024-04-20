@@ -77,17 +77,16 @@ static uint8_t hopIncrement;
 static uint32_t crcInit;
 static uint32_t nextHopTime;
 uint32_t connEventCount; // global
+static uint32_t connTimeoutTime;
 static bool use_csa2;
 static bool ll_encryption;
 
-static uint32_t connTimeoutTime;
-
+static bool fastAdvHop;
 static bool gotLegacy38;
 static bool gotLegacy39;
 static bool gotAuxConnReq;
 static bool firstPacket;
 static uint32_t lastAdvTimestamp;
-static uint32_t lastAdvLen;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 static uint32_t sniffScanRspLen = 26;
@@ -451,7 +450,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 DelayStopTrigger_trig(3 * 1000000);
 
             // Jump straight to 39 after 37, to catch ads in case of very fast hopping
-            if (connEventCount == 0 || (rconf.hopIntervalTicks - lastAdvLen*32)  < 380*4)
+            if (connEventCount == 0 || fastAdvHop)
                 RadioWrapper_recvAdv3(0, 22*4000, indicatePacket);
             else
                 RadioWrapper_recvAdv3(450*4, 22*4000, indicatePacket);
@@ -467,6 +466,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 stateTransition(ADVERT_HOP);
                 continue;
             }
+
+            // it might be hopping too fast to catch the advertisement on 38
+            if (!gotLegacy38 && !gotLegacy39 && !fastAdvHop)
+                fastAdvHop = true;
 
             // assume that in 5 advertiser hops, at least one is without scans
             if (connEventCount >= 5)
@@ -731,26 +734,29 @@ void reactToPDU(const BLE_Frame *frame)
                 if (frame->channel == 37) {
                     // record timestamp and hop to next channel
                     lastAdvTimestamp = frame->timestamp;
-                    lastAdvLen = frame->length;
                     RadioWrapper_trigAdv3();
-                } else if (frame->channel == 38 && !gotLegacy38) {
+                } else if ((frame->channel == 38 && !gotLegacy38) ||
+                           (frame->channel == 39 && !gotLegacy39)) {
                     uint32_t hopIntervalTicks = frame->timestamp - lastAdvTimestamp;
                     lastAdvTimestamp = frame->timestamp;
-                    gotLegacy38 = true;
-                    connEventCount++;
-                    if (hopIntervalTicks < rconf.hopIntervalTicks)
-                        rconf.hopIntervalTicks = hopIntervalTicks;
-                } else if (!gotLegacy39) { // frame->channel == 39
-                    uint32_t hopIntervalTicks = frame->timestamp - lastAdvTimestamp;
-                    gotLegacy39 = true;
                     connEventCount++;
 
-                    // divide by two if two hops from 37->39
-                    if (!gotLegacy38)
-                        hopIntervalTicks >>= 1;
+                    if (frame->channel == 38) {
+                        gotLegacy38 = true;
+                    } else { // frame->channel == 39
+                        gotLegacy39 = true;
+
+                        // divide by two if two hops from 37->39
+                        if (!gotLegacy38)
+                            hopIntervalTicks >>= 1;
+                    }
 
                     if (hopIntervalTicks < rconf.hopIntervalTicks)
+                    {
                         rconf.hopIntervalTicks = hopIntervalTicks;
+                        if (hopIntervalTicks - frame->length*32 < 380*4)
+                            fastAdvHop = true;
+                    }
                 }
             } else if (snifferState == ADVERT_HOP && frame->channel == 37) {
                 /* Packet timestamps represent the start of the packet.
@@ -1436,6 +1442,7 @@ void advHopSeekMode()
 {
     rconf.hopIntervalTicks = 10 * 4000;
     connEventCount = 0;
+    fastAdvHop = false;
     stateTransition(ADVERT_SEEK);
     advHopEnabled = true;
     sniffScanRspLen = 26;
