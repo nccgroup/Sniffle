@@ -436,7 +436,7 @@ connectable) is activated by `cmd_advertise`.
 At least at the time of writing, the TI XDS110 debugger included in Launchpad boards has some
 undesirable behaviour in its USB to UART bridge, where at high baud rates, there can be severe
 latency, especially with frequent small writes as done by the Sniffle firmware. This issue has
-been present for years, and is still present as of April 2024 with the XDS110 firmare 3.0.0.28
+been present for years, and is still present as of April 2024 with the XDS110 firmware 3.0.0.28
 bundled with UniFlash 8.6.0. The root cause is that in DMA based operation, the XDS110 firmware
 accumulates UART data in a buffer whose size is proportional to baud rate, and waits for this
 buffer to fill before transferring the data. There is logic to flush this buffer if no new data
