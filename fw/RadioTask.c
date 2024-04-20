@@ -82,10 +82,12 @@ static bool ll_encryption;
 
 static uint32_t connTimeoutTime;
 
+static bool gotLegacy38;
 static bool gotLegacy39;
 static bool gotAuxConnReq;
 static bool firstPacket;
-static uint32_t timestamp37 = 0;
+static uint32_t lastAdvTimestamp;
+static uint32_t lastAdvLen;
 static uint32_t anchorOffset[4];
 static uint32_t aoInd = 0;
 static uint32_t sniffScanRspLen = 26;
@@ -443,18 +445,22 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
              * extended advertising, then just jump to ADVERT_HOP with an assumed legacy ad
              * hop interval. If legacy advertising starts later, we can correct the hopping then.
              */
+            gotLegacy38 = false;
             gotLegacy39 = false;
             if (auxAdvEnabled)
                 DelayStopTrigger_trig(3 * 1000000);
 
             // Jump straight to 39 after 37, to catch ads in case of very fast hopping
-            RadioWrapper_recvAdv3(0, 22*4000, indicatePacket);
+            if (connEventCount == 0 || (rconf.hopIntervalTicks - lastAdvLen*32)  < 380*4)
+                RadioWrapper_recvAdv3(0, 22*4000, indicatePacket);
+            else
+                RadioWrapper_recvAdv3(450*4, 22*4000, indicatePacket);
 
             // break out early if we cancelled
             if (snifferState != ADVERT_SEEK) continue;
 
             // Timeout case
-            if (!gotLegacy39 && auxAdvEnabled) {
+            if (!gotLegacy38 && !gotLegacy39 && auxAdvEnabled) {
                 // assume 688 us hop interval
                 rconf.hopIntervalTicks = 688 * 4;
                 dprintf("No legacy ads, jumping to ADVERT_HOP");
@@ -462,11 +468,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 continue;
             }
 
-            // keep track of how many times we measured hop interval
-            if (gotLegacy39)
-                connEventCount++;
-
-            // assume that in 5 measurements, at least one is without scans on 37 and 38
+            // assume that in 5 advertiser hops, at least one is without scans
             if (connEventCount >= 5)
             {
                 reportMeasAdvHop(rconf.hopIntervalTicks >> 2);
@@ -725,7 +727,32 @@ void reactToPDU(const BLE_Frame *frame)
             pduType == ADV_NONCONN_IND ||
             pduType == ADV_SCAN_IND)
         {
-            if (frame->channel == 37) {
+            if (snifferState == ADVERT_SEEK) {
+                if (frame->channel == 37) {
+                    // record timestamp and hop to next channel
+                    lastAdvTimestamp = frame->timestamp;
+                    lastAdvLen = frame->length;
+                    RadioWrapper_trigAdv3();
+                } else if (frame->channel == 38 && !gotLegacy38) {
+                    uint32_t hopIntervalTicks = frame->timestamp - lastAdvTimestamp;
+                    lastAdvTimestamp = frame->timestamp;
+                    gotLegacy38 = true;
+                    connEventCount++;
+                    if (hopIntervalTicks < rconf.hopIntervalTicks)
+                        rconf.hopIntervalTicks = hopIntervalTicks;
+                } else if (!gotLegacy39) { // frame->channel == 39
+                    uint32_t hopIntervalTicks = frame->timestamp - lastAdvTimestamp;
+                    gotLegacy39 = true;
+                    connEventCount++;
+
+                    // divide by two if two hops from 37->39
+                    if (!gotLegacy38)
+                        hopIntervalTicks >>= 1;
+
+                    if (hopIntervalTicks < rconf.hopIntervalTicks)
+                        rconf.hopIntervalTicks = hopIntervalTicks;
+                }
+            } else if (snifferState == ADVERT_HOP && frame->channel == 37) {
                 /* Packet timestamps represent the start of the packet.
                  * I'm not sure if it's the time of the preamble, time of the access address,
                  * or start of the header (after the access address).
@@ -781,38 +808,26 @@ void reactToPDU(const BLE_Frame *frame)
                  * timestamp_37 + hop interval - 310 us latency
                  */
 
-                if (snifferState == ADVERT_SEEK) {
-                    // record timestamp and hop to 39
-                    timestamp37 = frame->timestamp;
-                    DelayHopTrigger_trig(0);
-                } else if (snifferState == ADVERT_HOP) {
-                    // Hop to 38 (with a delay) after we get an anchor advertisement on 37
-                    // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
-                    uint32_t targHopTime, timeRemaining;
+                // Hop to 38 (with a delay) after we get an anchor advertisement on 37
+                // we do the math in 4 MHz radio ticks so that the timestamp integer overflow works
+                uint32_t targHopTime, timeRemaining;
 
-                    if (!followConnections || pduType == ADV_NONCONN_IND) {
-                        // schedule hop to 38 at 300 us before the ad on 38
-                        targHopTime = frame->timestamp + rconf.hopIntervalTicks - 310*4;
-                    } else {
-                        // schedule hop to 38 at 300 us before connect (or scan) request on 38
-                        targHopTime = frame->timestamp + rconf.hopIntervalTicks +
-                            (frame->length + 8)*32 - 160*4;
-                    }
-
-                    timeRemaining = targHopTime - RF_getCurrentTime();
-                    if (timeRemaining >= 0x80000000)
-                        timeRemaining = 0; // interger underflow
-                    else
-                        timeRemaining >>= 2; // convert to microseconds from radio ticks
-
-                    DelayHopTrigger_trig(timeRemaining);
+                if (!followConnections || pduType == ADV_NONCONN_IND) {
+                    // schedule hop to 38 at 300 us before the ad on 38
+                    targHopTime = frame->timestamp + rconf.hopIntervalTicks - 310*4;
+                } else {
+                    // schedule hop to 38 at 300 us before connect (or scan) request on 38
+                    targHopTime = frame->timestamp + rconf.hopIntervalTicks +
+                        (frame->length + 8)*32 - 160*4;
                 }
-            } else if (frame->channel == 39 && snifferState == ADVERT_SEEK && !gotLegacy39) {
-                // divide by 2 since 37->39 is two hops
-                uint32_t hopIntervalTicks = (frame->timestamp - timestamp37) >> 1;
-                gotLegacy39 = true;
-                if (hopIntervalTicks < rconf.hopIntervalTicks)
-                    rconf.hopIntervalTicks = hopIntervalTicks;
+
+                timeRemaining = targHopTime - RF_getCurrentTime();
+                if (timeRemaining >= 0x80000000)
+                    timeRemaining = 0; // interger underflow
+                else
+                    timeRemaining >>= 2; // convert to microseconds from radio ticks
+
+                DelayHopTrigger_trig(timeRemaining);
             }
         }
 
