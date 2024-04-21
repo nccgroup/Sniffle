@@ -140,12 +140,17 @@ static ADV_Mode s_advMode;
 
 uint8_t g_pkt_dir = 0;
 
+// Maximum time (in microseconds) for DelayHopTrigger to trigger a hop, then
+// for the radio to tune to the next advertising channel, and start listening.
+// I've measured this latency vary between 280-310 us.
+#define HOP_TUNE_LISTEN_LATENCY 310
+
 // target offset before anchor point to start listing on next data channel
 // 0.5 ms @ 4 Mhz
 #define AO_TARG 2000
 
 // be ready some microseconds before aux advertisement is received
-#define AUX_OFF_TARG_USEC 600
+#define AUX_OFF_TARG_USEC 500
 
 // don't bother listening for fewer than this many ticks
 // radio will get stuck if end time is in past
@@ -496,11 +501,11 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 } else {
                     // we need to force cancel recvAdv3 eventually
                     DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
-                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200,
+                    RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 60,
                             rconf.hopIntervalTicks + 5000, indicatePacket);
                 }
             } else {
-                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 200,
+                RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 60,
                         rconf.hopIntervalTicks + 5000, indicatePacket);
             }
         } else if (snifferState == PAUSED) {
@@ -800,20 +805,14 @@ void reactToPDU(const BLE_Frame *frame)
                  * connection request will start the following amount of time after 37 timestamp:
                  * ad duration + hop interval + 150 us T_IFS
                  *
-                 * Our listener needs to be running on 38 before this. There's also software
-                 * latency in the delay trigger, and latency in tuning/configuring the radio.
-                 * I've measured this combined latency as 280-310 us. It's really that slow
-                 * unfortunately.
-                 *
-                 * When following connections, at latest, we must schedule a hop 310 us
-                 * (aforementioned latency) before the connect request on 38. That is at:
-                 * timestamp_37 + hop interval + ad duration + 150 us T_IFS - 310 us latency
-                 * = timestamp_37 + hop interval + ad duration - 160 us
+                 * When following connections, at latest, we must schedule a hop at
+                 * HOP_TUNE_LISTEN_LATENCY before the connect request on 38. That is at:
+                 * timestamp_37 + hop interval + ad duration + 150 us T_IFS - HOP_TUNE_LISTEN_LATENCY
                  *
                  * If we're focused on advertisements instead, and either don't care about or
                  * don't expect connection requests or scan requests, then we need to schedule
-                 * the hop to 38 at 310 us before the ad on 38. That is at:
-                 * timestamp_37 + hop interval - 310 us latency
+                 * the hop to 38 at HOP_TUNE_LISTEN_LATENCY before the ad on 38. That is at:
+                 * timestamp_37 + hop interval - HOP_TUNE_LISTEN_LATENCY
                  */
 
                 // Hop to 38 (with a delay) after we get an anchor advertisement on 37
@@ -821,12 +820,12 @@ void reactToPDU(const BLE_Frame *frame)
                 uint32_t targHopTime, timeRemaining;
 
                 if (!followConnections || pduType == ADV_NONCONN_IND) {
-                    // schedule hop to 38 at 300 us before the ad on 38
-                    targHopTime = frame->timestamp + rconf.hopIntervalTicks - 310*4;
+                    // schedule hop to 38 with time to retune before the ad on 38
+                    targHopTime = frame->timestamp + rconf.hopIntervalTicks - HOP_TUNE_LISTEN_LATENCY*4;
                 } else {
-                    // schedule hop to 38 at 300 us before connect (or scan) request on 38
+                    // schedule hop to 38 with time to retune before connect (or scan) request on 38
                     targHopTime = frame->timestamp + rconf.hopIntervalTicks +
-                        (frame->length + 8)*32 - 160*4;
+                        (frame->length + 8)*32 + (150 - HOP_TUNE_LISTEN_LATENCY)*4;
                 }
 
                 timeRemaining = targHopTime - RF_getCurrentTime();
