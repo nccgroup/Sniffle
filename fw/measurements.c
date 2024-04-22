@@ -29,7 +29,8 @@ enum MeasurementTypes
     MEASTYPE_CHANMAP,
     MEASTYPE_ADVHOP,
     MEASTYPE_WINOFFSET,
-    MEASTYPE_DELTAINSTANT
+    MEASTYPE_DELTAINSTANT,
+    MEASTYPE_VERSION
 };
 
 void reportMeasInterval(uint16_t interval)
@@ -83,6 +84,19 @@ void reportMeasDeltaInstant(uint16_t delta)
     buf[0] = MEASTYPE_DELTAINSTANT;
     buf[1] = delta & 0xFF;
     buf[2] = delta >> 8;
+
+    reportMeasurement(buf, sizeof(buf));
+}
+
+void reportVersion()
+{
+    uint8_t buf[5];
+
+    buf[0] = MEASTYPE_VERSION;
+    buf[1] = 1; // major version
+    buf[2] = 9; // minor version
+    buf[3] = 0; // revision
+    buf[4] = 0; // API level
 
     reportMeasurement(buf, sizeof(buf));
 }

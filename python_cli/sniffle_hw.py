@@ -8,7 +8,7 @@ from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from time import time
-from enum import Enum
+from enum import IntEnum
 from random import randint, randbytes
 from serial.tools.list_ports import comports
 from traceback import format_exception
@@ -216,6 +216,10 @@ class SniffleHW:
             if not (0 <= phy <= 3):
                 raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
             self._send_cmd([0x23, phy])
+
+    # Ask firmware to report its version
+    def cmd_version(self):
+        self._send_cmd([0x24])
 
     def _recv_msg(self, desync=False):
         got_msg = False
@@ -458,7 +462,7 @@ class MarkerMessage:
         dstate.first_epoch_time = time()
         dstate.time_offset = ts / -1000000.
 
-class SnifferState(Enum):
+class SnifferState(IntEnum):
     STATIC = 0
     ADVERT_SEEK = 1
     ADVERT_HOP = 2
@@ -484,12 +488,13 @@ class StateMessage:
         return "TRANSITION: %s from %s" % (str(self.new_state),
                 str(self.last_state))
 
-class MeasurementType(Enum):
+class MeasurementType(IntEnum):
     INTERVAL = 0
     CHANMAP = 1
     ADVHOP = 2
     WINOFFSET = 3
     DELTAINSTANT = 4
+    VERSION = 5
 
 class MeasurementMessage:
     def __init__(self, raw_msg):
@@ -500,26 +505,27 @@ class MeasurementMessage:
 
     @staticmethod
     def from_raw(raw_msg):
-        if len(raw_msg) < 2 or raw_msg[1] > MeasurementType.DELTAINSTANT.value:
+        if len(raw_msg) < 2 or raw_msg[1] > MeasurementType.VERSION:
             return MeasurementMessage(raw_msg)
 
         if len(raw_msg) - 1 != raw_msg[0]:
             raise SniffleHWPacketError("Incorrect length field!")
 
-        mtype = MeasurementType(raw_msg[1])
-        if mtype == MeasurementType.INTERVAL:
-            return IntervalMeasurement(raw_msg[2:])
-        elif mtype == MeasurementType.CHANMAP:
-            return ChanMapMeasurement(raw_msg[2:])
-        elif mtype == MeasurementType.ADVHOP:
-            return AdvHopMeasurement(raw_msg[2:])
-        elif mtype == MeasurementType.WINOFFSET:
-            return WinOffsetMeasurement(raw_msg[2:])
-        elif mtype == MeasurementType.DELTAINSTANT:
-            return DeltaInstantMeasurement(raw_msg[2:])
+        meas_classes = {
+            MeasurementType.INTERVAL:       IntervalMeasurement,
+            MeasurementType.CHANMAP:        ChanMapMeasurement,
+            MeasurementType.ADVHOP:         AdvHopMeasurement,
+            MeasurementType.WINOFFSET:      WinOffsetMeasurement,
+            MeasurementType.DELTAINSTANT:   DeltaInstantMeasurement,
+            MeasurementType.VERSION:        VersionMeasurement
+            }
 
-        # should never be reached
-        return None
+        mtype = MeasurementType(raw_msg[1])
+        if mtype in meas_classes:
+            return meas_classes[mtype](raw_msg[2:])
+        else:
+            # Firmware newer than host software
+            return None
 
 class IntervalMeasurement(MeasurementMessage):
     def __init__(self, raw_val):
@@ -558,3 +564,11 @@ class DeltaInstantMeasurement(MeasurementMessage):
 
     def __str__(self):
         return "Measured Delta Instant for Connection Update: %d" % self.value
+
+class VersionMeasurement(MeasurementMessage):
+    def __init__(self, raw_val):
+        self.major, self.minor, self.revision, self.api_level = unpack("<BBBB", raw_val)
+
+    def __str__(self):
+        return "Sniffle Firmware %d.%d.%d, API Level %d" % (
+                self.major, self.minor, self.revision, self.api_level)

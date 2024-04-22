@@ -30,5 +30,6 @@ void CommandTask_init(void);
 #define COMMAND_INTVL_PRELOAD   0x21
 #define COMMAND_SCAN            0x22
 #define COMMAND_PHY_PRELOAD     0x23
+#define COMMAND_VERSION         0x24
 
 #endif /* COMMANDTASK_H */

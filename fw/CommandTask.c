@@ -19,6 +19,7 @@
 #include <messenger.h>
 #include <TXQueue.h>
 #include <debug.h>
+#include <measurements.h>
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
@@ -185,6 +186,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
                 preloadPhyUpdate(true, PHY_1M);
             else
                 preloadPhyUpdate(false, (PHY_Mode)msgBuf[2]);
+            break;
+        case COMMAND_VERSION:
+            if (ret != 2) continue;
+            reportVersion();
             break;
         default:
             break;
