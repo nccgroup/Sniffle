@@ -158,7 +158,8 @@ SOURCES += \
     rpa_resolver.c \
     RFQueue.c \
     sw_aes128.c \
-    TXQueue.c
+    TXQueue.c \
+    measurements.c
 
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 

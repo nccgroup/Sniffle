@@ -22,6 +22,7 @@
 #include "debug.h"
 #include "conf_queue.h"
 #include "TXQueue.h"
+#include "measurements.h"
 
 #include <RadioTask.h>
 #include <RadioWrapper.h>
@@ -209,86 +210,6 @@ static void stateTransition(SnifferState newState)
 
     // Does thread safe copying into queue
     indicatePacket(&frame);
-}
-
-static void reportMeasurement(uint8_t *buf, uint8_t len)
-{
-    BLE_Frame frame;
-
-    frame.timestamp = 0;
-    frame.rssi = 0;
-    frame.channel = MSGCHAN_MEASURE;
-    frame.phy = PHY_1M;
-    frame.pData = buf;
-    frame.length = len;
-    frame.eventCtr = 0;
-
-    // Does thread safe copying into queue
-    indicatePacket(&frame);
-}
-
-enum MeasurementTypes
-{
-    MEASTYPE_INTERVAL,
-    MEASTYPE_CHANMAP,
-    MEASTYPE_ADVHOP,
-    MEASTYPE_WINOFFSET,
-    MEASTYPE_DELTAINSTANT
-};
-
-static void reportMeasInterval(uint16_t interval)
-{
-    uint8_t buf[3];
-
-    buf[0] = MEASTYPE_INTERVAL;
-    buf[1] = interval & 0xFF;
-    buf[2] = interval >> 8;
-
-    reportMeasurement(buf, sizeof(buf));
-}
-
-static void reportMeasChanMap(uint64_t map)
-{
-    uint8_t buf[6];
-
-    // map should be between 0 and 0x1FFFFFFFFF (37 data channels)
-    buf[0] = MEASTYPE_CHANMAP;
-    memcpy(buf + 1, &map, 5);
-
-    reportMeasurement(buf, sizeof(buf));
-}
-
-static void reportMeasAdvHop(uint32_t hop_us)
-{
-    uint8_t buf[5];
-
-    buf[0] = MEASTYPE_ADVHOP;
-    memcpy(buf + 1, &hop_us, sizeof(uint32_t));
-
-    reportMeasurement(buf, sizeof(buf));
-}
-
-static void reportMeasWinOffset(uint16_t offset)
-{
-    uint8_t buf[3];
-
-    buf[0] = MEASTYPE_WINOFFSET;
-    buf[1] = offset & 0xFF;
-    buf[2] = offset >> 8;
-
-    reportMeasurement(buf, sizeof(buf));
-}
-
-// for LL_CONNECTION_UPDATE_IND specifically
-static void reportMeasDeltaInstant(uint16_t delta)
-{
-    uint8_t buf[3];
-
-    buf[0] = MEASTYPE_DELTAINSTANT;
-    buf[1] = delta & 0xFF;
-    buf[2] = delta >> 8;
-
-    reportMeasurement(buf, sizeof(buf));
 }
 
 // no side effects
