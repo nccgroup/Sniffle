@@ -4,6 +4,7 @@ include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
 CC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
 LNK = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-gcc"
+OC = "$(GCC_ARMCOMPILER)/bin/arm-none-eabi-objcopy"
 
 NAME = sniffle
 
@@ -163,11 +164,11 @@ SOURCES += \
 
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
-all: $(NAME).out
+all: $(NAME).bin
 
 .INTERMEDIATE: syscfg
 $(SYSCFG_FILES): syscfg
-	@ echo generation complete
+	@ echo Generation complete
 
 syscfg: $(NAME).syscfg
 	@ echo Generating configuration files...
@@ -178,8 +179,12 @@ syscfg: $(NAME).syscfg
 	@ $(CC) $(CFLAGS) $< -c -o $@
 
 $(NAME).out: $(OBJECTS)
-	@ echo linking...
+	@ echo Linking...
 	@ $(LNK) $(OBJECTS) $(LFLAGS) -o $(NAME).out
+
+$(NAME).bin: $(NAME).out
+	@echo Generating flash image...
+	@ $(OC) -I elf32-little -O binary $< $@
 
 .PHONY: load clean clean2
 
@@ -192,7 +197,12 @@ clean2:
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
+	@ $(RM) $(NAME).bin > $(DEVNULL) 2>&1
 
 load: $(NAME).out
 	@ echo Flashing...
-	@ DSLite load -f $< -c $(CCXML)
+	@ DSLite flash -c $(CCXML) -f -e -r 0 $<
+
+load2: $(NAME).bin
+	@ echo Flashing...
+	@ DSLite flash -c $(CCXML) -f -e -r 0 $<,0
