@@ -29,6 +29,7 @@ Sniffle has a number of useful features, including:
     * TI CC2652R7 Launchpad Board: <https://www.ti.com/tool/LP-CC2652R7>
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/tool/LP-CC2651P3>
+    * TI CC1354P10 Launchpad Board: <https://www.ti.com/tool/LP-EM-CC1354P10>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
 * TI SimpleLink Low Power F2 SDK 7.40.00.77: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.40.00.77>
 * TI DSLite Programmer Software: see below
@@ -116,8 +117,8 @@ To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
 If building for or installing on a some variant of Launchpad other than CC26x2R,
 you must specify `PLATFORM=xxx`, either as an argument to make, or by defining
 it as an environment variable prior to invoking make. Supported values for `PLATFORM`
-are `CC2642R1F`, `CC2652R1F`, `CC1352R1F3`, `CC2652RB1F`, and `CC1352P1F3`.
-Be sure to perform a `make clean` before building for a different platform.
+can be found in the firmware makefile. Be sure to perform a `make clean` before
+building for a different platform.
 
 ## Sniffer Usage
 

@@ -83,6 +83,14 @@ if (system.deviceData.deviceId[6] == "P") {
         "cmdFs"];
 }
 
+/* ======== RF Design ======== */
+var rfDesign = scripting.addModule("ti/devices/radioconfig/rfdesign");
+const rfDesignSettings = system.getScript("/ti/common/lprf_rf_design_settings.js").rfDesignSettings;
+for(var setting in rfDesignSettings)
+{
+    rfDesign[setting] = rfDesignSettings[setting];
+}
+
 /* ======== LED ======== */
 var LED = scripting.addModule("/ti/drivers/apps/LED");
 var led0 = LED.addInstance();

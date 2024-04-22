@@ -14,6 +14,7 @@ CC1352P1_PLATFORMS = CC1352P1F3
 CC2652R7_PLATFORMS = CC2652R74
 CC1352P7_PLATFORMS = CC1352P74
 CC2651P3_PLATFORMS = CC2651P31
+CC1354P10_PLATFORMS = CC1354P106
 
 SUPPORTED_PLATFORMS = \
     $(CC26X2R1_PLATFORMS) \
@@ -22,7 +23,8 @@ SUPPORTED_PLATFORMS = \
     $(CC1352P1_PLATFORMS) \
     $(CC2652R7_PLATFORMS) \
     $(CC1352P7_PLATFORMS) \
-    $(CC2651P3_PLATFORMS)
+    $(CC2651P3_PLATFORMS) \
+    $(CC1354P10_PLATFORMS)
 
 ifeq ($(PLATFORM),)
     PLATFORM = CC2642R1F
@@ -37,60 +39,55 @@ HARD_FLOAT = 1
 ifneq ($(filter $(PLATFORM), $(CC26X2R1_PLATFORMS)),)
     CCXML = ccxml/CC2652R1F.ccxml
     SYSCFG_BOARD = /ti/boards/CC26X2R1_LAUNCHXL
-    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
     TI_PLAT_NAME = cc13x2_cc26x2
-    CFLAGS += -DDeviceFamily_CC26X2
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352R1_PLATFORMS)),)
     CCXML = ccxml/CC1352R1F3.ccxml
     SYSCFG_BOARD = /ti/boards/CC1352R1_LAUNCHXL
-    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
     TI_PLAT_NAME = cc13x2_cc26x2
-    CFLAGS += -DDeviceFamily_CC13X2
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652RB_PLATFORMS)),)
     CCXML = ccxml/CC2652RB1F.ccxml
     SYSCFG_BOARD = /ti/boards/LP_CC2652RB
-    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
     TI_PLAT_NAME = cc13x2_cc26x2
-    CFLAGS += -DDeviceFamily_CC26X2
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352P1_PLATFORMS)),)
     CCXML = ccxml/CC1352P1F3.ccxml
     SYSCFG_BOARD = /ti/boards/CC1352P1_LAUNCHXL
-    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
     TI_PLAT_NAME = cc13x2_cc26x2
-    CFLAGS += -DDeviceFamily_CC13X2
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652R7_PLATFORMS)),)
     CCXML = ccxml/CC2652R7.ccxml
     SYSCFG_BOARD = /ti/boards/LP_CC2652R7
-    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
     TI_PLAT_NAME = cc13x2x7_cc26x2x7
-    CFLAGS += -DDeviceFamily_CC26X2X7
 endif
 ifneq ($(filter $(PLATFORM), $(CC1352P7_PLATFORMS)),)
     CCXML = ccxml/CC1352P7.ccxml
     SYSCFG_BOARD = /ti/boards/LP_CC1352P7_1
-    TI_PLTFRM = ti.platforms.simplelink:CC13X2_CC26X2
     TI_PLAT_NAME = cc13x2x7_cc26x2x7
-    CFLAGS += -DDeviceFamily_CC13X2X7
 endif
 ifneq ($(filter $(PLATFORM), $(CC2651P3_PLATFORMS)),)
     CCXML = ccxml/CC2651P3.ccxml
     SYSCFG_BOARD = /ti/boards/LP_CC2651P3
-    TI_PLTFRM = ti.platforms.simplelink:CC13X1_CC26X1
     TI_PLAT_NAME = cc13x1_cc26x1
-    CFLAGS += -DDeviceFamily_CC26X1
     HARD_FLOAT = 0
 endif
+ifneq ($(filter $(PLATFORM), $(CC1354P10_PLATFORMS)),)
+    CCXML = ccxml/CC1354P10.ccxml
+    SYSCFG_BOARD = /ti/boards/LP_EM_CC1354P10_1
+    TI_PLAT_NAME = cc13x4_cc26x4
+    HARD_FLOAT = 2
+endif
 
-ifeq ($(HARD_FLOAT),1)
-    CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
-    LFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
+ifeq ($(HARD_FLOAT),2)
+    CFLAGS += -mfloat-abi=hard -mfpu=fpv5-sp-d16 -mcpu=cortex-m33
+    LFLAGS += -mfloat-abi=hard -mfpu=fpv5-sp-d16 -mcpu=cortex-m33
+else ifeq ($(HARD_FLOAT),1)
+    CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16 -mcpu=cortex-m4
+    LFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16 -mcpu=cortex-m4
 else
-    CFLAGS += -mfloat-abi=soft
-    LFLAGS += -mfloat-abi=soft
+    CFLAGS += -mfloat-abi=soft -mcpu=cortex-m4
+    LFLAGS += -mfloat-abi=soft -mcpu=cortex-m4
 endif
 
 SYSCFG_CMD_STUB = $(SYSCONFIG_TOOL) --compiler gcc --product $(SIMPLELINK_SDK_INSTALL_DIR)/.metadata/product.json
@@ -105,13 +102,13 @@ else
 endif
 SYSCFG_C_FILES = $(filter %.c,$(SYSCFG_FILES))
 SYSCFG_H_FILES = $(filter %.h,$(SYSCFG_FILES))
+SYSCFG_OPT_FILES = $(filter %.opt,$(SYSCFG_FILES))
 
 CFLAGS += -I. \
     -O3 \
-    -mcpu=cortex-m4 \
-    -march=armv7e-m \
     -mthumb \
     -D__STRICT_ANSI__ \
+    $(addprefix @,$(SYSCFG_OPT_FILES)) \
     "-I$(SIMPLELINK_SDK_INSTALL_DIR)/source" \
     "-I$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos7/packages" \
     "-I$(SIMPLELINK_SDK_INSTALL_DIR)/source/ti/posix/gcc" \
@@ -130,7 +127,6 @@ LFLAGS += \
     "-L$(SIMPLELINK_SDK_INSTALL_DIR)/kernel/tirtos7/packages" \
     ti_utils_build_linker.cmd.genlibs \
     -l:ti/devices/$(TI_PLAT_NAME)/driverlib/bin/gcc/driverlib.lib \
-    -march=armv7e-m \
     -mthumb \
     -nostartfiles \
     -static \
