@@ -30,7 +30,7 @@ Sniffle has a number of useful features, including:
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board: <https://www.ti.com/tool/LP-CC2651P3>
     * TI CC1354P10 Launchpad Board: <https://www.ti.com/tool/LP-EM-CC1354P10>
-    * ITEAD SONOFF CC2652P USB Dongle Plus: <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
+    * SONOFF CC2652P USB Dongle Plus: <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
 * TI SimpleLink Low Power F2 SDK 7.40.00.77: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.40.00.77>
 * TI DSLite Programmer Software: see below
