@@ -104,16 +104,12 @@ installation directory is inside `~/ti/`.
 
 You should place the DSLite executable directory within your `$PATH`.
 
-## Building and Installation
+## Firmware Building
 
 Once the GCC, DSLite, and the SDK is installed and operational, building
 Sniffle should be straight forward. Just navigate to the `fw` directory and
 run `make`. If you didn't install the SDK to the default directory, you may
 need to edit `SIMPLELINK_SDK_INSTALL_DIR` in the makefile.
-
-To install Sniffle on a (plugged in) CC26x2 Launchpad using DSLite, run
-`make load` within the `fw` directory. You can also flash the compiled
-`sniffle.out` binary using the UniFlash GUI.
 
 If building for or installing on a some variant of Launchpad other than CC26x2R,
 you must specify `PLATFORM=xxx`, either as an argument to make, or by defining
@@ -121,11 +117,20 @@ it as an environment variable prior to invoking make. Supported values for `PLAT
 can be found in the firmware makefile. Be sure to perform a `make clean` before
 building for a different platform.
 
+## Firmware Installation (TI Launchpad Board)
+
+To install Sniffle on a (plugged in) CC26x2R Launchpad using DSLite, run
+`make load` within the `fw` directory. For any other Launchpad models, you must
+specify the `PLATFORM` argument to make as descirbed above. You can also flash
+the compiled `sniffle.out` binary using the UniFlash GUI.
+
+## Firmware Installation (SONOFF USB Dongle)
+
 To install Sniffle on a SONOFF CC2652P dongle (equipped with a CP2102 USB/UART
 adapter), you need to use a special firmware build that uses a 1 megabit baud rate
-instead of the default 2 megabit baud rate. You can use the
+instead of the default 2 megabit baud rate. You can use
 [JelmerT/cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) to flash the firmware
-using the built-in ROM bootloader, with the following command:
+using the built-in ROM bootloader with the following command:
 
 ```
 python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1_1M.bin
