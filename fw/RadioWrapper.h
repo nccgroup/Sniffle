@@ -32,6 +32,13 @@ typedef enum
     LEGACY_SCANNABLE        // ADV_SCAN_IND
 } ADV_Mode;
 
+typedef enum
+{
+    EXT_NON_CONNECTABLE,
+    EXT_CONNECTABLE,
+    EXT_SCANNABLE
+} ADV_EXT_Mode;
+
 typedef struct
 {
     uint32_t timestamp; // 4 MHz radio ticks
@@ -100,6 +107,12 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
 int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advAddr,
     bool advRandom, const void *advData, uint8_t advLen, const void *scanRspData,
     uint8_t scanRspLen, ADV_Mode mode);
+
+// BLE5 extended advertise on all three primary channels pointing to an
+// extended advertisement on a secondary channel
+int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *advAddr,
+    bool advRandom, const void *advData, uint8_t advLen, ADV_EXT_Mode mode,
+    PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();

@@ -44,9 +44,13 @@ void setAddr(bool isRandom, void *addr);
 /* Enter initiating state */
 void initiateConn(bool isRandom, void *peerAddr, void *llData);
 
-/* Enter advertising state */
+/* Enter legacy advertising state */
 void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
         void *scanRspData, uint8_t scanRspLen);
+
+/* Enter extended advertising state */
+void advertiseExtended(ADV_EXT_Mode mode, void *advData, uint8_t advLen,
+        PHY_Mode primaryPhy, PHY_Mode secondaryPhy);
 
 /* Enter active scanning state */
 void scan();

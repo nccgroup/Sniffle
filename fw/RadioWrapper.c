@@ -783,6 +783,138 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
         return -1;
 }
 
+/* Advertises in extended mode on 37/38/39 and secondary channel
+ *
+ * Arguments:
+ *  callback        Function to call when a packet is received
+ *  advAddr         Our (advertiser) MAC address
+ *  advRandom       TxAdd for advertisement
+ *  advData         Advertisement data
+ *  advLen          Advertisement data length
+ *  mode            Advertisement type
+ *  primaryPhy      Primary channel PHY
+ *  secondaryPhy    Secondary channel PHY
+ *  secondaryChan   Secondary channel number
+ *
+ * Returns:
+ *  -1 if no connection request or error
+ *  0 on extended connection request
+ */
+int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *advAddr,
+    bool advRandom, const void *advData, uint8_t advLen, ADV_EXT_Mode mode,
+    PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan)
+{
+    rfc_ble5AdvExtPar_t params;
+    rfc_ble5AdvAuxPar_t params2;
+    rfc_ble5ExtAdvEntry_t advPkt;
+    rfc_ble5ExtAdvEntry_t advPkt2;
+    rfc_ble5ExtAdvEntry_t advPkt3;
+    rfc_CMD_BLE5_ADV_EXT_t adv37;
+    rfc_CMD_BLE5_ADV_EXT_t adv38;
+    rfc_CMD_BLE5_ADV_EXT_t adv39;
+    rfc_CMD_BLE5_ADV_AUX_t adv2;
+    uint8_t extHdr[5] = {}; // ADI and AuxPtr
+
+    if (!configured ||
+            primaryPhy == PHY_2M ||
+            secondaryChan > 36 ||
+            mode > EXT_CONNECTABLE)
+        return -EINVAL;
+
+    userCallback = callback;
+    ble4_cmd = false;
+
+    // Set up primary channel advertising
+    memset(&adv37, 0, sizeof(adv37));
+    adv37.commandNo = 0x1823;
+    adv37.condition.rule = COND_STOP_ON_FALSE;
+    adv37.phyMode.mainMode = (primaryPhy == PHY_CODED_S2) ? 2 : primaryPhy;
+    adv37.phyMode.coding = (primaryPhy == PHY_CODED_S2) ? 6 : 4;
+    adv37.pParams = &params;
+
+    memset(&params, 0, sizeof(params));
+    params.advConfig.deviceAddrType = advRandom ? 1 : 0;
+    params.auxPtrTargetType = TRIG_ABSTIME;
+    params.auxPtrTargetTime = RF_getCurrentTime() + 8000;
+    params.pAdvPkt = (uint8_t *)&advPkt;
+    params.pDeviceAddress = (uint16_t *)advAddr;
+
+    memset(&advPkt, 0, sizeof(advPkt));
+    advPkt.extHdrInfo.length = 6;
+    advPkt.extHdrInfo.advMode = mode;
+    advPkt.extHdrFlags = 0x18; // ADI and AuxPtr
+    advPkt.pExtHeader = extHdr;
+
+    // Duplicate the common settings
+    adv38 = adv37;
+    adv39 = adv37;
+
+    // Set up chain of advertising on 37, 38, 39, secondary
+    adv37.pNextOp = (RF_Op *)&adv38;
+    adv37.channel = 37;
+    adv38.pNextOp = (RF_Op *)&adv39;
+    adv38.channel = 38;
+    adv39.pNextOp = (RF_Op *)&adv2;
+    adv39.channel = 39;
+
+    // Set up secondary channel advertising
+    memset(&adv2, 0, sizeof(adv2));
+    adv2.commandNo = 0x1824;
+    adv2.condition.rule = COND_NEVER;
+    adv2.channel = secondaryChan;
+    adv2.phyMode.mainMode = (secondaryPhy == PHY_CODED_S2) ? 2 : secondaryPhy;
+    adv2.phyMode.coding = (secondaryPhy == PHY_CODED_S2) ? 6 : 4;
+    adv2.pParams = &params2;
+
+    memset(&params2, 0, sizeof(params2));
+    params2.pRxQ = &dataQueue;
+    params2.rxConfig.bAutoFlushIgnored = 1;
+    params2.rxConfig.bAutoFlushCrcErr = 1;
+    params2.rxConfig.bAutoFlushEmpty = 0;
+    params2.rxConfig.bIncludeLenByte = 1;
+    params2.rxConfig.bIncludeCrc = 0;
+    params2.rxConfig.bAppendRssi = 1;
+    params2.rxConfig.bAppendStatus = 1;
+    params2.rxConfig.bAppendTimestamp = 1;
+
+    params2.advConfig.advFilterPolicy = 0x0; // no whitelist
+    params2.advConfig.deviceAddrType = advRandom ? 1 : 0;
+    params2.advConfig.targetAddrType = 0; // not applicable
+    params2.advConfig.bStrictLenFilter = 0;
+    params2.advConfig.bDirected = 0;
+    params2.advConfig.rpaMode = 0;
+
+    params2.auxPtrTargetType = TRIG_ABSTIME;
+    params2.auxPtrTargetTime = params.auxPtrTargetTime;
+    params2.pAdvPkt = (uint8_t *)&advPkt2;
+    params2.pRspPkt = (uint8_t *)&advPkt3;
+    params2.pDeviceAddress = (uint16_t *)advAddr;
+
+    // AUX_ADV_IND
+    memset(&advPkt2, 0, sizeof(advPkt2));
+    advPkt2.extHdrInfo.length = 9;
+    advPkt2.extHdrInfo.advMode = mode;
+    advPkt2.extHdrFlags = 0x09; // AdvA and AuxPtr
+    advPkt2.extHdrConfig.bSkipAdvA = 1;
+    advPkt2.advDataLen = advLen;
+    advPkt2.pExtHeader = extHdr;
+    advPkt2.pAdvData = (uint8_t *)advData;
+
+    // AUX_CONNECT_RSP
+    memset(&advPkt3, 0, sizeof(advPkt3));
+    advPkt3.extHdrInfo.length = 13;
+    advPkt3.extHdrInfo.advMode = 0;
+    advPkt3.extHdrFlags = 0x03; // AdvA and TargetA
+    advPkt3.extHdrConfig.bSkipAdvA = 1;
+    advPkt3.extHdrConfig.bSkipTargetA = 1;
+
+    // Enter advertiser mode, and stay till we're done
+    RF_runCmd(bleRfHandle, (RF_Op*)&adv37, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    return adv2.status == BLE_DONE_CONNECT ? 0 : -1;
+}
+
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations

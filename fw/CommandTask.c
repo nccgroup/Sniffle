@@ -129,7 +129,7 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             break;
         case COMMAND_ADVERTISE:
             // 1 byte len, 1 byte opcode,
-            // 1 byte adv type
+            // 1 byte adv mode
             // 1 byte adv len, 31 byte adv, 1 byte scanRsp len, 31 byte scanRsp
             if (ret != 67) continue;
             if (msgBuf[2] > LEGACY_SCANNABLE) continue;
@@ -190,6 +190,19 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_VERSION:
             if (ret != 2) continue;
             reportVersion();
+            break;
+        case COMMAND_ADV_EXT:
+            // 1 byte len, 1 byte opcode,
+            // 1 byte adv mode, 1 byte primary PHY, 1 byte secondary PHY
+            // 1 byte adv data len, 0-245 bytes adv data
+            // Note: 245 = 254 - 9 bytes extended header (Flags, AdvA, ADI)
+            if (ret < 6) continue;
+            if (msgBuf[2] > EXT_CONNECTABLE) continue;
+            if (msgBuf[3] > PHY_CODED_S2 || msgBuf[3] == PHY_2M) continue;
+            if (msgBuf[4] > PHY_CODED_S2) continue;
+            if (msgBuf[5] > 245) continue;
+            if (ret != msgBuf[5] + 4) continue;
+            advertiseExtended(msgBuf[2], msgBuf + 6, msgBuf[5], msgBuf[3], msgBuf[4]);
             break;
         default:
             break;

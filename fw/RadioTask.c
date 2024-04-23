@@ -55,7 +55,8 @@ typedef enum
     MASTER,
     SLAVE,
     ADVERTISING,
-    SCANNING
+    SCANNING,
+    ADVERTISING_EXT
 } SnifferState;
 
 /***** Variable declarations *****/
@@ -132,12 +133,16 @@ static uint16_t peerAddr[3];
 
 static uint8_t connReqLLData[22];
 
+static ADV_Mode s_advMode;
+static ADV_EXT_Mode s_advExtMode;
+static PHY_Mode s_primaryAdvPhy;
+static PHY_Mode s_secondaryAdvPhy;
+static uint8_t s_secondaryAdvChan;
+static uint16_t s_advIntervalMs = 100;
 static uint8_t s_advLen;
-static uint8_t s_advData[31];
+static uint8_t s_advData[255];
 static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
-static uint16_t s_advIntervalMs = 100;
-static ADV_Mode s_advMode;
 
 uint8_t g_pkt_dir = 0;
 
@@ -559,9 +564,19 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             if (snifferState == ADVERTISING)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
         } else if (snifferState == SCANNING) {
-            /* scan forever (until stopped) */
+            // scan forever (until stopped)
             RadioWrapper_scan(statPHY, statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
                     indicatePacket);
+        } else if (snifferState == ADVERTISING_EXT) {
+            // slightly "randomize" advertisement timing as per spec
+            uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
+            RadioWrapper_advertiseExt3(indicatePacket, ourAddr, ourAddrRandom,
+                    s_advData, s_advLen, s_advExtMode, s_primaryAdvPhy,
+                    s_secondaryAdvPhy, s_secondaryAdvChan);
+            s_secondaryAdvChan = (s_secondaryAdvChan + 1) % 37;
+            // don't sleep if we had a connection established
+            if (snifferState == ADVERTISING_EXT)
+                Task_sleep(sleep_ms * 100); // 100 kHz ticks
         }
     }
 }
@@ -843,7 +858,7 @@ void reactToPDU(const BLE_Frame *frame)
             handleConnReq(frame->phy, frame->timestamp, frame->pData + 14,
                     isAuxReq);
 
-            if (snifferState == ADVERTISING)
+            if (snifferState == ADVERTISING || snifferState == ADVERTISING_EXT)
             {
                 RadioWrapper_resetSeqStat();
                 stateTransition(SLAVE);
@@ -1425,7 +1440,7 @@ void initiateConn(bool isRandom, void *_peerAddr, void *llData)
     TXQueue_init();
 }
 
-/* Enter advertising state */
+/* Enter legacy advertising state */
 void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
         void *scanRspData, uint8_t scanRspLen)
 {
@@ -1435,6 +1450,21 @@ void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
     memcpy(s_advData, advData, advLen);
     memcpy(s_scanRspData, scanRspData, scanRspLen);
     stateTransition(ADVERTISING);
+    RadioWrapper_stop();
+    TXQueue_init();
+}
+
+/* Enter extended advertising state */
+void advertiseExtended(ADV_EXT_Mode mode, void *advData, uint8_t advLen,
+        PHY_Mode primaryPhy, PHY_Mode secondaryPhy)
+{
+    s_advExtMode = mode;
+    s_advLen = advLen;
+    s_primaryAdvPhy = primaryPhy;
+    s_secondaryAdvPhy = secondaryPhy;
+    s_secondaryAdvChan = 0;
+    memcpy(s_advData, advData, advLen);
+    stateTransition(ADVERTISING_EXT);
     RadioWrapper_stop();
     TXQueue_init();
 }
