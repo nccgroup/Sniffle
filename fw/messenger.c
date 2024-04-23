@@ -13,7 +13,11 @@
 
 UART2_Handle uart;
 
+#ifdef UART_1M_BAUD
+static const uint32_t BAUD_RATE = 1000000;
+#else
 static const uint32_t BAUD_RATE = 2000000;
+#endif
 
 int messenger_init()
 {
