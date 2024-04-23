@@ -136,8 +136,11 @@ using the built-in ROM bootloader with the following command:
 python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1_1M.bin
 ```
 
-You may need to unplug and reconnect the dongle after flashing if the `cc2538-bsl.py`
-script does not correctly reset the chip after flashing.
+As of April 23, 2024, there are a couple bugs in `cc2538-bsl` for which
+pull requests [168](https://github.com/JelmerT/cc2538-bsl/pull/168) and
+[173](https://github.com/JelmerT/cc2538-bsl/pull/173) need to be merged to fix.
+In the interim, while waiting for those pull requests to be merged, you can use
+my fork at <https://github.com/sultanqasim/cc2538-bsl>.
 
 ## Sniffer Usage
 
