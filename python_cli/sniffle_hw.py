@@ -39,16 +39,29 @@ def find_xds110_serport():
     else:
         raise IOError("XDS110 not found")
 
+# SiLabs CP2102 (used in Sonoff dongle and others) has 1M baud limit
+def is_cp2102(serport):
+    for i in comports():
+        if i.device == serport:
+            if i.vid != 0x10C4:
+                return False
+            if 0xEA60 <= i.pid <= 0xEA63:
+                return True
+    return False
+
 class SniffleHW:
     max_interval_preload_pairs = 4
 
     def __init__(self, serport=None, logger=None, timeout=None):
+        baud = 2000000
         if serport is None:
             serport = find_xds110_serport()
+        elif is_cp2102(serport):
+            baud = 1000000
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
-        self.ser = Serial(serport, 2000000, timeout=timeout)
+        self.ser = Serial(serport, baud, timeout=timeout)
         self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
         self.logger = logger if logger else _TrivialLogger()
