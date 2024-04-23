@@ -28,8 +28,9 @@ Sniffle has a number of useful features, including:
     * TI CC1352P Launchpad Board: <https://www.ti.com/tool/LAUNCHXL-CC1352P>
     * TI CC2652R7 Launchpad Board: <https://www.ti.com/tool/LP-CC2652R7>
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
-    * TI CC2651P3 Launchpad Board (cheapest): <https://www.ti.com/tool/LP-CC2651P3>
+    * TI CC2651P3 Launchpad Board: <https://www.ti.com/tool/LP-CC2651P3>
     * TI CC1354P10 Launchpad Board: <https://www.ti.com/tool/LP-EM-CC1354P10>
+    * ITEAD SONOFF CC2652P USB Dongle Plus: <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
 * TI SimpleLink Low Power F2 SDK 7.40.00.77: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.40.00.77>
 * TI DSLite Programmer Software: see below
@@ -119,6 +120,19 @@ you must specify `PLATFORM=xxx`, either as an argument to make, or by defining
 it as an environment variable prior to invoking make. Supported values for `PLATFORM`
 can be found in the firmware makefile. Be sure to perform a `make clean` before
 building for a different platform.
+
+To install Sniffle on a SONOFF CC2652P dongle (equipped with a CP2102 USB/UART
+adapter), you need to use a special firmware build that uses a 1 megabit baud rate
+instead of the default 2 megabit baud rate. You can use the
+[JelmerT/cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) to flash the firmware
+using the built-in ROM bootloader, with the following command:
+
+```
+python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1_1M.bin
+```
+
+You may need to unplug and reconnect the dongle after flashing if the `cc2538-bsl.py`
+script does not correctly reset the chip after flashing.
 
 ## Sniffer Usage
 
