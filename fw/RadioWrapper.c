@@ -830,13 +830,18 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     adv37.commandNo = 0x1823;
     adv37.condition.rule = COND_STOP_ON_FALSE;
     adv37.phyMode.mainMode = (primaryPhy == PHY_CODED_S2) ? 2 : primaryPhy;
-    adv37.phyMode.coding = (primaryPhy == PHY_CODED_S2) ? 6 : 4;
+    adv37.phyMode.coding = (primaryPhy == PHY_CODED_S2) ? 7 : 4;
     adv37.pParams = &params;
 
     memset(&params, 0, sizeof(params));
     params.advConfig.deviceAddrType = advRandom ? 1 : 0;
     params.auxPtrTargetType = TRIG_ABSTIME;
-    params.auxPtrTargetTime = RF_getCurrentTime() + 8000;
+    if (primaryPhy == PHY_1M)
+        params.auxPtrTargetTime = RF_getCurrentTime() + 2*4000;
+    else if (primaryPhy == PHY_CODED_S8)
+        params.auxPtrTargetTime = RF_getCurrentTime() + 5*4000;
+    else // PHY_CODED_S2
+        params.auxPtrTargetTime = RF_getCurrentTime() + 3*4000;
     params.pAdvPkt = (uint8_t *)&advPkt;
     params.pDeviceAddress = (uint16_t *)advAddr;
 
@@ -871,7 +876,7 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     adv2.condition.rule = COND_NEVER;
     adv2.channel = secondaryChan;
     adv2.phyMode.mainMode = (secondaryPhy == PHY_CODED_S2) ? 2 : secondaryPhy;
-    adv2.phyMode.coding = (secondaryPhy == PHY_CODED_S2) ? 6 : 4;
+    adv2.phyMode.coding = (secondaryPhy == PHY_CODED_S2) ? 7 : 4;
     adv2.pParams = &params2;
 
     memset(&params2, 0, sizeof(params2));
