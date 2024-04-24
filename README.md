@@ -436,12 +436,12 @@ ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
 
 While the original 2019 Sniffle firmware was purely a passive listener, later firmware versions
 added various features to actively transmit packets in various ways. Current Sniffle firmware
-supports acting as both a GAP central and peripheral device, including active scanning, (legacy)
-advertising, initiating connections, and being connected in a master (central) or slave
-(peripheral) role. The `scanner.py` script performs active scanning. The `initiator.py` script
-initiates a connection to a peripheral and then acts as a connected master. The `advertiser.py`
-script performs legacy advertising and accepts connection requests from other devices,
-transitioning to a connected slave role.
+supports acting as both a GAP central and peripheral device, including active scanning, legacy
+and extended advertising, initiating connections, and being connected in a master (central) or
+slave (peripheral) role. The `scanner.py` script performs active scanning. The `initiator.py`
+script initiates a connection to a peripheral and then acts as a connected master. The
+`advertiser.py` script performs legacy advertising and accepts connection requests from other
+devices, transitioning to a connected slave role.
 
 The transmit functionality of Sniffle is a little different from a traditional HCI-based Bluetooth
 controller, because it gives you very low level control of the exact PDUs being sent at the link
@@ -452,7 +452,8 @@ I have not yet taken the time to formally document the Sniffle firmware's API, t
 self-explanatory when looking at its host-side implementation in `sniffle_hw.py`. Active scanning
 (that transmits scan requests) is activated by `cmd_scan`. Connection initiation is triggered by
 `cmd_connect`, though it's easiest to use the `initiate_conn` wrapper. Advertising (optionally
-connectable) is activated by `cmd_advertise`.
+connectable) is activated by `cmd_advertise` for legacy advertising, or `cmd_advertise_ext` for
+extended advertising.
 
 ## XDS110 UART Latency
 
