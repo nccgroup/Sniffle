@@ -865,6 +865,9 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     // Set up secondary channel advertising
     memset(&adv2, 0, sizeof(adv2));
     adv2.commandNo = 0x1824;
+    adv2.startTime = params.auxPtrTargetTime;
+    adv2.startTrigger.triggerType = TRIG_ABSTIME;
+    adv2.startTrigger.pastTrig = 1;
     adv2.condition.rule = COND_NEVER;
     adv2.channel = secondaryChan;
     adv2.phyMode.mainMode = (secondaryPhy == PHY_CODED_S2) ? 2 : secondaryPhy;
@@ -889,8 +892,6 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     params2.advConfig.bDirected = 0;
     params2.advConfig.rpaMode = 0;
 
-    params2.auxPtrTargetType = TRIG_ABSTIME;
-    params2.auxPtrTargetTime = params.auxPtrTargetTime;
     params2.pAdvPkt = (uint8_t *)&advPkt2;
     params2.pRspPkt = (uint8_t *)&advPkt3;
     params2.pDeviceAddress = (uint16_t *)advAddr;
