@@ -351,6 +351,14 @@ class AuxPtr:
         return "AuxPtr Chan: %d PHY: %s Delay: %d us" % (
             self.chan, phy_names[self.phy], self.offsetUsec)
 
+class AdvDataInfo:
+    def __init__(self, adi):
+        self.did = adi[0] + ((adi[1] & 0x0F) << 8)
+        self.sid = adi[1] >> 4
+
+    def __str__(self):
+        return "AdvDataInfo DID: 0x%03x SID: 0x%01x" % (self.did, self.sid)
+
 class AdvExtIndMessage(AdvertMessage):
     pdutype = "ADV_EXT_IND"
 
@@ -388,7 +396,7 @@ class AdvExtIndMessage(AdvertMessage):
                 self.CTEInfo = self.body[hdrPos]
                 hdrPos += 1
             if hdrFlags & 0x08:
-                self.AdvDataInfo = self.body[hdrPos:hdrPos+2]
+                self.AdvDataInfo = AdvDataInfo(self.body[hdrPos:hdrPos+2])
                 hdrPos += 2
             if hdrFlags & 0x10:
                 self.AuxPtr = AuxPtr(self.body[hdrPos:hdrPos+3])
@@ -421,8 +429,7 @@ class AdvExtIndMessage(AdvertMessage):
         if self.CTEInfo:
             dispMsgs.append("CTEInfo: 0x%02X" % self.CTEInfo)
         if self.AdvDataInfo:
-            dispMsgs.append("AdvDataInfo: %02X %02X" % (
-                self.AdvDataInfo[0], self.AdvDataInfo[1]))
+            dispMsgs.append(str(self.AdvDataInfo))
         if self.SyncInfo:
             # TODO decode this nicely
             dispMsgs.append("SyncInfo: %s" % repr(self.SyncInfo))
