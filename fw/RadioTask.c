@@ -814,18 +814,8 @@ void reactToPDU(const BLE_Frame *frame)
             postponed = true;
         }
 
-        /* for connectable advertisements, save advertisement headers to the cache
-         * Connectable types are:
-         * ADV_IND (0x0), ADV_DIRECT_IND (0x1), and ADV_EXT_IND (0x7)
-         *
-         * ADV_EXT_IND is special (BT5 specific) and its connectability depends on
-         * AdvMode. ADV_EXT_IND advertisements don't contain the AdvA field and
-         * instead require you to look at a secondary advertising channel.
-         * The actual AdvA will be in an AUX_ADV_IND PDU in the secondary channel.
-         *
-         * For now, I haven't implemented support for secondary advertising
-         * channels, so I'll just ignore ADV_EXT_IND.
-         */
+        // For connectable legacy advertisements, save advertisement headers to the cache
+        // so that we can go back to check if the advertiser supports CSA#2.
         if (pduType == ADV_IND ||
             pduType == ADV_DIRECT_IND)
         {
@@ -1196,10 +1186,6 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
         if (!macOk(pAdvA, TxAdd))
             return; // rejected by MAC filter
     }
-
-    // If we have a connectable AUX_ADV_IND, store AdvA in the cache
-    if (pAdvA && advMode == 1)
-        adv_cache_store(pAdvA, frame->pData[0]);
 
     /* TODO: handle periodic advertising
      * It's more complicated than I initially realized
