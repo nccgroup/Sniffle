@@ -50,7 +50,7 @@ void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
 
 /* Enter extended advertising state */
 void advertiseExtended(ADV_EXT_Mode mode, void *advData, uint8_t advLen,
-        PHY_Mode primaryPhy, PHY_Mode secondaryPhy);
+        PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint16_t adi);
 
 /* Enter active scanning state */
 void scan();

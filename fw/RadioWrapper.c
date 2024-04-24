@@ -795,6 +795,7 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
  *  primaryPhy      Primary channel PHY
  *  secondaryPhy    Secondary channel PHY
  *  secondaryChan   Secondary channel number
+ *  adi             AdvDataInfo field
  *
  * Returns:
  *  -1 if no connection request or error
@@ -802,7 +803,7 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
  */
 int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *advAddr,
     bool advRandom, const void *advData, uint8_t advLen, ADV_EXT_Mode mode,
-    PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan)
+    PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan, uint16_t adi)
 {
     rfc_ble5AdvExtPar_t params;
     rfc_ble5AdvAuxPar_t params2;
@@ -844,6 +845,8 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     advPkt.extHdrInfo.advMode = mode;
     advPkt.extHdrFlags = 0x18; // ADI and AuxPtr
     advPkt.pExtHeader = extHdr;
+
+    memcpy(extHdr, &adi, sizeof(adi));
 
     // Duplicate the common settings
     adv38 = adv37;

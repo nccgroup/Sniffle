@@ -112,7 +112,7 @@ int RadioWrapper_advertise3(RadioWrapper_Callback callback, const uint16_t *advA
 // extended advertisement on a secondary channel
 int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *advAddr,
     bool advRandom, const void *advData, uint8_t advLen, ADV_EXT_Mode mode,
-    PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan);
+    PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan, uint16_t adi);
 
 // Stop ongoing radio operations
 void RadioWrapper_stop();

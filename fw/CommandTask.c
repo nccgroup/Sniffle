@@ -194,15 +194,16 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_ADV_EXT:
             // 1 byte len, 1 byte opcode,
             // 1 byte adv mode, 1 byte primary PHY, 1 byte secondary PHY
-            // 1 byte adv data len, 0-245 bytes adv data
+            // 2 bytes ADI, 1 byte adv data len, 0-245 bytes adv data
             // Note: 245 = 254 - 9 bytes extended header (Flags, AdvA, ADI)
-            if (ret < 6) continue;
+            if (ret < 8) continue;
             if (msgBuf[2] > EXT_CONNECTABLE) continue;
             if (msgBuf[3] > PHY_CODED_S2 || msgBuf[3] == PHY_2M) continue;
             if (msgBuf[4] > PHY_CODED_S2) continue;
-            if (msgBuf[5] > 245) continue;
-            if (ret != msgBuf[5] + 4) continue;
-            advertiseExtended(msgBuf[2], msgBuf + 6, msgBuf[5], msgBuf[3], msgBuf[4]);
+            if (msgBuf[7] > 245) continue;
+            if (ret != msgBuf[7] + 8) continue;
+            advertiseExtended(msgBuf[2], msgBuf + 8, msgBuf[7], msgBuf[3], msgBuf[4],
+                    msgBuf[5] | (msgBuf[6] << 8));
             break;
         default:
             break;

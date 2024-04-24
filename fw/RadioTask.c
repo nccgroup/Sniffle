@@ -137,10 +137,11 @@ static ADV_Mode s_advMode;
 static ADV_EXT_Mode s_advExtMode;
 static PHY_Mode s_primaryAdvPhy;
 static PHY_Mode s_secondaryAdvPhy;
-static uint8_t s_secondaryAdvChan;
 static uint16_t s_advIntervalMs = 100;
+static uint16_t s_adi;
+static uint8_t s_secondaryAdvChan;
 static uint8_t s_advLen;
-static uint8_t s_advData[255];
+static uint8_t s_advData[254];
 static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
 
@@ -572,7 +573,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
             RadioWrapper_advertiseExt3(indicatePacket, ourAddr, ourAddrRandom,
                     s_advData, s_advLen, s_advExtMode, s_primaryAdvPhy,
-                    s_secondaryAdvPhy, s_secondaryAdvChan);
+                    s_secondaryAdvPhy, s_secondaryAdvChan, s_adi);
             s_secondaryAdvChan = (s_secondaryAdvChan + 1) % 37;
             // don't sleep if we had a connection established
             if (snifferState == ADVERTISING_EXT)
@@ -1456,13 +1457,14 @@ void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
 
 /* Enter extended advertising state */
 void advertiseExtended(ADV_EXT_Mode mode, void *advData, uint8_t advLen,
-        PHY_Mode primaryPhy, PHY_Mode secondaryPhy)
+        PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint16_t adi)
 {
     s_advExtMode = mode;
     s_advLen = advLen;
     s_primaryAdvPhy = primaryPhy;
     s_secondaryAdvPhy = secondaryPhy;
     s_secondaryAdvChan = 0;
+    s_adi = adi;
     memcpy(s_advData, advData, advLen);
     stateTransition(ADVERTISING_EXT);
     RadioWrapper_stop();
