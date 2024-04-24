@@ -510,11 +510,11 @@ class StateMessage:
 
     def __repr__(self):
         return "%s(new=%s, old=%s)" % (type(self).__name__,
-                str(self.new_state), str(self.last_state))
+                self.new_state.name, self.last_state.name)
 
     def __str__(self):
-        return "TRANSITION: %s from %s" % (str(self.new_state),
-                str(self.last_state))
+        return "TRANSITION: %s from %s" % (self.new_state.name,
+                self.last_state.name)
 
 class MeasurementType(IntEnum):
     INTERVAL = 0
