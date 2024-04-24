@@ -847,6 +847,8 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     advPkt.pExtHeader = extHdr;
 
     memcpy(extHdr, &adi, sizeof(adi));
+    extHdr[2] = secondaryChan | 0x40;
+    extHdr[4] = (secondaryPhy == PHY_CODED_S2) ? 2 << 5 : secondaryPhy << 5;
 
     // Duplicate the common settings
     adv38 = adv37;
