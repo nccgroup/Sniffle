@@ -234,6 +234,20 @@ class SniffleHW:
     def cmd_version(self):
         self._send_cmd([0x24])
 
+    # Transmit extended advertisements
+    # Supported ad type modes are non-connectable (0) and connectable (1)
+    def cmd_advertise_ext(self, advData, mode=1, phy1=0, phy2=1, adi=0):
+        if len(advData) > 245:
+            raise ValueError("advData too long!")
+        if not (mode in (0, 1)):
+            raise ValueError("Mode must be 0 (non-connectable) or 1 (connectable)")
+        if not (phy1 in (0, 2, 3)):
+            raise ValueError("Primary PHY must be 0 (1M), 2 (coded S=8), or 3 (coded S=2)")
+        if not (0 <= phy2 <= 3):
+            raise ValueError("Secondary PHY must be 0 (1M), 1 (2M), 2 (coded S=8), "
+                                 "or 3 (coded S=2)")
+        self._send_cmd([0x25, mode, phy1, phy2, adi & 0xFF, adi >> 8, len(advData), *advData])
+
     def _recv_msg(self, desync=False):
         got_msg = False
         while not (got_msg or self.recv_cancelled):
@@ -486,6 +500,7 @@ class SnifferState(IntEnum):
     SLAVE = 7
     ADVERTISING = 8
     SCANNING = 9
+    ADVERTISING_EXT = 10
 
 class StateMessage:
     def __init__(self, raw_msg, dstate):
