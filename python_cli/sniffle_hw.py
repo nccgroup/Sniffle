@@ -348,6 +348,9 @@ class SniffleHW:
                 if msg.marker_data == marker_data:
                     recvd_mark = True
                     break
+            elif mtype == 0x13:
+                # constructing StateMessage updates self.decoder_state
+                StateMessage(mbody, self.decoder_state)
 
     # Generate a random static address and set it
     def random_addr(self):
