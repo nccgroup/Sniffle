@@ -761,8 +761,17 @@ void reactToPDU(const BLE_Frame *frame)
                     targHopTime = frame->timestamp + rconf.hopIntervalTicks - HOP_TUNE_LISTEN_LATENCY*4;
                 } else {
                     // schedule hop to 38 with time to retune before connect (or scan) request on 38
-                    targHopTime = frame->timestamp + rconf.hopIntervalTicks +
-                        (frame->length + 8)*32 + (150 - HOP_TUNE_LISTEN_LATENCY)*4;
+                    int32_t hopDelay =  rconf.hopIntervalTicks + (150 - HOP_TUNE_LISTEN_LATENCY)*4;
+
+                    /* As long as the scheduled hop time is at least 510 us after the end of the
+                     * ADV_IND or ADV_SCAN_IND, we will be able to reliably postpone the hop in
+                     * case a SCAN_REQ comes in. Thus, we have the freedom to hop sooner and maybe
+                     * catch the advertisement on 38 if the hopping is slow enough.
+                     */
+                    if (hopDelay > 510*4)
+                        hopDelay = 510*4;
+
+                    targHopTime = frame->timestamp + (frame->length + 8)*32 + hopDelay;
                 }
 
                 timeRemaining = targHopTime - RF_getCurrentTime();
