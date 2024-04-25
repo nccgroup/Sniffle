@@ -1110,13 +1110,11 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
     uint8_t AdvDataLen __attribute__((unused)) = 0;
 
     uint8_t hdrBodyLen = 0;
-    uint8_t advMode;
 
     // invalid if missing extended header length and AdvMode
     if (advLen < 1)
         return;
 
-    advMode = frame->pData[2] >> 6;
     hdrBodyLen = frame->pData[2] & 0x3F;
     if (advLen < hdrBodyLen + 1)
         return; // inconsistent headers
