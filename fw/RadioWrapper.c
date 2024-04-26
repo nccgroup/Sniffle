@@ -819,7 +819,7 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     if (!configured ||
             primaryPhy == PHY_2M ||
             secondaryChan > 36 ||
-            mode > EXT_CONNECTABLE)
+            mode > EXT_SCANNABLE)
         return -EINVAL;
 
     userCallback = callback;
@@ -905,19 +905,33 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     memset(&advPkt2, 0, sizeof(advPkt2));
     advPkt2.extHdrInfo.length = 9;
     advPkt2.extHdrInfo.advMode = mode;
-    advPkt2.extHdrFlags = 0x09; // AdvA and AuxPtr
+    advPkt2.extHdrFlags = 0x09; // AdvA and ADI
     advPkt2.extHdrConfig.bSkipAdvA = 1;
-    advPkt2.advDataLen = advLen;
     advPkt2.pExtHeader = extHdr;
-    advPkt2.pAdvData = (uint8_t *)advData;
+    if (mode != EXT_SCANNABLE)
+    {
+        advPkt2.advDataLen = advLen;
+        advPkt2.pAdvData = (uint8_t *)advData;
+    }
 
-    // AUX_CONNECT_RSP
     memset(&advPkt3, 0, sizeof(advPkt3));
-    advPkt3.extHdrInfo.length = 13;
-    advPkt3.extHdrInfo.advMode = 0;
-    advPkt3.extHdrFlags = 0x03; // AdvA and TargetA
-    advPkt3.extHdrConfig.bSkipAdvA = 1;
-    advPkt3.extHdrConfig.bSkipTargetA = 1;
+    if (mode == EXT_CONNECTABLE) {
+        // AUX_CONNECT_RSP
+        advPkt3.extHdrInfo.length = 13;
+        advPkt3.extHdrInfo.advMode = 0;
+        advPkt3.extHdrFlags = 0x03; // AdvA and TargetA
+        advPkt3.extHdrConfig.bSkipAdvA = 1;
+        advPkt3.extHdrConfig.bSkipTargetA = 1;
+    } else if (mode == EXT_SCANNABLE) {
+        // AUX_SCAN_RSP
+        advPkt3.extHdrInfo.length = 9;
+        advPkt3.extHdrInfo.advMode = 0;
+        advPkt3.extHdrFlags = 0x09; // AdvA and ADI
+        advPkt3.extHdrConfig.bSkipAdvA = 1;
+        advPkt3.pExtHeader = extHdr;
+        advPkt3.advDataLen = advLen;
+        advPkt3.pAdvData = (uint8_t *)advData;
+    }
 
     // Enter advertiser mode, and stay till we're done
     RF_runCmd(bleRfHandle, (RF_Op*)&adv37, RF_PriorityNormal,

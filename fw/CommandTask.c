@@ -197,7 +197,7 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             // 2 bytes ADI, 1 byte adv data len, 0-245 bytes adv data
             // Note: 245 = 254 - 9 bytes extended header (Flags, AdvA, ADI)
             if (ret < 8) continue;
-            if (msgBuf[2] > EXT_CONNECTABLE) continue;
+            if (msgBuf[2] > EXT_SCANNABLE) continue;
             if (msgBuf[3] > PHY_CODED_S2 || msgBuf[3] == PHY_2M) continue;
             if (msgBuf[4] > PHY_CODED_S2) continue;
             if (msgBuf[7] > 245) continue;

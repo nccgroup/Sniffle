@@ -235,18 +235,20 @@ class SniffleHW:
         self._send_cmd([0x24])
 
     # Transmit extended advertisements
-    # Supported ad type modes are non-connectable (0) and connectable (1)
-    def cmd_advertise_ext(self, advData, mode=1, phy1=0, phy2=1, adi=0):
+    # Supported ad type modes are non-connectable (0), connectable (1), and scannable (2)
+    def cmd_advertise_ext(self, advData, mode=1, phy1=0, phy2=1, adi=b'\x00\x00'):
         if len(advData) > 245:
             raise ValueError("advData too long!")
-        if not (mode in (0, 1)):
-            raise ValueError("Mode must be 0 (non-connectable) or 1 (connectable)")
+        if not (0 <= mode <= 2):
+            raise ValueError("Mode must be 0 (non-connectable), 1 (connectable), or 2 (scannable)")
         if not (phy1 in (0, 2, 3)):
             raise ValueError("Primary PHY must be 0 (1M), 2 (coded S=8), or 3 (coded S=2)")
         if not (0 <= phy2 <= 3):
             raise ValueError("Secondary PHY must be 0 (1M), 1 (2M), 2 (coded S=8), "
                                  "or 3 (coded S=2)")
-        self._send_cmd([0x25, mode, phy1, phy2, adi & 0xFF, adi >> 8, len(advData), *advData])
+        if len(adi) != 2:
+            raise ValueError("ADI must be two bytes")
+        self._send_cmd([0x25, mode, phy1, phy2, *adi, len(advData), *advData])
 
     def _recv_msg(self, desync=False):
         got_msg = False
