@@ -618,9 +618,9 @@ static void computeMap1(uint64_t map)
     }
 }
 
-static inline bool isDataState(SnifferState state)
+bool inDataState(void)
 {
-    switch (state)
+    switch (snifferState)
     {
     case DATA:
     case MASTER:
@@ -634,7 +634,7 @@ static inline bool isDataState(SnifferState state)
 // change radio configuration based on a packet received
 void reactToPDU(const BLE_Frame *frame)
 {
-    if (!isDataState(snifferState) || frame->channel >= 37)
+    if (!inDataState() || frame->channel >= 37)
     {
         // Advertising PDU
         uint8_t pduType;
@@ -1097,7 +1097,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
 static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
 {
     // First, we parse the Common Extended Advertising Payload
-    uint8_t *pAdvA = NULL;
+    uint8_t *pAdvA __attribute__((unused)) = NULL;
     uint8_t *pTargetA __attribute__((unused)) = NULL;
     uint8_t *pCTEInfo __attribute__((unused)) = NULL;
     uint8_t *pAdvDataInfo __attribute__((unused)) = NULL;
@@ -1176,13 +1176,6 @@ static void reactToAdvExtPDU(const BLE_Frame *frame, uint8_t advLen)
 
         pAdvData = frame->pData + hdrPos;
         AdvDataLen = advLen - (hdrPos - 2);
-    }
-
-    if (pAdvA)
-    {
-        bool TxAdd = frame->pData[0] & 0x40 ? true : false;
-        if (!macOk(pAdvA, TxAdd))
-            return; // rejected by MAC filter
     }
 
     /* TODO: handle periodic advertising
@@ -1491,7 +1484,7 @@ void setChanMap(uint64_t map)
     uint16_t nextInstant;
 
     // setting a channel map doesn't make sense in advertising state
-    if (!isDataState(snifferState))
+    if (!inDataState())
         return;
 
     last_rconf = rconf_latest();

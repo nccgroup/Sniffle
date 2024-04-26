@@ -15,6 +15,9 @@
 /* Create the RadioTask and creates all TI-RTOS objects */
 void RadioTask_init(void);
 
+/* Reports if Sniffle is in a connected (data) state */
+bool inDataState(void);
+
 /* Update radio state/configuration based on received PDU */
 void reactToPDU(const BLE_Frame *frame);
 

@@ -217,7 +217,7 @@ void indicatePacket(BLE_Frame *frame)
     if (frame->channel < 40)
     {
         // It only makes sense to filter advertisements
-        if (frame->channel >= 37)
+        if (!inDataState())
         {
             // RSSI filtering
             if (frame->rssi < minRssi)
@@ -323,9 +323,25 @@ static bool macFilterCheck(BLE_Frame *frame)
         isRandom = frame->pData[0] & 0x80 ? true : false; // RxAdd
         break;
     case ADV_EXT_IND:
-        // generally only an AuxPtr provided on primary channel, no AdvA
-        // thus, we have to let it by (AdvA is in aux packet)
-        return true;
+    {
+        uint8_t extHdrLen;
+        if (frame->length < 3)
+            return false; // invalid advertisement
+        extHdrLen = frame->pData[2] & 0x3F;
+
+        if (frame->length < 3 + extHdrLen)
+            return false; // invalid advertisement
+
+        if (extHdrLen == 0 || !(frame->pData[3] & 0x01))
+            return true; // lacks AdvA, let it through
+
+        if (extHdrLen < 7)
+            return false; // header too short to contain AdvA, invalid
+
+        mac = frame->pData + 4;
+        isRandom = frame->pData[0] & 0x40 ? true : false; // TxAdd
+        break;
+    }
     default:
         return false;
     }
