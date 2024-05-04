@@ -37,9 +37,8 @@ import time
 import signal
 import traceback
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage
-from packet_decoder import (DPacketMessage, DataMessage, ConnectIndMessage, AdvaMessage,
-                            AdvDirectIndMessage, ScanRspMessage, AdvExtIndMessage, str_mac,
-                            AuxConnectRspMessage)
+from packet_decoder import (DPacketMessage, DataMessage, AdvaMessage, AdvDirectIndMessage,
+                            ScanRspMessage, AdvExtIndMessage, str_mac, update_state)
 from pcap import PcapBleWriter
 from serial.tools.list_ports import comports
 
@@ -413,9 +412,9 @@ class SniffleExtcapPlugin():
             # wait for a capture packet
             pkt = self.hw.recv_and_decode()
             if isinstance(pkt, PacketMessage):
-
                 # decode the packet
                 dpkt = DPacketMessage.decode(pkt)
+                update_state(dpkt, hw.decoder_state)
 
                 # write the packet to the PCAP writer
                 if isinstance(dpkt, DataMessage):
@@ -428,15 +427,6 @@ class SniffleExtcapPlugin():
                 except IOError: # Windows will raise this when the other end of the FIFO is closed
                     self.captureStopped = True
                     break
-
-                # update cur_aa
-                if isinstance(dpkt, ConnectIndMessage):
-                    if dpkt.chan < 37:
-                        self.hw.decoder_state.aux_pending_aa = dpkt.aa_conn
-                    else:
-                        self.hw.decoder_state.cur_aa = dpkt.aa_conn
-                elif isinstance(dpkt, AuxConnectRspMessage):
-                    self.hw.decoder_state.cur_aa = self.hw.decoder_state.aux_pending_aa
 
         self.logger.info('Capture stopped')
 

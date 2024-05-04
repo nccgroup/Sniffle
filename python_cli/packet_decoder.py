@@ -5,7 +5,7 @@
 # Released as open source under GPLv3
 
 import struct
-from sniffle_hw import BLE_ADV_AA, PacketMessage
+from sniffle_hw import BLE_ADV_AA, PacketMessage, SniffleDecoderState, SnifferState
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
@@ -457,3 +457,12 @@ class AuxAdvIndMessage(AdvExtIndMessage):
 
 class AuxConnectRspMessage(AdvExtIndMessage):
     pdutype = "AUX_CONNECT_RSP"
+
+def update_state(pkt: DPacketMessage, dstate: SniffleDecoderState):
+    if isinstance(pkt, ConnectIndMessage):
+        if pkt.chan < 37 and dstate.last_state != SnifferState.ADVERTISING_EXT:
+            dstate.aux_pending_aa = pkt.aa_conn
+        else:
+            dstate.cur_aa = pkt.aa_conn
+    elif isinstance(pkt, AuxConnectRspMessage):
+        dstate.cur_aa = dstate.aux_pending_aa

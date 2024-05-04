@@ -8,7 +8,7 @@ import argparse, sys
 from pcap import PcapBleWriter
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
-        ConnectIndMessage, DataMessage, str_mac, AuxConnectRspMessage)
+        DataMessage, str_mac, update_state)
 from binascii import unhexlify
 
 # global variable to access hardware
@@ -171,6 +171,7 @@ def print_message(msg, quiet):
 def print_packet(pkt, quiet):
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
+    update_state(dpkt, hw.decoder_state)
     if not (quiet and isinstance(dpkt, DataMessage) and dpkt.data_length == 0):
         print(dpkt, end='\n\n')
 
@@ -182,15 +183,6 @@ def print_packet(pkt, quiet):
             pdu_type = 0
         pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
                 pkt.body, pkt.phy, pdu_type)
-
-    # PCAP write is already done here, safe to update cur_aa
-    if isinstance(dpkt, ConnectIndMessage):
-        if dpkt.chan < 37:
-            hw.decoder_state.aux_pending_aa = dpkt.aa_conn
-        else:
-            hw.decoder_state.cur_aa = dpkt.aa_conn
-    elif isinstance(dpkt, AuxConnectRspMessage):
-        hw.decoder_state.cur_aa = hw.decoder_state.aux_pending_aa
 
 def get_first_matching_mac(search_str = None):
     hw.cmd_mac()

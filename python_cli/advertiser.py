@@ -6,7 +6,7 @@
 
 import argparse, sys
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
-from packet_decoder import DPacketMessage, ConnectIndMessage
+from packet_decoder import DPacketMessage, update_state
 
 # global variable to access hardware
 hw = None
@@ -77,10 +77,8 @@ def print_message(msg):
 def print_packet(pkt):
     # Further decode and print the packet
     dpkt = DPacketMessage.decode(pkt)
+    update_state(dpkt, hw.decoder_state)
     print(dpkt)
-
-    if isinstance(dpkt, ConnectIndMessage):
-        hw.decoder_state.cur_aa = dpkt.aa_conn
 
 if __name__ == "__main__":
     main()
