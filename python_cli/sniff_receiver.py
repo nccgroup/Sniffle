@@ -176,12 +176,7 @@ def print_packet(pkt, quiet):
 
     # Record the packet if PCAP writing is enabled
     if pcwriter:
-        if isinstance(dpkt, DataMessage):
-            pdu_type = 3 if dpkt.data_dir else 2
-        else:
-            pdu_type = 0
-        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
-                pkt.body, pkt.phy, pdu_type)
+        pcwriter.write_packet_message(dpkt)
 
 def get_first_matching_mac(search_str = None):
     hw.cmd_mac()

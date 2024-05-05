@@ -413,16 +413,11 @@ class SniffleExtcapPlugin():
             pkt = self.hw.recv_and_decode()
             if isinstance(pkt, PacketMessage):
                 # decode the packet
-                dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
+                dpkt = DPacketMessage.decode(pkt, self.hw.decoder_state)
 
                 # write the packet to the PCAP writer
-                if isinstance(dpkt, DataMessage):
-                    pdu_type = 3 if dpkt.data_dir else 2
-                else:
-                    pdu_type = 0
                 try:
-                    self.pcapWriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan,
-                                                pkt.rssi, pkt.body, pkt.phy, pdu_type)
+                    self.pcapWriter.write_packet_message(dpkt)
                 except IOError: # Windows will raise this when the other end of the FIFO is closed
                     self.captureStopped = True
                     break

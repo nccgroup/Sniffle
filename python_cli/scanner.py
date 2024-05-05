@@ -125,8 +125,7 @@ def handle_packet(pkt):
 
     # Record the packet if PCAP writing is enabled
     if pcwriter:
-        pcwriter.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
-                pkt.body, pkt.phy)
+        pcwriter.write_packet_message(dpkt)
 
     global advertisers
 

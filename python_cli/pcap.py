@@ -1,5 +1,5 @@
 # Copyright (c) 2018 virtualabs
-# Copyright (c) 2018-2021, NCC Group plc
+# Copyright (c) 2018-2024, NCC Group plc
 # Released as open source under GPLv3
 
 """
@@ -31,6 +31,8 @@ SOFTWARE.
 import os.path
 from io import BytesIO, BufferedIOBase, RawIOBase
 from struct import pack
+from packet_decoder import (DPacketMessage, DataMessage, AuxChainIndMessage,
+                            AuxScanRspMessage)
 
 class PcapBleWriter(object):
     """
@@ -143,6 +145,20 @@ class PcapBleWriter(object):
                                phy, pdu_type, aux_type)
         self.write_packet_header(ts_s, ts_u, len(payload))
         self.output.write(payload)
+
+    def write_packet_message(self, pkt: DPacketMessage):
+        aux_type = 0
+        if isinstance(pkt, DataMessage):
+            pdu_type = 3 if pkt.data_dir else 2
+        else:
+            pdu_type = 1 if pkt.chan < 37 else 0
+            if isinstance(pkt, AuxChainIndMessage):
+                aux_type = 1
+            elif isinstance(pkt, AuxScanRspMessage):
+                aux_type = 3
+
+        self.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
+                pkt.body, pkt.phy, pdu_type, aux_type)
 
     def close(self):
         """
