@@ -323,6 +323,7 @@ static bool macFilterCheck(BLE_Frame *frame)
         isRandom = frame->pData[0] & 0x80 ? true : false; // RxAdd
         break;
     case ADV_EXT_IND:
+    case AUX_CONNECT_RSP:
     {
         uint8_t extHdrLen;
         if (frame->length < 3)
