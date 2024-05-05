@@ -410,6 +410,12 @@ class SniffleDecoderState:
         # temporarily hold the access address of the pending connection here
         self.aux_pending_aa = None
 
+        # timeout if pending, otherwise None
+        self.aux_pending_scan_rsp = None
+
+        # tuple of (ADI, channel, timeout) if pending
+        self.aux_pending_chain = None
+
         # state tracking
         self.last_state = SnifferState.STATIC
 

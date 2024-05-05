@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020-2023, NCC Group plc
+# Copyright (c) 2020-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys, signal
@@ -114,7 +114,7 @@ def main():
 
 def handle_packet(pkt):
     # Further decode the packet
-    dpkt = DPacketMessage.decode(pkt)
+    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
 
     # Ignore non-advertisements (shouldn't get any)
     if not isinstance(dpkt, AdvertMessage):

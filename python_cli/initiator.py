@@ -103,7 +103,7 @@ def get_mac_from_irk(irk):
         msg = hw.recv_and_decode()
         if not isinstance(msg, PacketMessage):
             continue
-        dpkt = DPacketMessage.decode(msg)
+        dpkt = DPacketMessage.decode(msg, hw.decoder_state)
         if isinstance(dpkt, AdvaMessage) or \
                 isinstance(dpkt, AdvDirectIndMessage) or \
                 (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
@@ -119,7 +119,7 @@ def get_mac_from_string(s):
         msg = hw.recv_and_decode()
         if not isinstance(msg, PacketMessage):
             continue
-        dpkt = DPacketMessage.decode(msg)
+        dpkt = DPacketMessage.decode(msg, hw.decoder_state)
         if isinstance(dpkt, AdvaMessage) or \
                 isinstance(dpkt, AdvDirectIndMessage) or \
                 isinstance(dpkt, ScanRspMessage) or \
@@ -142,7 +142,7 @@ def print_message(msg):
 msg_ctr = 0
 def print_packet(pkt):
     # Further decode and print the packet
-    dpkt = DPacketMessage.decode(pkt)
+    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
     print(dpkt)
 
     # do a ping every fourth message

@@ -38,7 +38,7 @@ import signal
 import traceback
 from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage
 from packet_decoder import (DPacketMessage, DataMessage, AdvaMessage, AdvDirectIndMessage,
-                            ScanRspMessage, AdvExtIndMessage, str_mac, update_state)
+                            ScanRspMessage, AdvExtIndMessage, str_mac)
 from pcap import PcapBleWriter
 from serial.tools.list_ports import comports
 
@@ -413,8 +413,7 @@ class SniffleExtcapPlugin():
             pkt = self.hw.recv_and_decode()
             if isinstance(pkt, PacketMessage):
                 # decode the packet
-                dpkt = DPacketMessage.decode(pkt)
-                update_state(dpkt, hw.decoder_state)
+                dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
 
                 # write the packet to the PCAP writer
                 if isinstance(dpkt, DataMessage):
@@ -476,7 +475,7 @@ class SniffleExtcapPlugin():
             msg = self.hw.recv_and_decode()
             if not isinstance(msg, PacketMessage):
                 continue
-            dpkt = DPacketMessage.decode(msg)
+            dpkt = DPacketMessage.decode(msg, hw.decoder_state)
             if isinstance(dpkt, AdvaMessage) or \
                     isinstance(dpkt, AdvDirectIndMessage) or \
                     isinstance(dpkt, ScanRspMessage) or \

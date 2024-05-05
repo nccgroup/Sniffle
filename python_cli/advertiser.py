@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020, NCC Group plc
+# Copyright (c) 2020-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
-from packet_decoder import DPacketMessage, update_state
+from sniffle_hw import (SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage,
+                        MeasurementMessage)
+from packet_decoder import DPacketMessage
 
 # global variable to access hardware
 hw = None
@@ -76,8 +77,7 @@ def print_message(msg):
 
 def print_packet(pkt):
     # Further decode and print the packet
-    dpkt = DPacketMessage.decode(pkt)
-    update_state(dpkt, hw.decoder_state)
+    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
     print(dpkt)
 
 if __name__ == "__main__":

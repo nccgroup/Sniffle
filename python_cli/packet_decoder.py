@@ -76,11 +76,15 @@ class DPacketMessage(PacketMessage):
         return cls.decode(super().from_body(body, is_data, slave_send))
 
     @staticmethod
-    def decode(pkt: PacketMessage):
+    def decode(pkt: PacketMessage, dstate=None):
         if pkt.aa == BLE_ADV_AA:
-            return AdvertMessage.decode(pkt)
+            dpkt = AdvertMessage.decode(pkt, dstate)
         else:
-            return DataMessage.decode(pkt)
+            dpkt = DataMessage.decode(pkt, dstate)
+
+        if dstate:
+            update_state(dpkt, dstate)
+        return dpkt
 
 class AdvertMessage(DPacketMessage):
     def __init__(self, pkt: PacketMessage):
@@ -102,7 +106,7 @@ class AdvertMessage(DPacketMessage):
         return "\n".join([self.str_header(), self.str_adtype(), self.hexdump()])
 
     @staticmethod
-    def decode(pkt: PacketMessage):
+    def decode(pkt: PacketMessage, dstate=None):
         pdu_type = pkt.body[0] & 0xF
         if pkt.chan >= 37:
             type_classes = [
@@ -124,7 +128,16 @@ class AdvertMessage(DPacketMessage):
             elif pdu_type == 5:
                 tc = AuxConnectReqMessage
             elif pdu_type == 7:
-                tc = AuxAdvIndMessage
+                if dstate.aux_pending_scan_rsp and \
+                        pkt.ts < dstate.aux_pending_scan_rsp:
+                    tc = AuxScanRspMessage
+                elif dstate.aux_pending_chain and \
+                        pkt.chan == dstate.aux_pending_chain[1] and \
+                        pkt.ts < dstate.aux_pending_chain[2]:
+                    # TODO: check ADI match
+                    tc = AuxChainIndMessage
+                else:
+                    tc = AuxAdvIndMessage
             elif pdu_type == 8:
                 tc = AuxConnectRspMessage
             else:
@@ -158,7 +171,7 @@ class DataMessage(DPacketMessage):
         return "\n".join([self.str_header(), self.str_datatype(), self.hexdump()])
 
     @staticmethod
-    def decode(pkt: PacketMessage):
+    def decode(pkt: PacketMessage, dstate=None):
         LLID = pkt.body[0] & 0x3
         type_classes = [
                 DataMessage,        # 0 (RFU)
@@ -455,6 +468,12 @@ class AdvExtIndMessage(AdvertMessage):
 class AuxAdvIndMessage(AdvExtIndMessage):
     pdutype = "AUX_ADV_IND"
 
+class AuxScanRspMessage(AuxAdvIndMessage):
+    pdutype = "AUX_SCAN_RSP"
+
+class AuxChainIndMessage(AuxAdvIndMessage):
+    pdutype = "AUX_CHAIN_IND"
+
 class AuxConnectRspMessage(AdvExtIndMessage):
     pdutype = "AUX_CONNECT_RSP"
 
@@ -466,3 +485,22 @@ def update_state(pkt: DPacketMessage, dstate: SniffleDecoderState):
             dstate.cur_aa = pkt.aa_conn
     elif isinstance(pkt, AuxConnectRspMessage):
         dstate.cur_aa = dstate.aux_pending_aa
+        dstate.aux_pending_aa = None
+    elif isinstance(pkt, AuxScanReqMessage):
+        dstate.aux_pending_scan_rsp = pkt.ts + 0.0005
+    elif isinstance(pkt, AuxAdvIndMessage) and pkt.AuxPtr:
+        dstate.aux_pending_chain = (pkt.AdvDataInfo, pkt.AuxPtr.chan,
+                                    pkt.ts + pkt.AuxPtr.offsetUsec*1E-6 + 0.0005)
+
+    # Clear pending flags as appropriate
+    if dstate.aux_pending_scan_rsp:
+        if pkt.ts > dstate.aux_pending_scan_rsp or \
+                isinstance(pkt, AuxScanRspMessage):
+            dstate.aux_pending_scan_rsp = None
+    if dstate.aux_pending_chain:
+        if pkt.ts > dstate.aux_pending_chain[2]:
+            dstate.aux_pending_chain = None
+        elif isinstance(pkt, AuxChainIndMessage) and \
+                pkt.chan == dstate.aux_pending_chain[1] and \
+                pkt.AdvDataInfo == dstate.aux_pending_chain[0]:
+            dstate.aux_pending_chain = None
