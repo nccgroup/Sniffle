@@ -388,9 +388,9 @@ from the Wireshark GUI by selecting the 'Sniffle' capture interface.
 
 To install the Sniffle plugin, first find the location of your Personal Extcap folder in the
 'About Wireshark' dialog (*Help* > *About Wireshark* > *Folders* > *Personal Extcap path*).
-On Linux systems, this folder is typically located at `~/.config/wireshark/extcap`. On Mac OS,
-this, this folder may be located at `~/.local/lib/wireshark/extcap`. Under Windows, it can be
-found at `%USERPROFILE%\AppData\Roaming\Wireshark\extcap`.
+On Linux and Mac OS systems running recent versions of Wireshark (4.2.0+), this folder is
+located at `~/.local/lib/wireshark/extcap`. Under Windows, it can be found at
+`%USERPROFILE%\AppData\Roaming\Wireshark\extcap`.
 
 Copy the following files from the python_cli directory into your Personal Extcap folder:
 
@@ -404,7 +404,7 @@ python_cli/sniffle_extcap.bat (Windows only)
 On Unix systems, ensure that the main plugin script is marked executable:
 
 ```
-chmod +x ~/.config/wireshark/extcap/sniffle_extcap.py
+chmod +x ~/.local/lib/wireshark/extcap/sniffle_extcap.py
 ```
 
 On Windows, it may be necessary to edit sniffle_extcap.bat to specify the location of
@@ -428,8 +428,8 @@ As an alternative to copying files into the extcap folder, on Unix systems you c
 symbolic link in the extcap folder pointing to a copy of the plugin script stored elsewhere:
 
 ```
-mkdir -p ~/.config/wireshark/extcap
-ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.config/wireshark/extcap
+mkdir -p ~/.local/lib/wireshark/extcap
+ln -s ~/sniffle/python_cli/sniffle_extcap.py ~/.local/lib/wireshark/extcap
 ```
 
 ## Transmit Functionality
