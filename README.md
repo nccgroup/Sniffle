@@ -127,8 +127,8 @@ the compiled `sniffle.out` binary using the UniFlash GUI.
 ## Firmware Installation (SONOFF USB Dongle)
 
 To install Sniffle on a SONOFF CC2652P dongle (equipped with a CP2102 USB/UART
-adapter), you need to use a special firmware build that uses a 1 megabit baud rate
-instead of the default 2 megabit baud rate. You can use
+adapter), you need to use a special firmware build that uses a 921600 baud rate
+(labelled 1M) instead of the default 2 megabit baud rate. You can use
 [JelmerT/cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) to flash the firmware
 using the built-in ROM bootloader with the following command:
 

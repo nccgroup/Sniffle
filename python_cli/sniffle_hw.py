@@ -57,7 +57,7 @@ class SniffleHW:
         if serport is None:
             serport = find_xds110_serport()
         elif is_cp2102(serport):
-            baud = 1000000
+            baud = 921600
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()

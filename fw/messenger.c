@@ -14,7 +14,7 @@
 UART2_Handle uart;
 
 #ifdef UART_1M_BAUD
-static const uint32_t BAUD_RATE = 1000000;
+static const uint32_t BAUD_RATE = 921600;
 #else
 static const uint32_t BAUD_RATE = 2000000;
 #endif
