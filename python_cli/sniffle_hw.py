@@ -37,7 +37,18 @@ def find_xds110_serport():
     if len(xds_ports) > 0:
         return sorted(xds_ports)[0]
     else:
-        raise IOError("XDS110 not found")
+        return None
+
+def find_sonoff_serport():
+    sonoff_ports = [i[0] for i in comports() if (
+        i.vid == 0x10C4 and
+        i.pid == 0xEA60 and
+        i.manufacturer == "ITead" and
+        i.product == "Sonoff Zigbee 3.0 USB Dongle Plus")]
+    if len(sonoff_ports) > 0:
+        return sorted(sonoff_ports)[0]
+    else:
+        return None
 
 # SiLabs CP2102 (used in older Sonoff dongles and others) has 921600 baud limit
 def is_cp2102(serport):
@@ -56,6 +67,12 @@ class SniffleHW:
         baud = 2000000
         if serport is None:
             serport = find_xds110_serport()
+            if serport is None:
+                serport = find_sonoff_serport()
+                if serport is None:
+                    raise IOError("Sniffle device not found")
+                else:
+                    baud = 921600
         elif is_cp2102(serport):
             baud = 921600
 
