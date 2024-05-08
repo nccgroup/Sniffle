@@ -127,8 +127,8 @@ the compiled `sniffle.hex` binary using the UniFlash GUI.
 ## Firmware Installation (SONOFF USB Dongle)
 
 To install Sniffle on a SONOFF CC2652P dongle (equipped with a CP2102 USB/UART
-adapter), you need to use a special firmware build that uses a 921600 baud rate
-(labelled 1M) instead of the default 2 megabit baud rate. You can use
+bridge), you need to use a special firmware build that uses a 921600 baud rate
+(labelled `1M`) instead of the default 2 megabit baud rate. You can use
 [JelmerT/cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) to flash the firmware
 using the built-in ROM bootloader with the following command:
 
@@ -141,6 +141,23 @@ pull requests [168](https://github.com/JelmerT/cc2538-bsl/pull/168) and
 [173](https://github.com/JelmerT/cc2538-bsl/pull/173) need to be merged to fix.
 In the interim, while waiting for those pull requests to be merged, you can use
 my fork at <https://github.com/sultanqasim/cc2538-bsl>.
+
+**WARNING:** Do not flash the wrong build variant using the bootloader, or you
+risk bricking the device and locking yourself out of the bootloader. For Sonoff
+CC2652P devices, use the `sniffle_cc1352p1_cc2652p1_1M.hex` file (`CC2652P1F_1M`
+build variant). If you flash the wrong variant and lock yourself out of the
+bootloader, it may be possible to recover the device using JTAG/SWD.
+
+Newer Sonoff dongles contain a CP2102N instead of the old CP2102. The CP2102N
+supports higher baud rates, including 2M and 3M baud. However, there is no easy
+and cross-platform way to distinguish between the CP2102 and CP2102N in software.
+Thus, the Sniffle host software expects the `1M` (921600 baud) firmware on all
+devices with CP2102/CP2102N USB/UART bridge. This slower baud rate should be fine
+for nearly all use cases, though in theory it may be possible to saturate the
+UART interface with the 2M PHY. If you really want to use the full 2M baud rate
+on your newer CP2102N equipped Sonoff (or other brand) dongle, you can flash the
+full baud rate firmware and modify `sniffle_hw.py` to not lower the baud rate for
+CP2102 devices.
 
 ## Sniffer Usage
 

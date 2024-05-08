@@ -39,7 +39,7 @@ def find_xds110_serport():
     else:
         raise IOError("XDS110 not found")
 
-# SiLabs CP2102 (used in Sonoff dongle and others) has 1M baud limit
+# SiLabs CP2102 (used in older Sonoff dongles and others) has 921600 baud limit
 def is_cp2102(serport):
     for i in comports():
         if i.device == serport:
