@@ -164,8 +164,8 @@ class SniffleExtcapPlugin():
                                help="Used to send control messages to toolbar")
         argParser.add_argument("--serport",
                                help="Sniffer serial port name")
-        argParser.add_argument("--advchan", default='all',
-                               help="Advertising channel to listen on (all, 37, 38, 39)")
+        argParser.add_argument("--advchan", default='auto',
+                               help="Advertising channel to listen on (auto, all, 37, 38, 39)")
         argParser.add_argument("--rssi", default=-128,
                                help="Filter packets by minimum RSSI (-128 to 0)")
         argParser.add_argument("--mac", default=None,
@@ -178,8 +178,6 @@ class SniffleExtcapPlugin():
                                help="Sniff only advertisements, don't follow connections")
         argParser.add_argument("--extadv", action="store_true",
                                help="Capture BT5 extended (auxiliary) advertising")
-        argParser.add_argument("--hop", action="store_true",
-                               help="Hop primary advertising channels in extended mode")
         argParser.add_argument("--longrange", action="store_true",
                                help="Use long range (coded) PHY for primary advertising")
         argParser.add_argument("--preload", default=None,
@@ -201,7 +199,7 @@ class SniffleExtcapPlugin():
             self.args.advchan = int(self.args.advchan)
         except:
             pass
-        if self.args.advchan not in [ 'all', 37, 38, 39 ]:
+        if self.args.advchan not in [ 'auto', 'all', 37, 38, 39 ]:
             raise UsageError('Invalid value specified for advertising channel option: %s' % (self.args.advchan))
 
         # Parse --rssi argument
@@ -252,16 +250,14 @@ class SniffleExtcapPlugin():
 
         # Sanity check argument combinations
         targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
-        if self.args.hop and targ_specs < 1:
-            raise UsageError('When using the hop option, a MAC address or IRK must be specified')
+        if self.args.advchan == 'all' and targ_specs < 1:
+            raise UsageError('To hop advertising channels, a MAC address or IRK must be specified')
         if self.args.longrange and not self.args.extadv:
             raise UsageError('Long-range PHY only supported in extended advertising')
-        if self.args.longrange and self.args.hop:
+        if self.args.longrange and self.args.advchan == 'all':
             raise UsageError('Advertising channel hopping is unsupported on long range PHY')
         if targ_specs > 1:
             raise UsageError('Please specify only one of MAC, IRK, or advertisement string filtering')
-        if self.args.advchan != 'all' and self.args.hop:
-            raise UsageError('Please select advertising channel \'all\' when using the hop option')
         if self.args.op == 'capture' and not self.args.extcap_interface:
             raise UsageError('Please specify the --extcap-interface option when capturing')
         if self.args.op == 'capture' and not self.args.fifo:
@@ -287,7 +283,7 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=0}{call=--serport}{type=selector}{required=true}'
                             '{display=Sniffer serial port}'
                             '{tooltip=Sniffer device serial port}')
-        lines.append('arg {number=1}{call=--advchan}{type=selector}{default=all}'
+        lines.append('arg {number=1}{call=--advchan}{type=selector}{default=auto}'
                             '{display=Advertising channel}'
                             '{tooltip=Advertising channel to listen on}')
         lines.append('arg {number=2}{call=--rssi}{type=integer}{range=-128,0}{default=-128}'
@@ -314,13 +310,10 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=8}{call=--extadv}{type=boolflag}{default=no}'
                             '{display=Extended advertisements}'
                             '{tooltip=Capture BT5 extended (auxiliary) advertisements}')
-        lines.append('arg {number=9}{call=--hop}{type=boolflag}{default=no}'
-                            '{display=Hop channels}'
-                            '{tooltip=Hop primary advertising channels in extended mode}')
-        lines.append('arg {number=10}{call=--longrange}{type=boolflag}{default=no}'
+        lines.append('arg {number=9}{call=--longrange}{type=boolflag}{default=no}'
                             '{display=Long range}'
                             '{tooltip=Use long range (coded) PHY for primary advertising}')
-        lines.append('arg {number=11}{call=--nophychange}{type=boolflag}{default=no}'
+        lines.append('arg {number=10}{call=--nophychange}{type=boolflag}{default=no}'
                             '{display=Ignore encrypted PHY change}'
                             '{tooltip=Ignore encrypted PHY mode changes}')
         for port in comports():
@@ -335,7 +328,8 @@ class SniffleExtcapPlugin():
             else:
                 displayName = port.device
             lines.append('value {arg=0}{value=%s}{display=%s}' % (device, displayName))
-        lines.append('value {arg=1}{value=all}{display=all}')
+        lines.append('value {arg=1}{value=auto}{display=Auto}')
+        lines.append('value {arg=1}{value=all}{display=All}')
         lines.append('value {arg=1}{value=37}{display=37}')
         lines.append('value {arg=1}{value=38}{display=38}')
         lines.append('value {arg=1}{value=39}{display=39}')
@@ -357,7 +351,13 @@ class SniffleExtcapPlugin():
         self.hw = SniffleHW(self.args.serport, logger=logging.getLogger('sniffle_hw'))
 
         # if a channel was explicitly specified, don't hop
-        if self.args.advchan == 'all':
+        if self.args.advchan == 'auto':
+            self.args.advchan = 37
+            if self.args.extadv:
+                hop3 = False
+            else:
+                hop3 = True
+        elif self.args.advchan == 'all':
             self.args.advchan = 37
             hop3 = True
         else:
@@ -377,10 +377,6 @@ class SniffleExtcapPlugin():
 
         # configure RSSI filter
         self.hw.cmd_rssi(self.args.rssi)
-
-        # disable 37/38/39 hop in extended mode unless overridden
-        if self.args.extadv and not self.args.hop:
-            hop3 = False
 
         # configure BT5 extended (aux/secondary) advertising
         self.hw.cmd_auxadv(self.args.extadv)
