@@ -123,7 +123,7 @@ def main():
             return
         hw.cmd_mac(mac_bytes, allow_hop3)
 
-    if allow_hop3:
+    if targ_specs and allow_hop3:
         # If we're locked onto a MAC address and will be hopping with
         # its advertisements, RSSI filter is useless and should be disabled.
         # However,  RSSI filter is still useful for extended advertisements,
