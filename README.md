@@ -122,7 +122,7 @@ building for a different platform.
 To install Sniffle on a (plugged in) CC26x2R Launchpad using DSLite, run
 `make load` within the `fw` directory. For any other Launchpad models, you must
 specify the `PLATFORM` argument to make as descirbed above. You can also flash
-the compiled `sniffle.out` binary using the UniFlash GUI.
+the compiled `sniffle.hex` binary using the UniFlash GUI.
 
 ## Firmware Installation (SONOFF USB Dongle)
 
@@ -133,7 +133,7 @@ adapter), you need to use a special firmware build that uses a 921600 baud rate
 using the built-in ROM bootloader with the following command:
 
 ```
-python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1_1M.bin
+python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1_1M.hex
 ```
 
 As of April 23, 2024, there are a couple bugs in `cc2538-bsl` for which

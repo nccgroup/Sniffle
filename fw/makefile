@@ -170,7 +170,7 @@ SOURCES += \
 
 OBJECTS = $(patsubst %.c,%.obj,$(SOURCES))
 
-all: $(NAME).bin
+all: $(NAME).hex
 
 .INTERMEDIATE: syscfg
 $(SYSCFG_FILES): syscfg
@@ -188,9 +188,9 @@ $(NAME).out: $(OBJECTS)
 	@ echo Linking...
 	@ $(LNK) $(OBJECTS) $(LFLAGS) -o $(NAME).out
 
-$(NAME).bin: $(NAME).out
+$(NAME).hex: $(NAME).out
 	@echo Generating flash image...
-	@ $(OC) -I elf32-little -O binary $< $@
+	@ $(OC) -I elf32-little -O ihex $< $@
 
 .PHONY: load clean clean2
 
@@ -203,12 +203,8 @@ clean2:
 	@ $(RM) $(OBJECTS) > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).out > $(DEVNULL) 2>&1
 	@ $(RM) $(NAME).map > $(DEVNULL) 2>&1
-	@ $(RM) $(NAME).bin > $(DEVNULL) 2>&1
+	@ $(RM) $(NAME).hex > $(DEVNULL) 2>&1
 
-load: $(NAME).out
+load: $(NAME).hex
 	@ echo Flashing...
 	@ DSLite flash -c $(CCXML) -f -e -r 0 $<
-
-load2: $(NAME).bin
-	@ echo Flashing...
-	@ DSLite flash -c $(CCXML) -f -e -r 0 $<,0
