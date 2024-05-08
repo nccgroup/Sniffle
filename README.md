@@ -152,7 +152,7 @@ Newer Sonoff dongles contain a CP2102N instead of the old CP2102. The CP2102N
 supports higher baud rates, including 2M and 3M baud. However, there is no easy
 and cross-platform way to distinguish between the CP2102 and CP2102N in software.
 Thus, the Sniffle host software expects the `1M` (921600 baud) firmware on all
-devices with CP2102/CP2102N USB/UART bridge. This slower baud rate should be fine
+devices with a CP2102/CP2102N USB/UART bridge. This slower baud rate should be fine
 for nearly all use cases, though in theory it may be possible to saturate the
 UART interface with the 2M PHY. If you really want to use the full 2M baud rate
 on your newer CP2102N equipped Sonoff (or other brand) dongle, you can flash the
