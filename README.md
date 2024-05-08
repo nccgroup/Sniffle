@@ -398,6 +398,12 @@ the little endian IRK 22BC0E3F2EACF08EE36B865553EA0B4E needs to be changed to
 4E0BEA5355866BE38EF0AC2E3F0EBC22 (big endian) when being passed to Sniffle with
 the `-i` option.
 
+You can also find the IRK and LTK through HCI Snoop logs captured on Android or iOS
+without rooting the device:
+
+* Android: <https://novelbits.s3.us-east-2.amazonaws.com/Developer+Guides/Android+Bluetooth+Debugging+Guide.pdf>
+* iOS: <https://novelbits.s3.us-east-2.amazonaws.com/Developer+Guides/iOS+Bluetooth+Debugging+Guide.pdf>
+
 ## Wireshark Plugin
 
 Sniffle includes a Wireshark plugin that makes it possible to launch Sniffle automatically
