@@ -44,3 +44,8 @@ cp sniffle.hex builds/sniffle_cc2652rb_1M.hex
 make clean
 make -j3 PLATFORM=CC2652P1F_1M
 cp sniffle.hex builds/sniffle_cc1352p1_cc2652p1_1M.hex
+
+# Build for CatSniffer v3.x
+make clean
+make -j3 PLATFORM=CC1352P74_1M
+cp sniffle.hex builds/sniffle_cc1352p7_1M.hex
