@@ -139,7 +139,7 @@ def handle_packet(pkt):
 
         advertisers[adva].add_hit(dpkt.rssi)
 
-        if isinstance(dpkt, ScanRspMessage):
+        if isinstance(dpkt, (ScanRspMessage, AuxScanRspMessage)):
             advertisers[adva].scan_rsp = dpkt
         else:
             advertisers[adva].adv = dpkt

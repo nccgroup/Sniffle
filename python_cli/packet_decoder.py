@@ -491,6 +491,10 @@ def update_state(pkt: DPacketMessage, dstate: SniffleDecoderState):
     elif isinstance(pkt, AuxAdvIndMessage) and pkt.AuxPtr:
         dstate.aux_pending_chain = (pkt.AdvDataInfo, pkt.AuxPtr.chan,
                                     pkt.ts + pkt.AuxPtr.offsetUsec*1E-6 + 0.0005)
+    elif dstate.last_state == SnifferState.SCANNING and \
+            isinstance(pkt, AuxAdvIndMessage) and \
+            pkt.AdvMode == 2: # scannable
+        dstate.aux_pending_scan_rsp = pkt.ts + 0.001
 
     # Clear pending flags as appropriate
     if dstate.aux_pending_scan_rsp:
