@@ -60,6 +60,9 @@ def is_cp2102(serport):
                 return True
     return False
 
+BLE_ADV_AA = 0x8E89BED6
+BLE_ADV_CRCI = 0x555555
+
 class SniffleHW:
     max_interval_preload_pairs = 4
 
@@ -91,7 +94,7 @@ class SniffleHW:
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
     # Expect PDU CRCs to use the specified initial CRC
-    def cmd_chan_aa_phy(self, chan=37, aa=0x8E89BED6, phy=0, crci=0x555555):
+    def cmd_chan_aa_phy(self, chan=37, aa=BLE_ADV_AA, phy=0, crci=BLE_ADV_CRCI):
         if not (0 <= chan <= 39):
             raise ValueError("Channel must be between 0 and 39")
         if not (0 <= phy <= 3):
@@ -409,8 +412,6 @@ class SniffleHW:
 # this is not for malformed Bluetooth traffic
 class SniffleHWPacketError(ValueError):
     pass
-
-BLE_ADV_AA = 0x8E89BED6
 
 class SniffleDecoderState:
     def __init__(self, is_data=False):
