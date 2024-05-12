@@ -6,6 +6,7 @@
 
 import struct
 from sniffle_hw import BLE_ADV_AA, PacketMessage, SniffleDecoderState, SnifferState
+from crc_ble import rbit24
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
@@ -64,7 +65,7 @@ class DPacketMessage(PacketMessage):
         self.body = pkt.body
         self.data_dir = pkt.data_dir
         self.event = pkt.event
-        self.crc = pkt.crc
+        self.crc_rev = pkt.crc_rev
 
     def hexdump(self):
         return hexdump(self.body)
@@ -485,11 +486,11 @@ def update_state(pkt: DPacketMessage, dstate: SniffleDecoderState):
             dstate.aux_pending_crci = pkt.CRCInit
         else:
             dstate.cur_aa = pkt.aa_conn
-            dstate.crc_init = pkt.CRCInit
+            dstate.crc_init_rev = rbit24(pkt.CRCInit)
     elif isinstance(pkt, AuxConnectRspMessage):
         dstate.cur_aa = dstate.aux_pending_aa
         dstate.aux_pending_aa = None
-        dstate.crc_init = dstate.aux_pending_crci
+        dstate.crc_init_rev = rbit24(dstate.aux_pending_crci)
         dstate.aux_pending_crci = None
     elif isinstance(pkt, AuxScanReqMessage):
         dstate.aux_pending_scan_rsp = pkt.ts + 0.0005
