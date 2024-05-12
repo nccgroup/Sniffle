@@ -420,6 +420,7 @@ Copy the following files from the python_cli directory into your Personal Extcap
 ```
 python_cli/pcap.py
 python_cli/packet_decoder.py
+python_cli/crc_ble.py
 python_cli/sniffle_hw.py
 python_cli/sniffle_extcap.py
 python_cli/sniffle_extcap.bat (Windows only)

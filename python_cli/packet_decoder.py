@@ -64,6 +64,7 @@ class DPacketMessage(PacketMessage):
         self.body = pkt.body
         self.data_dir = pkt.data_dir
         self.event = pkt.event
+        self.crc = pkt.crc
 
     def hexdump(self):
         return hexdump(self.body)
@@ -481,11 +482,15 @@ def update_state(pkt: DPacketMessage, dstate: SniffleDecoderState):
     if isinstance(pkt, ConnectIndMessage):
         if pkt.chan < 37 and dstate.last_state != SnifferState.ADVERTISING_EXT:
             dstate.aux_pending_aa = pkt.aa_conn
+            dstate.aux_pending_crci = pkt.CRCInit
         else:
             dstate.cur_aa = pkt.aa_conn
+            dstate.crc_init = pkt.CRCInit
     elif isinstance(pkt, AuxConnectRspMessage):
         dstate.cur_aa = dstate.aux_pending_aa
         dstate.aux_pending_aa = None
+        dstate.crc_init = dstate.aux_pending_crci
+        dstate.aux_pending_crci = None
     elif isinstance(pkt, AuxScanReqMessage):
         dstate.aux_pending_scan_rsp = pkt.ts + 0.0005
     elif isinstance(pkt, AuxAdvIndMessage) and pkt.AuxPtr:

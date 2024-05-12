@@ -12,6 +12,7 @@ from enum import IntEnum
 from random import randint, randbytes
 from serial.tools.list_ports import comports
 from traceback import format_exception
+from crc_ble import crc_ble
 
 class _TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):
@@ -423,10 +424,12 @@ class SniffleDecoderState:
 
         # access address tracking
         self.cur_aa = 0 if is_data else BLE_ADV_AA
+        self.crc_init = BLE_ADV_CRCI
 
         # in case of AUX_CONNECT_REQ, we are waiting for AUX_CONNECT_RSP
         # temporarily hold the access address of the pending connection here
         self.aux_pending_aa = None
+        self.aux_pending_crci = None
 
         # timeout if pending, otherwise None
         self.aux_pending_scan_rsp = None
@@ -457,6 +460,7 @@ class PacketMessage:
 
         if chan >= 37 and dstate.cur_aa != BLE_ADV_AA:
             dstate.cur_aa = BLE_ADV_AA
+            dstate.crc_init = BLE_ADV_CRCI
 
         if dstate.time_offset > 0:
             dstate.first_epoch_time = time()
@@ -479,6 +483,7 @@ class PacketMessage:
         self.body = body
         self.data_dir = pkt_dir
         self.event = event
+        self.crc = crc_ble(dstate.crc_init, body)
 
     @classmethod
     def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
