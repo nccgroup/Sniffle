@@ -84,9 +84,9 @@ class SniffleHW:
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
         self.ser = Serial(serport, baud, timeout=timeout)
-        self.ser.write(b'@@@@@@@@\r\n') # command sync
         self.recv_cancelled = False
         self.logger = logger if logger else _TrivialLogger()
+        self.cmd_marker(b'@') # command sync
 
     def _send_cmd(self, cmd_byte_list):
         b0 = (len(cmd_byte_list) + 3) // 3
