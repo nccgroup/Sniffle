@@ -351,8 +351,9 @@ class SniffleHW:
             else:
                 raise SniffleHWPacketError("Unknown message type 0x%02X!" % mtype)
         except BaseException as e:
-            self.logger.warning("Ignoring message due to exception: %s", e, exc_info=e)
-            self.logger.warning("Message: %s", pkt)
+            if not desync:
+                self.logger.warning("Ignoring message due to exception: %s", e, exc_info=e)
+                self.logger.warning("Message: %s", pkt)
             return None
 
     def cancel_recv(self):
