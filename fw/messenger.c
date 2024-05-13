@@ -61,14 +61,11 @@ int messenger_recv(uint8_t *dst_buf)
     // 2 bytes for CRLF
     static uint8_t b64_buf[((MESSAGE_MAX * 4) / 3) + 2];
 
-    // 10 symbols per byte in 8-N-1 UART
-    const uint32_t us_per_byte = 10 * 1000000 / BAUD_RATE;
-
     // first byte of b64 decoded data indicates number of 4 byte chunks
     // read 2 extra bytes for CRLF
     UART2_read(uart, b64_buf, 1, &bytes_read);
     UART2_readTimeout(uart, b64_buf + 1, 5, &bytes_read,
-            10 * us_per_byte / Clock_tickPeriod_D);
+            5000 / Clock_tickPeriod_D);
     if (bytes_read < 5)
     {
         // incomplete message
@@ -96,7 +93,7 @@ int messenger_recv(uint8_t *dst_buf)
     {
         uint32_t bytes_to_read = (word_cnt - 1) << 2;
         UART2_readTimeout(uart, b64_buf + 6, bytes_to_read, &bytes_read,
-                (sizeof(b64_buf) + 20) * us_per_byte / Clock_tickPeriod_D);
+                20000 / Clock_tickPeriod_D);
         if (bytes_read < bytes_to_read)
         {
             // message came too slow, truncated
