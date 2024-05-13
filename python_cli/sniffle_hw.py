@@ -66,6 +66,7 @@ BLE_ADV_CRCI = 0x555555
 
 class SniffleHW:
     max_interval_preload_pairs = 4
+    api_level = 0
 
     def __init__(self, serport=None, logger=None, timeout=None):
         baud = 2000000
@@ -332,8 +333,8 @@ class SniffleHW:
         # msg type, msg body, raw
         return data[1], data[2:], pkt
 
-    def recv_and_decode(self):
-        mtype, mbody, pkt = self._recv_msg()
+    def recv_and_decode(self, desync=False):
+        mtype, mbody, pkt = self._recv_msg(desync)
         try:
             if mtype == 0x10:
                 return PacketMessage(mbody, self.decoder_state)
@@ -365,15 +366,19 @@ class SniffleHW:
         self.cmd_marker(marker_data)
         recvd_mark = False
         while not recvd_mark:
-            mtype, mbody, _ = self._recv_msg(True)
-            if mtype == 0x12: # MarkerMessage
-                msg = MarkerMessage(mbody, self.decoder_state)
-                if msg.marker_data == marker_data:
-                    recvd_mark = True
-                    break
-            elif mtype == 0x13:
-                # constructing StateMessage updates self.decoder_state
-                StateMessage(mbody, self.decoder_state)
+            msg = self.recv_and_decode(True)
+            if isinstance(msg, MarkerMessage) and msg.marker_data == marker_data:
+                recvd_mark = True
+
+    def probe_fw_version(self):
+        self.cmd_version()
+        etime = time() + 0.2
+        ver_msg = None
+        while not ver_msg and time() < etime:
+            msg = self.recv_and_decode(True)
+            if isinstance(msg, VersionMeasurement):
+                ver_msg = msg
+        return ver_msg
 
     # Generate a random static address and set it
     def random_addr(self):
