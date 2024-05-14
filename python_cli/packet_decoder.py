@@ -7,6 +7,7 @@
 import struct
 from sniffle_hw import BLE_ADV_AA, PacketMessage, SniffleDecoderState, SnifferState
 from crc_ble import rbit24
+from traceback import print_exception
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
@@ -79,14 +80,20 @@ class DPacketMessage(PacketMessage):
 
     @staticmethod
     def decode(pkt: PacketMessage, dstate=None):
-        if pkt.aa == BLE_ADV_AA:
-            dpkt = AdvertMessage.decode(pkt, dstate)
-        else:
-            dpkt = DataMessage.decode(pkt, dstate)
+        try:
+            if pkt.aa == BLE_ADV_AA:
+                dpkt = AdvertMessage.decode(pkt, dstate)
+            else:
+                dpkt = DataMessage.decode(pkt, dstate)
 
-        if dstate:
-            update_state(dpkt, dstate)
-        return dpkt
+            if dstate:
+                update_state(dpkt, dstate)
+            return dpkt
+        except Exception as e:
+            # TODO: nicer error handling and write to logger
+            print("Parse error!")
+            print_exception(e)
+            return pkt
 
 class AdvertMessage(DPacketMessage):
     def __init__(self, pkt: PacketMessage):
