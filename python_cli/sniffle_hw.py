@@ -304,6 +304,10 @@ class SniffleHW:
                     self.ser.readline() # eat CRLF
                     continue
 
+                # In case pkt was all whitespace
+                if len(data) < 2:
+                    continue
+
                 # now read the rest of the packet (if there is anything)
                 word_cnt = data[0]
                 if word_cnt:
