@@ -4,13 +4,13 @@
 # Copyright (c) 2019-2024, NCC Group plc
 # Released as open source under GPLv3
 
-import struct
+from struct import unpack
 from traceback import print_exception
-from .sniffle_hw import PacketMessage
 from .crc_ble import rbit24
 from .constants import BLE_ADV_AA
 from .sniffer_state import SnifferState
 from .decoder_state import SniffleDecoderState
+from .crc_ble import crc_ble_reverse, rbit24
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])
@@ -54,6 +54,71 @@ def hexdump(s, bytes_per_line=16, bytes_per_group=8):
             in_repeat = False
         prev_chunk = chunk
     return '\n'.join(lines)
+
+# radio time wraparound period in seconds
+TS_WRAP_PERIOD = 0x100000000 / 4E6
+
+class PacketMessage:
+    def __init__(self, raw_msg, dstate: SniffleDecoderState):
+        ts, l, event, rssi, chan = unpack("<LHHbB", raw_msg[:10])
+        body = raw_msg[10:]
+
+        # MSB of length is actually packet direction
+        pkt_dir = l >> 15
+        l &= 0x7FFF
+
+        if len(body) != l:
+            raise SniffleHWPacketError("Incorrect length field!")
+
+        phy = chan >> 6
+        chan &= 0x3F
+
+        if chan >= 37 and dstate.cur_aa != BLE_ADV_AA:
+            dstate.cur_aa = BLE_ADV_AA
+            dstate.crc_init_rev = rbit24(BLE_ADV_CRCI)
+
+        if dstate.time_offset > 0:
+            dstate.first_epoch_time = time()
+            dstate.time_offset = ts / -1000000.
+
+        if ts < dstate.last_ts:
+            dstate.ts_wraps += 1
+        dstate.last_ts = ts
+
+        real_ts = dstate.time_offset + (ts / 1000000.) + (dstate.ts_wraps * TS_WRAP_PERIOD)
+        real_ts_epoch = dstate.first_epoch_time + real_ts
+
+        # Now actually set instance attributes
+        self.ts = real_ts
+        self.ts_epoch = real_ts_epoch
+        self.aa = dstate.cur_aa
+        self.rssi = rssi
+        self.chan = chan
+        self.phy = phy
+        self.body = body
+        self.data_dir = pkt_dir
+        self.event = event
+        self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
+
+    @classmethod
+    def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
+        fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
+                0 if is_data or is_aux_adv else 37)
+        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
+
+    def __repr__(self):
+        return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, event=%d, body=%s)" % (
+                type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy,
+                self.event, repr(self.body))
+
+    def str_header(self):
+        phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
+        return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
+            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy])
+
+    def __str__(self):
+        return self.str_header()
+
 
 class DPacketMessage(PacketMessage):
     pdutype = "RFU"
@@ -319,10 +384,10 @@ class ConnectIndMessage(AdvertMessage):
         super().__init__(pkt)
         self.InitA = self.body[2:8]
         self.AdvA = self.body[8:14]
-        self.aa_conn = struct.unpack('<L', self.body[14:18])[0]
+        self.aa_conn = unpack('<L', self.body[14:18])[0]
         self.CRCInit = self.body[18] | (self.body[19] << 8) | (self.body[20] << 16)
         self.WinSize = self.body[21]
-        self.WinOffset, self.Interval, self.Latency, self.Timeout = struct.unpack(
+        self.WinOffset, self.Interval, self.Latency, self.Timeout = unpack(
                 "<HHHH", self.body[22:30])
         self.ChM = self.body[30:35]
         self.Hop = self.body[35] & 0x1F
@@ -431,7 +496,7 @@ class AdvExtIndMessage(AdvertMessage):
                 self.SyncInfo = self.body[hdrPos:hdrPos+18]
                 hdrPos += 18
             if hdrFlags & 0x40:
-                self.TxPower = struct.unpack("b", self.body[hdrPos:hdrPos+1])[0]
+                self.TxPower = unpack("b", self.body[hdrPos:hdrPos+1])[0]
                 hdrPos += 1
             if hdrPos - 3 < hdrBodyLen:
                 ACADLen = hdrBodyLen - (hdrPos - 3)

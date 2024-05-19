@@ -12,11 +12,11 @@ from enum import IntEnum
 from random import randint, randbytes
 from serial.tools.list_ports import comports
 from traceback import format_exception
-from .crc_ble import crc_ble_reverse, rbit24
 from .measurements import MeasurementMessage, VersionMeasurement
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI
 from .sniffer_state import StateMessage, SnifferState
 from .decoder_state import SniffleDecoderState
+from .packet_decoder import PacketMessage
 
 class _TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):
@@ -424,70 +424,6 @@ class SniffleHW:
 # this is not for malformed Bluetooth traffic
 class SniffleHWPacketError(ValueError):
     pass
-
-# radio time wraparound period in seconds
-TS_WRAP_PERIOD = 0x100000000 / 4E6
-
-class PacketMessage:
-    def __init__(self, raw_msg, dstate):
-        ts, l, event, rssi, chan = unpack("<LHHbB", raw_msg[:10])
-        body = raw_msg[10:]
-
-        # MSB of length is actually packet direction
-        pkt_dir = l >> 15
-        l &= 0x7FFF
-
-        if len(body) != l:
-            raise SniffleHWPacketError("Incorrect length field!")
-
-        phy = chan >> 6
-        chan &= 0x3F
-
-        if chan >= 37 and dstate.cur_aa != BLE_ADV_AA:
-            dstate.cur_aa = BLE_ADV_AA
-            dstate.crc_init_rev = rbit24(BLE_ADV_CRCI)
-
-        if dstate.time_offset > 0:
-            dstate.first_epoch_time = time()
-            dstate.time_offset = ts / -1000000.
-
-        if ts < dstate.last_ts:
-            dstate.ts_wraps += 1
-        dstate.last_ts = ts
-
-        real_ts = dstate.time_offset + (ts / 1000000.) + (dstate.ts_wraps * TS_WRAP_PERIOD)
-        real_ts_epoch = dstate.first_epoch_time + real_ts
-
-        # Now actually set instance attributes
-        self.ts = real_ts
-        self.ts_epoch = real_ts_epoch
-        self.aa = dstate.cur_aa
-        self.rssi = rssi
-        self.chan = chan
-        self.phy = phy
-        self.body = body
-        self.data_dir = pkt_dir
-        self.event = event
-        self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
-
-    @classmethod
-    def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
-        fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
-                0 if is_data or is_aux_adv else 37)
-        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
-
-    def __repr__(self):
-        return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, event=%d, body=%s)" % (
-                type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy,
-                self.event, repr(self.body))
-
-    def str_header(self):
-        phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
-        return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
-            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy])
-
-    def __str__(self):
-        return self.str_header()
 
 class DebugMessage:
     def __init__(self, raw_msg):
