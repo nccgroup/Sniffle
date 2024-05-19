@@ -11,6 +11,7 @@ from .constants import BLE_ADV_AA
 from .sniffer_state import SnifferState
 from .decoder_state import SniffleDecoderState
 from .crc_ble import crc_ble_reverse, rbit24
+from .errors import SniffleHWPacketError
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])

@@ -17,6 +17,7 @@ from .constants import BLE_ADV_AA, BLE_ADV_CRCI
 from .sniffer_state import StateMessage, SnifferState
 from .decoder_state import SniffleDecoderState
 from .packet_decoder import PacketMessage
+from .errors import SniffleHWPacketError
 
 class _TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):
@@ -419,11 +420,6 @@ class SniffleHW:
 
         # return the access address
         return unpack("<L", bytes(llData[:4]))[0]
-
-# raised when sniffle HW gives invalid data (shouldn't happen)
-# this is not for malformed Bluetooth traffic
-class SniffleHWPacketError(ValueError):
-    pass
 
 class DebugMessage:
     def __init__(self, raw_msg):

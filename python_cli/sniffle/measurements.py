@@ -4,6 +4,7 @@
 
 from struct import unpack
 from enum import IntEnum
+from .errors import SniffleHWPacketError
 
 class MeasurementType(IntEnum):
     INTERVAL = 0
