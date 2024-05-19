@@ -39,7 +39,7 @@ import traceback
 from serial.tools.list_ports import comports
 from sniffle.constants import BLE_ADV_AA
 from sniffle.sniffle_hw import SniffleHW, PacketMessage
-from sniffle.packet_decoder import (DPacketMessage, DataMessage, AdvaMessage, AdvDirectIndMessage,
+from sniffle.packet_decoder import (DataMessage, AdvaMessage, AdvDirectIndMessage,
                             ScanRspMessage, AdvExtIndMessage, str_mac)
 from sniffle.pcap import PcapBleWriter
 
@@ -409,12 +409,9 @@ class SniffleExtcapPlugin():
             # wait for a capture packet
             pkt = self.hw.recv_and_decode()
             if isinstance(pkt, PacketMessage):
-                # decode the packet
-                dpkt = DPacketMessage.decode(pkt, self.hw.decoder_state)
-
                 # write the packet to the PCAP writer
                 try:
-                    self.pcapWriter.write_packet_message(dpkt)
+                    self.pcapWriter.write_packet_message(pkt)
                 except IOError: # Windows will raise this when the other end of the FIFO is closed
                     self.captureStopped = True
                     break
@@ -462,23 +459,17 @@ class SniffleExtcapPlugin():
         self.hw.mark_and_flush()
         self.logger.info("Waiting for advertisement containing specified string...")
 
-        dpkt = None
         while not self.captureStopped:
             msg = self.hw.recv_and_decode()
-            if not isinstance(msg, PacketMessage):
-                continue
-            dpkt = DPacketMessage.decode(msg, hw.decoder_state)
-            if isinstance(dpkt, AdvaMessage) or \
-                    isinstance(dpkt, AdvDirectIndMessage) or \
-                    isinstance(dpkt, ScanRspMessage) or \
-                    (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-                if search_str in dpkt.body: break
+            if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                                AdvExtIndMessage]) and msg.AdvA is not None:
+                if search_str in msg.body: break
 
         # return to passive sniffing after active scan
         self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
 
-        self.logger.info("Found target MAC: %s" % str_mac(dpkt.AdvA))
-        return dpkt.AdvA
+        self.logger.info("Found target MAC: %s" % str_mac(msg.AdvA))
+        return msg.AdvA
 
     def controlThreadMain(self):
         self.logger.info('Control thread started')

@@ -8,7 +8,7 @@ import argparse, sys
 from binascii import unhexlify
 from sniffle.constants import BLE_ADV_AA
 from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage, StateMessage, SnifferState
-from sniffle.packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
+from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
                             ScanRspMessage, str_mac)
 
 # global variable to access hardware
@@ -102,14 +102,10 @@ def get_mac_from_irk(irk):
     print("Waiting for advertisement with suitable RPA...")
     while True:
         msg = hw.recv_and_decode()
-        if not isinstance(msg, PacketMessage):
-            continue
-        dpkt = DPacketMessage.decode(msg, hw.decoder_state)
-        if isinstance(dpkt, AdvaMessage) or \
-                isinstance(dpkt, AdvDirectIndMessage) or \
-                (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-            print("Found target MAC: %s" % str_mac(dpkt.AdvA))
-            return dpkt.AdvA
+        if isinstance(msg, [AdvaMessage, AdvDirectIndMessage,
+                            AdvExtIndMessage]) and msg.AdvA is not None:
+            print("Found target MAC: %s" % str_mac(msg.AdvA))
+            return msg.AdvA
 
 def get_mac_from_string(s):
     hw.cmd_mac()
@@ -118,16 +114,11 @@ def get_mac_from_string(s):
     print("Waiting for advertisement containing specified string...")
     while True:
         msg = hw.recv_and_decode()
-        if not isinstance(msg, PacketMessage):
-            continue
-        dpkt = DPacketMessage.decode(msg, hw.decoder_state)
-        if isinstance(dpkt, AdvaMessage) or \
-                isinstance(dpkt, AdvDirectIndMessage) or \
-                isinstance(dpkt, ScanRspMessage) or \
-                (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-            if s in dpkt.body:
-                print("Found target MAC: %s" % str_mac(dpkt.AdvA))
-                return dpkt.AdvA, not dpkt.TxAdd
+        if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                            AdvExtIndMessage]) and msg.AdvA is not None:
+            if s in msg.body:
+                print("Found target MAC: %s" % str_mac(msg.AdvA))
+                return msg.AdvA, not msg.TxAdd
 
 def print_message(msg):
     if isinstance(msg, PacketMessage):
@@ -141,9 +132,7 @@ def print_message(msg):
     print()
 
 msg_ctr = 0
-def print_packet(pkt):
-    # Further decode and print the packet
-    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
+def print_packet(dpkt):
     print(dpkt)
 
     # do a ping every fourth message

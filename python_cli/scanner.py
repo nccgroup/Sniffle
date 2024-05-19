@@ -113,10 +113,7 @@ def main():
             print("\nScan Response: None")
         print("="*80, end="\n\n")
 
-def handle_packet(pkt):
-    # Further decode the packet
-    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
-
+def handle_packet(dpkt):
     # Ignore non-advertisements (shouldn't get any)
     if not isinstance(dpkt, AdvertMessage):
         print("Unexpected packet")

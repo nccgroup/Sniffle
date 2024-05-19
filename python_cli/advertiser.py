@@ -6,9 +6,7 @@
 
 import argparse, sys
 from sniffle.constants import BLE_ADV_AA
-from sniffle.sniffle_hw import (SniffleHW, PacketMessage, DebugMessage, StateMessage,
-                        MeasurementMessage)
-from sniffle.packet_decoder import DPacketMessage
+from sniffle.sniffle_hw import SniffleHW
 
 # global variable to access hardware
 hw = None
@@ -65,21 +63,8 @@ def main():
 
     while True:
         msg = hw.recv_and_decode()
-        print_message(msg)
-
-def print_message(msg):
-    if isinstance(msg, PacketMessage):
-        print_packet(msg)
-    elif isinstance(msg, DebugMessage) or \
-            isinstance(msg, StateMessage) or \
-            isinstance(msg, MeasurementMessage):
-        print(msg)
-    print()
-
-def print_packet(pkt):
-    # Further decode and print the packet
-    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
-    print(dpkt)
+        if msg is not None:
+            print(msg, end='\n\n')
 
 if __name__ == "__main__":
     main()

@@ -9,7 +9,7 @@ from binascii import unhexlify
 from sniffle.constants import BLE_ADV_AA
 from sniffle.pcap import PcapBleWriter
 from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
-from sniffle.packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
+from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
         DataMessage, str_mac)
 
 # global variable to access hardware
@@ -169,9 +169,7 @@ def print_message(msg, quiet):
             isinstance(msg, MeasurementMessage):
         print(msg, end='\n\n')
 
-def print_packet(pkt, quiet):
-    # Further decode and print the packet
-    dpkt = DPacketMessage.decode(pkt, hw.decoder_state)
+def print_packet(dpkt, quiet):
     if not (quiet and isinstance(dpkt, DataMessage) and dpkt.data_length == 0):
         print(dpkt, end='\n\n')
 
@@ -189,16 +187,11 @@ def get_first_matching_mac(search_str = None):
 
     while True:
         msg = hw.recv_and_decode()
-        if not isinstance(msg, PacketMessage):
-            continue
-        dpkt = DPacketMessage.decode(msg, hw.decoder_state)
-        if isinstance(dpkt, AdvaMessage) or \
-                isinstance(dpkt, AdvDirectIndMessage) or \
-                isinstance(dpkt, ScanRspMessage) or \
-                (isinstance(dpkt, AdvExtIndMessage) and dpkt.AdvA is not None):
-            if search_str is None or search_str in dpkt.body:
-                print("Found target MAC: %s" % str_mac(dpkt.AdvA))
-                return dpkt.AdvA
+        if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                            AdvExtIndMessage]) and msg.AdvA is not None:
+            if search_str is None or search_str in msg.body:
+                print("Found target MAC: %s" % str_mac(msg.AdvA))
+                return msg.AdvA
 
 if __name__ == "__main__":
     main()
