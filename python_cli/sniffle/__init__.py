@@ -3,6 +3,7 @@ __all__ = [
     "crc_ble",
     "decoder_state",
     "errors",
+    "hexdump",
     "measurements",
     "packet_decoder",
     "pcap",
