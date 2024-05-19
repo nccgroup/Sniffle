@@ -6,3 +6,7 @@
 # this is not for malformed Bluetooth traffic
 class SniffleHWPacketError(ValueError):
     pass
+
+# raised when Sniffle APIs or utilities are invoked incorrectly
+class UsageError(Exception):
+    pass

@@ -42,6 +42,7 @@ from sniffle.sniffle_hw import SniffleHW, PacketMessage
 from sniffle.packet_decoder import (DataMessage, AdvaMessage, AdvDirectIndMessage,
                             ScanRspMessage, AdvExtIndMessage, str_mac)
 from sniffle.pcap import PcapBleWriter
+from sniffle.errors import UsageError
 
 scriptName = os.path.basename(sys.argv[0])
 
@@ -553,9 +554,6 @@ class SniffleExtcapLogHandler(logging.Handler):
             self.plugin.writeControlMessage(CTRL_CMD_ADD, CTRL_NUM_LOGGER, logMsg)
         except:
             pass
-
-class UsageError(Exception):
-    pass
 
 class ArgumentParser(argparse.ArgumentParser):
     def error(self, message):
