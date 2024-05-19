@@ -16,7 +16,7 @@ from .measurements import MeasurementMessage, VersionMeasurement
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI
 from .sniffer_state import StateMessage, SnifferState
 from .decoder_state import SniffleDecoderState
-from .packet_decoder import PacketMessage
+from .packet_decoder import PacketMessage, DPacketMessage
 from .errors import SniffleHWPacketError
 
 class _TrivialLogger:
@@ -340,10 +340,16 @@ class SniffleHW:
         return data[1], data[2:], pkt
 
     def recv_and_decode(self, desync=False):
-        mtype, mbody, pkt = self._recv_msg(desync)
+        mtype, mbody, msg = self._recv_msg(desync)
         try:
             if mtype == 0x10:
-                return PacketMessage(mbody, self.decoder_state)
+                pkt = PacketMessage(mbody, self.decoder_state)
+                try:
+                    return DPacketMessage.decode(pkt, self.decoder_state)
+                except BaseException as e:
+                    self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
+                    self.logger.warning("Packet: %s", pkt)
+                    return pkt
             elif mtype == 0x11:
                 return DebugMessage(mbody)
             elif mtype == 0x12:
@@ -359,7 +365,7 @@ class SniffleHW:
         except BaseException as e:
             if not desync:
                 self.logger.warning("Ignoring message due to exception: %s", e, exc_info=e)
-                self.logger.warning("Message: %s", pkt)
+                self.logger.warning("Message: %s", msg)
             return None
 
     def cancel_recv(self):

@@ -149,20 +149,14 @@ class DPacketMessage(PacketMessage):
 
     @staticmethod
     def decode(pkt: PacketMessage, dstate=None):
-        try:
-            if pkt.aa == BLE_ADV_AA:
-                dpkt = AdvertMessage.decode(pkt, dstate)
-            else:
-                dpkt = DataMessage.decode(pkt, dstate)
+        if pkt.aa == BLE_ADV_AA:
+            dpkt = AdvertMessage.decode(pkt, dstate)
+        else:
+            dpkt = DataMessage.decode(pkt, dstate)
 
-            if dstate:
-                update_state(dpkt, dstate)
-            return dpkt
-        except Exception as e:
-            # TODO: nicer error handling and write to logger
-            print("Parse error!")
-            print_exception(e)
-            return pkt
+        if dstate:
+            update_state(dpkt, dstate)
+        return dpkt
 
 class AdvertMessage(DPacketMessage):
     def __init__(self, pkt: PacketMessage):
