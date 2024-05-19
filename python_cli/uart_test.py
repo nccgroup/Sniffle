@@ -5,7 +5,7 @@
 # Released as open source under GPLv3
 
 import argparse, random, time, serial
-from sniffle_hw import SniffleHW, MarkerMessage
+from sniffle.sniffle_hw import SniffleHW, MarkerMessage
 
 def main():
     aparse = argparse.ArgumentParser(description="UART echo test for Sniffle BLE5 sniffer")

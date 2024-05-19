@@ -5,9 +5,9 @@
 # Released as open source under GPLv3
 
 import argparse, sys, signal
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
-from packet_decoder import *
-from pcap import PcapBleWriter
+from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage
+from sniffle.packet_decoder import *
+from sniffle.pcap import PcapBleWriter
 
 # global variables
 hw = None

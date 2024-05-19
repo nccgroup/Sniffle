@@ -5,10 +5,10 @@
 # Released as open source under GPLv3
 
 import argparse, sys
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
-from packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
-                            ScanRspMessage, str_mac)
 from binascii import unhexlify
+from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
+from sniffle.packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
+                            ScanRspMessage, str_mac)
 
 # global variable to access hardware
 hw = None

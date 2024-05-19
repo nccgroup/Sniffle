@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020, NCC Group plc
+# Copyright (c) 2020-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse
-from sniffle_hw import SniffleHW
 from time import sleep
+from sniffle.sniffle_hw import SniffleHW
 
 def main():
     aparse = argparse.ArgumentParser(description="Firmware reset utility for Sniffle BLE5 sniffer")

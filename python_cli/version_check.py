@@ -5,7 +5,7 @@
 # Released as open source under GPLv3
 
 import argparse
-from sniffle_hw import SniffleHW
+from sniffle.sniffle_hw import SniffleHW
 
 def main():
     aparse = argparse.ArgumentParser(description="Sniffle firmware version check utility")

@@ -12,7 +12,7 @@ from enum import IntEnum
 from random import randint, randbytes
 from serial.tools.list_ports import comports
 from traceback import format_exception
-from crc_ble import crc_ble_reverse, rbit24
+from .crc_ble import crc_ble_reverse, rbit24
 
 class _TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):

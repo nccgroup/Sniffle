@@ -5,9 +5,9 @@
 # Released as open source under GPLv3
 
 import struct
-from sniffle_hw import BLE_ADV_AA, PacketMessage, SniffleDecoderState, SnifferState
-from crc_ble import rbit24
 from traceback import print_exception
+from .sniffle_hw import BLE_ADV_AA, PacketMessage, SniffleDecoderState, SnifferState
+from .crc_ble import rbit24
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])

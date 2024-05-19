@@ -31,7 +31,7 @@ SOFTWARE.
 import os.path
 from io import BytesIO, BufferedIOBase, RawIOBase
 from struct import pack
-from packet_decoder import (DPacketMessage, DataMessage, AuxChainIndMessage,
+from .packet_decoder import (DPacketMessage, DataMessage, AuxChainIndMessage,
                             AuxScanRspMessage)
 
 class PcapBleWriter(object):
