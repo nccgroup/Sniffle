@@ -37,7 +37,8 @@ import time
 import signal
 import traceback
 from serial.tools.list_ports import comports
-from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage
+from sniffle.constants import BLE_ADV_AA
+from sniffle.sniffle_hw import SniffleHW, PacketMessage
 from sniffle.packet_decoder import (DPacketMessage, DataMessage, AdvaMessage, AdvDirectIndMessage,
                             ScanRspMessage, AdvExtIndMessage, str_mac)
 from sniffle.pcap import PcapBleWriter

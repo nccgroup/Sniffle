@@ -14,6 +14,9 @@ from serial.tools.list_ports import comports
 from traceback import format_exception
 from .crc_ble import crc_ble_reverse, rbit24
 from .measurements import MeasurementMessage, VersionMeasurement
+from .constants import BLE_ADV_AA, BLE_ADV_CRCI
+from .sniffer_state import StateMessage, SnifferState
+from .decoder_state import SniffleDecoderState
 
 class _TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):
@@ -61,9 +64,6 @@ def is_cp2102(serport):
             if 0xEA60 <= i.pid <= 0xEA63:
                 return True
     return False
-
-BLE_ADV_AA = 0x8E89BED6
-BLE_ADV_CRCI = 0x555555
 
 class SniffleHW:
     max_interval_preload_pairs = 4
@@ -425,32 +425,6 @@ class SniffleHW:
 class SniffleHWPacketError(ValueError):
     pass
 
-class SniffleDecoderState:
-    def __init__(self, is_data=False):
-        # packet receive time tracking
-        self.time_offset = 1
-        self.first_epoch_time = 0
-        self.ts_wraps = 0
-        self.last_ts = -1
-
-        # access address tracking
-        self.cur_aa = 0 if is_data else BLE_ADV_AA
-        self.crc_init_rev = rbit24(BLE_ADV_CRCI)
-
-        # in case of AUX_CONNECT_REQ, we are waiting for AUX_CONNECT_RSP
-        # temporarily hold the access address of the pending connection here
-        self.aux_pending_aa = None
-        self.aux_pending_crci = None
-
-        # timeout if pending, otherwise None
-        self.aux_pending_scan_rsp = None
-
-        # tuple of (ADI, channel, timeout) if pending
-        self.aux_pending_chain = None
-
-        # state tracking
-        self.last_state = SnifferState.STATIC
-
 # radio time wraparound period in seconds
 TS_WRAP_PERIOD = 0x100000000 / 4E6
 
@@ -533,30 +507,3 @@ class MarkerMessage:
         # these messages are intended to mark the zero time
         dstate.first_epoch_time = time()
         dstate.time_offset = ts / -1000000.
-
-class SnifferState(IntEnum):
-    STATIC = 0
-    ADVERT_SEEK = 1
-    ADVERT_HOP = 2
-    DATA = 3
-    PAUSED = 4
-    INITIATING = 5
-    MASTER = 6
-    SLAVE = 7
-    ADVERTISING = 8
-    SCANNING = 9
-    ADVERTISING_EXT = 10
-
-class StateMessage:
-    def __init__(self, raw_msg, dstate):
-        self.last_state = dstate.last_state
-        self.new_state = SnifferState(raw_msg[0])
-        dstate.last_state = self.new_state
-
-    def __repr__(self):
-        return "%s(new=%s, old=%s)" % (type(self).__name__,
-                self.new_state.name, self.last_state.name)
-
-    def __str__(self):
-        return "TRANSITION: %s from %s" % (self.new_state.name,
-                self.last_state.name)

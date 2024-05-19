@@ -6,7 +6,8 @@
 
 import argparse, sys
 from binascii import unhexlify
-from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, SnifferState
+from sniffle.constants import BLE_ADV_AA
+from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage, StateMessage, SnifferState
 from sniffle.packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
                             ScanRspMessage, str_mac)
 

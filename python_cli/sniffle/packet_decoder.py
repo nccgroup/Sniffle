@@ -6,8 +6,11 @@
 
 import struct
 from traceback import print_exception
-from .sniffle_hw import BLE_ADV_AA, PacketMessage, SniffleDecoderState, SnifferState
+from .sniffle_hw import PacketMessage
 from .crc_ble import rbit24
+from .constants import BLE_ADV_AA
+from .sniffer_state import SnifferState
+from .decoder_state import SniffleDecoderState
 
 def str_mac(mac):
     return ":".join(["%02X" % b for b in reversed(mac)])

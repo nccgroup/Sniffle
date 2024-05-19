@@ -6,8 +6,9 @@
 
 import argparse, sys
 from binascii import unhexlify
+from sniffle.constants import BLE_ADV_AA
 from sniffle.pcap import PcapBleWriter
-from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
+from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
 from sniffle.packet_decoder import (DPacketMessage, AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
         DataMessage, str_mac)
 
