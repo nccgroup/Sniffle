@@ -38,7 +38,7 @@ import signal
 import traceback
 from serial.tools.list_ports import comports
 from sniffle.constants import BLE_ADV_AA
-from sniffle.sniffle_hw import SniffleHW, PacketMessage
+from sniffle.sniffle_hw import SniffleHW, PacketMessage, SnifferMode, PhyMode
 from sniffle.packet_decoder import (DataMessage, AdvaMessage, AdvDirectIndMessage,
                             ScanRspMessage, AdvExtIndMessage, str_mac)
 from sniffle.pcap import PcapBleWriter
@@ -249,6 +249,8 @@ class SniffleExtcapPlugin():
             if len(preload) > SniffleHW.max_interval_preload_pairs:
                 raise UsageError('Please specify no more than %d interval preload pairs' % (SniffleHW.max_interval_preload_pairs))
             self.args.preload = preload
+        else:
+            self.args.preload = []
 
         # Sanity check argument combinations
         targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
@@ -352,10 +354,12 @@ class SniffleExtcapPlugin():
         # initialize the Sniffle hardware interface
         self.hw = SniffleHW(self.args.serport, logger=logging.getLogger('sniffle_hw'))
 
+        targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
+
         # if a channel was explicitly specified, don't hop
         if self.args.advchan == 'auto':
             self.args.advchan = 37
-            if self.args.extadv:
+            if self.args.extadv or not targ_specs:
                 hop3 = False
             else:
                 hop3 = True
@@ -365,35 +369,22 @@ class SniffleExtcapPlugin():
         else:
             hop3 = False
 
-        # set the advertising channel (and return to ad-sniffing mode)
-        self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
+        if self.args.string:
+            self.logger.info("Waiting for advertisement containing specified string...")
+            self.args.mac, _ = self.get_mac_from_string(self.args.string, self.args.longrange)
+            self.logger.info("Found target MAC: %s" % str_mac(self.args.mac))
 
-        # set up whether or not to follow connections
-        self.hw.cmd_follow(not self.args.advonly)
-
-        # set preloaded encrypted connection interval changes
-        self.hw.cmd_interval_preload(self.args.preload if self.args.preload is not None else [])
-
-        # preload change to 2M unless user requests encrypted PHY changes be ignored
-        self.hw.cmd_phy_preload(None if self.args.nophychange else 1)
-
-        # configure RSSI filter
-        self.hw.cmd_rssi(self.args.rssi)
-
-        # configure BT5 extended (aux/secondary) advertising
-        self.hw.cmd_auxadv(self.args.extadv)
-
-        # configure MAC or IRK filter
-        targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
-        if targ_specs == 0:
-            self.hw.cmd_mac()
-        elif self.args.string:
-            mac = self.get_mac_from_string(self.args.string)
-            self.hw.cmd_mac(mac, hop3)
-        elif self.args.irk:
-            self.hw.cmd_irk(self.args.irk, hop3)
-        else:
-            self.hw.cmd_mac(self.args.mac, hop3)
+        self.hw.setup_sniffer(
+                mode=SnifferMode.PASSIVE_SCAN if self.args.advonly else SnifferMode.CONN_FOLLOW,
+                chan=self.args.advchan,
+                targ_mac=self.args.mac,
+                targ_irk=self.args.irk,
+                hop3=hop3,
+                ext_adv=self.args.extadv,
+                coded_phy=self.args.longrange,
+                rssi_min=self.args.rssi,
+                interval_preload=self.args.preload,
+                phy_preload=None if self.args.nophychange else PhyMode.PHY_2M)
 
         # zero timestamps and flush old packets
         self.hw.mark_and_flush()
@@ -453,24 +444,15 @@ class SniffleExtcapPlugin():
         if self.controlWriteStream is not None:
             self.controlWriteStream.close()
 
-    def get_mac_from_string(self, search_str):
-        self.hw.cmd_mac()
-        self.hw.random_addr()
-        self.hw.cmd_scan()
+    def get_mac_from_string(self, search_str, coded_phy=False):
+        self.hw.setup_sniffer(SnifferMode.ACTIVE_SCAN, ext_adv=True, coded_phy=coded_phy)
         self.hw.mark_and_flush()
-        self.logger.info("Waiting for advertisement containing specified string...")
-
-        while not self.captureStopped:
+        while True:
             msg = self.hw.recv_and_decode()
             if isinstance(msg, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
                                 AdvExtIndMessage)) and msg.AdvA is not None:
-                if search_str in msg.body: break
-
-        # return to passive sniffing after active scan
-        self.hw.cmd_chan_aa_phy(self.args.advchan, BLE_ADV_AA, 2 if self.args.longrange else 0)
-
-        self.logger.info("Found target MAC: %s" % str_mac(msg.AdvA))
-        return msg.AdvA
+                if search_str in msg.body:
+                    return msg.AdvA, not msg.TxAdd
 
     def controlThreadMain(self):
         self.logger.info('Control thread started')
