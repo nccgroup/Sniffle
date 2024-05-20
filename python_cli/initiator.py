@@ -9,7 +9,7 @@ from binascii import unhexlify
 from sniffle.constants import BLE_ADV_AA
 from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage, StateMessage, SnifferState
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
-                            ScanRspMessage, str_mac)
+                                    ScanRspMessage, str_mac)
 
 # global variable to access hardware
 hw = None
@@ -102,8 +102,8 @@ def get_mac_from_irk(irk):
     print("Waiting for advertisement with suitable RPA...")
     while True:
         msg = hw.recv_and_decode()
-        if isinstance(msg, [AdvaMessage, AdvDirectIndMessage,
-                            AdvExtIndMessage]) and msg.AdvA is not None:
+        if isinstance(msg, (AdvaMessage, AdvDirectIndMessage,
+                            AdvExtIndMessage)) and msg.AdvA is not None:
             print("Found target MAC: %s" % str_mac(msg.AdvA))
             return msg.AdvA
 
@@ -114,8 +114,8 @@ def get_mac_from_string(s):
     print("Waiting for advertisement containing specified string...")
     while True:
         msg = hw.recv_and_decode()
-        if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
-                            AdvExtIndMessage]) and msg.AdvA is not None:
+        if isinstance(msg, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                            AdvExtIndMessage)) and msg.AdvA is not None:
             if s in msg.body:
                 print("Found target MAC: %s" % str_mac(msg.AdvA))
                 return msg.AdvA, not msg.TxAdd

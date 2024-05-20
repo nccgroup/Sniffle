@@ -462,8 +462,8 @@ class SniffleExtcapPlugin():
 
         while not self.captureStopped:
             msg = self.hw.recv_and_decode()
-            if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
-                                AdvExtIndMessage]) and msg.AdvA is not None:
+            if isinstance(msg, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                                AdvExtIndMessage)) and msg.AdvA is not None:
                 if search_str in msg.body: break
 
         # return to passive sniffing after active scan

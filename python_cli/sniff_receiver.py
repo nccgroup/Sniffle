@@ -11,7 +11,7 @@ from sniffle.pcap import PcapBleWriter
 from sniffle.sniffle_hw import (SniffleHW, PacketMessage, DebugMessage, StateMessage,
                                 MeasurementMessage, SnifferMode, PhyMode)
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
-        DataMessage, str_mac)
+                                    ScanRspMessage, DataMessage, str_mac)
 from sniffle.errors import UsageError
 
 # global variable to access hardware
@@ -143,8 +143,8 @@ def get_mac_from_string(s, coded_phy=False):
     hw.mark_and_flush()
     while True:
         msg = hw.recv_and_decode()
-        if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
-                            AdvExtIndMessage]) and msg.AdvA is not None:
+        if isinstance(msg, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                            AdvExtIndMessage)) and msg.AdvA is not None:
             if s in msg.body:
                 return msg.AdvA, not msg.TxAdd
 
