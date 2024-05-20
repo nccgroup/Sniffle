@@ -6,7 +6,7 @@
 
 import argparse, sys, signal
 from sniffle.constants import BLE_ADV_AA
-from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage
+from sniffle.sniffle_hw import SniffleHW, PhyMode, SnifferMode, PacketMessage, DebugMessage
 from sniffle.packet_decoder import *
 from sniffle.pcap import PcapBleWriter
 
@@ -58,23 +58,12 @@ def main():
     global hw
     hw = SniffleHW(args.serport)
 
-    # set the advertising channel (and return to ad-sniffing mode)
-    hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
-
-    # only sniff advertisements (don't follow connections)
-    hw.cmd_follow(False)
-
-    # configure RSSI filter
-    hw.cmd_rssi(args.rssi)
-
-    # turn off MAC address filtering
-    hw.cmd_mac()
-
-    # set a MAC address for ourselves
-    hw.random_addr()
-
-    # switch to active scanner mode
-    hw.cmd_scan()
+    hw.setup_sniffer(
+            mode=SnifferMode.ACTIVE_SCAN,
+            chan=args.advchan,
+            ext_adv=True,
+            coded_phy=args.longrange,
+            rssi_min=args.rssi)
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()

@@ -467,6 +467,7 @@ class SniffleHW:
 
         # enter active scan mode if requested
         if mode == SnifferMode.ACTIVE_SCAN:
+            self.random_addr()
             self.cmd_scan()
 
     # Initiate a connection to a peer, with sane auto-generated LLData
