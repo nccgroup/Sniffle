@@ -218,14 +218,6 @@ the target device including its MAC address. It should be noted that many BLE
 devices advertise with a randomized MAC address rather than their "real" fixed
 MAC written on a label.
 
-For convenience, there is a special mode for the MAC filter by invoking the
-script with `-m top` instead of `-m` with a MAC address. In this mode, the
-sniffer will lock onto the first advertiser MAC address it sees that passes
-the RSSI filter. The `-m top` mode should thus always be used with an RSSI
-filter to avoid locking onto a spurious MAC address. Once the sniffer locks
-onto a MAC address, the RSSI filter will be disabled automatically by the
-sniff receiver script (except when the `-e` option is used).
-
 Most new BLE devices use Resolvable Private Addresses (RPAs) rather than fixed
 static or public addresses. While you can set up a MAC filter to a particular
 RPA, devices periodically change their RPA. RPAs can can be resolved (associated
