@@ -8,9 +8,11 @@ import argparse, sys
 from binascii import unhexlify
 from sniffle.constants import BLE_ADV_AA
 from sniffle.pcap import PcapBleWriter
-from sniffle.sniffle_hw import SniffleHW, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
+from sniffle.sniffle_hw import (SniffleHW, PacketMessage, DebugMessage, StateMessage,
+                                MeasurementMessage, SnifferMode, PhyMode)
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
         DataMessage, str_mac)
+from sniffle.errors import UsageError
 
 # global variable to access hardware
 hw = None
@@ -51,105 +53,64 @@ def main():
     # Sanity check argument combinations
     targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
     if args.hop and targ_specs < 1:
-        print("Primary adv. channel hop requires a target MAC, IRK, or ad string specified!",
-              file=sys.stderr)
-        return
-    if args.longrange and not args.extadv:
-        print("Long-range PHY only supported in extended advertising!", file=sys.stderr)
-        return
+        raise UsageError("Primary adv. channel hop requires a target MAC, IRK, or ad string specified!")
     if args.longrange and args.hop:
         # this would be pointless anyway, since long range always uses extended ads
-        print("Primary ad channel hopping unsupported on long range PHY!", file=sys.stderr)
-        return
+        raise UsageError("Primary ad channel hopping unsupported on long range PHY!")
     if targ_specs > 1:
-        print("MAC, IRK, and advertisement string filters are mutually exclusive!", file=sys.stderr)
-        return
+        raise UsageError("MAC, IRK, and advertisement string filters are mutually exclusive!")
     if args.advchan != 40 and args.hop:
-        print("Don't specify an advertising channel if you want advertising channel hopping!",
-              file=sys.stderr)
-        return
+        raise UsageError("Don't specify an advertising channel if you want advertising channel hopping!")
 
     global hw
     hw = SniffleHW(args.serport)
 
     # if a channel was explicitly specified, don't hop
-    allow_hop3 = True
+    hop3 = True if targ_specs else False
     if args.advchan == 40:
         args.advchan = 37
     else:
-        allow_hop3 = False
+        hop3 = False
 
     # disable 37/38/39 hop in extended mode unless overridden
     if args.extadv and not args.hop:
-        allow_hop3 = False
+        hop3 = False
 
-    # set the advertising channel (and return to ad-sniffing mode)
-    hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
-
-    # configure RSSI filter
-    hw.cmd_rssi(args.rssi)
-
-    # set whether or not to pause after sniffing
-    hw.cmd_pause_done(args.pause)
-
-    # set up whether or not to follow connections
-    hw.cmd_follow(not args.advonly)
-
-    # configure BT5 extended (aux/secondary) advertising
-    hw.cmd_auxadv(args.extadv)
-
-    # set up target filter
-    if targ_specs < 1:
-        hw.cmd_mac()
-    elif args.irk:
-        hw.cmd_irk(unhexlify(args.irk), allow_hop3)
-    elif args.mac == "top":
-        mac_bytes = get_first_matching_mac()
-        hw.cmd_mac(mac_bytes, allow_hop3)
-    elif args.string:
-        hw.random_addr()
-        hw.cmd_scan()
-        search_str = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
-        mac_bytes = get_first_matching_mac(search_str)
-        # return to passive sniffing after active scanning
-        hw.cmd_chan_aa_phy(args.advchan, BLE_ADV_AA, 2 if args.longrange else 0)
-        hw.cmd_mac(mac_bytes, allow_hop3)
-    else:
+    mac = None
+    irk = None
+    if args.irk:
+        irk = unhexlify(args.irk)
+    elif args.mac:
         try:
-            mac_bytes = [int(h, 16) for h in reversed(args.mac.split(":"))]
-            if len(mac_bytes) != 6:
-                raise Exception("Wrong length!")
+            mac = [int(h, 16) for h in reversed(args.mac.split(":"))]
         except:
-            print("MAC must be 6 colon-separated hex bytes", file=sys.stderr)
-            return
-        hw.cmd_mac(mac_bytes, allow_hop3)
+            raise UsageError("MAC must be 6 colon-separated hex bytes")
+    elif args.string:
+        search_str = args.string.encode('latin-1').decode('unicode_escape').encode('latin-1')
+        print("Waiting for advertisement containing specified string...")
+        mac, _ = get_mac_from_string(search_str, args.longrange)
+        print("Found target MAC: %s" % str_mac(mac))
 
-    if targ_specs and allow_hop3:
-        # If we're locked onto a MAC address and will be hopping with
-        # its advertisements, RSSI filter is useless and should be disabled.
-        # However,  RSSI filter is still useful for extended advertisements,
-        # as my MAC filtering logic is less effective there.
-        # Thus, only disable it when we're doing 37/38/39 hops
-        #   (ie. when we [also] want legacy advertisements)
-        hw.cmd_rssi()
-
+    preload_pairs = []
     if args.preload:
         # expect colon separated pairs, separated by commas
-        pairs = []
         for tstr in args.preload.split(','):
             tsplit = tstr.split(':')
             tup = (int(tsplit[0]), int(tsplit[1]))
-            pairs.append(tup)
-        hw.cmd_interval_preload(pairs)
-    else:
-        # reset preloaded encrypted connection interval changes
-        hw.cmd_interval_preload()
+            preload_pairs.append(tup)
 
-    if args.nophychange:
-        hw.cmd_phy_preload(None)
-    else:
-        # preload change to 2M
-        hw.cmd_phy_preload(1)
+    hw.setup_sniffer(
+            mode=SnifferMode.PASSIVE_SCAN if args.advonly else SnifferMode.CONN_FOLLOW,
+            chan=args.advchan,
+            targ_mac=mac,
+            targ_irk=irk,
+            hop3=hop3,
+            ext_adv=args.extadv,
+            coded_phy=args.longrange,
+            rssi_min=args.rssi,
+            interval_preload=preload_pairs,
+            phy_preload=None if args.nophychange else PhyMode.PHY_2M,
+            pause_done=args.pause)
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()
@@ -177,21 +138,15 @@ def print_packet(dpkt, quiet):
     if pcwriter:
         pcwriter.write_packet_message(dpkt)
 
-def get_first_matching_mac(search_str = None):
-    hw.cmd_mac()
+def get_mac_from_string(s, coded_phy=False):
+    hw.setup_sniffer(SnifferMode.ACTIVE_SCAN, ext_adv=True, coded_phy=coded_phy)
     hw.mark_and_flush()
-    if search_str:
-        print("Waiting for advertisement containing specified string...")
-    else:
-        print("Waiting for advertisement...")
-
     while True:
         msg = hw.recv_and_decode()
         if isinstance(msg, [AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
                             AdvExtIndMessage]) and msg.AdvA is not None:
-            if search_str is None or search_str in msg.body:
-                print("Found target MAC: %s" % str_mac(msg.AdvA))
-                return msg.AdvA
+            if s in msg.body:
+                return msg.AdvA, not msg.TxAdd
 
 if __name__ == "__main__":
     main()

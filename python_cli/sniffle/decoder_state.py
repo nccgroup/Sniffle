@@ -31,3 +31,7 @@ class SniffleDecoderState:
 
         # state tracking
         self.last_state = SnifferState.STATIC
+
+    def reset_adv(self):
+        self.cur_aa = BLE_ADV_AA
+        self.crc_init_rev = rbit24(BLE_ADV_CRCI)

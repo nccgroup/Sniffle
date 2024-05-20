@@ -17,7 +17,7 @@ from .constants import BLE_ADV_AA, BLE_ADV_CRCI
 from .sniffer_state import StateMessage, SnifferState
 from .decoder_state import SniffleDecoderState
 from .packet_decoder import PacketMessage, DPacketMessage
-from .errors import SniffleHWPacketError
+from .errors import SniffleHWPacketError, UsageError
 
 class _TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):
@@ -66,6 +66,18 @@ def is_cp2102(serport):
                 return True
     return False
 
+class SnifferMode(IntEnum):
+    CONN_FOLLOW = 0
+    PASSIVE_SCAN = 1
+    ACTIVE_SCAN = 2
+
+class PhyMode(IntEnum):
+    PHY_1M = 0
+    PHY_2M = 1
+    PHY_CODED = 2
+    PHY_CODED_S8 = 2
+    PHY_CODED_S2 = 3
+
 class SniffleHW:
     max_interval_preload_pairs = 4
     api_level = 0
@@ -98,10 +110,10 @@ class SniffleHW:
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
     # Expect PDU CRCs to use the specified initial CRC
-    def cmd_chan_aa_phy(self, chan=37, aa=BLE_ADV_AA, phy=0, crci=BLE_ADV_CRCI):
+    def cmd_chan_aa_phy(self, chan=37, aa=BLE_ADV_AA, phy=PhyMode.PHY_1M, crci=BLE_ADV_CRCI):
         if not (0 <= chan <= 39):
             raise ValueError("Channel must be between 0 and 39")
-        if not (0 <= phy <= 3):
+        if not (PhyMode.PHY_1M <= phy <= PhyMode.PHY_CODED_S2):
             raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
         self._send_cmd([0x10, *list(pack("<BLBL", chan, aa, phy, crci))])
 
@@ -245,12 +257,12 @@ class SniffleHW:
         self._send_cmd([0x22])
 
     # Preload an expected PHY change for encrypted connections
-    def cmd_phy_preload(self, phy=1):
+    def cmd_phy_preload(self, phy=PhyMode.PHY_1M):
         if phy is None:
             # ignore encrypted PHY changes
             self._send_cmd([0x23, 0xFF])
         else:
-            if not (0 <= phy <= 3):
+            if not (PhyMode.PHY_1M <= phy <= PhyMode.PHY_CODED_S2):
                 raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
             self._send_cmd([0x23, phy])
 
@@ -260,14 +272,14 @@ class SniffleHW:
 
     # Transmit extended advertisements
     # Supported ad type modes are non-connectable (0), connectable (1), and scannable (2)
-    def cmd_advertise_ext(self, advData, mode=1, phy1=0, phy2=1, adi=b'\x00\x00'):
+    def cmd_advertise_ext(self, advData, mode=1, phy1=PhyMode.PHY_1M, phy2=PhyMode.PHY_2M, adi=b'\x00\x00'):
         if len(advData) > 245:
             raise ValueError("advData too long!")
         if not (0 <= mode <= 2):
             raise ValueError("Mode must be 0 (non-connectable), 1 (connectable), or 2 (scannable)")
-        if not (phy1 in (0, 2, 3)):
+        if not (phy1 in (PhyMode.PHY_1M, PhyMode.PHY_CODED_S8, PhyMode.PHY_CODED_S2)):
             raise ValueError("Primary PHY must be 0 (1M), 2 (coded S=8), or 3 (coded S=2)")
-        if not (0 <= phy2 <= 3):
+        if not (PhyMode.PHY_1M <= phy2 <= PhyMode.PHY_CODED_S2):
             raise ValueError("Secondary PHY must be 0 (1M), 1 (2M), 2 (coded S=8), "
                                  "or 3 (coded S=2)")
         if len(adi) != 2:
@@ -398,6 +410,64 @@ class SniffleHW:
         addr = [randint(0, 255) for i in range(6)]
         addr[5] |= 0xC0 # make it static
         self.cmd_setaddr(bytes(addr))
+
+    def setup_sniffer(self,
+                      mode=SnifferMode.CONN_FOLLOW,
+                      chan=37,
+                      targ_mac=None,
+                      targ_irk=None,
+                      hop3=False,
+                      ext_adv=False,
+                      coded_phy=False,
+                      rssi_min=-128,
+                      interval_preload=[],
+                      phy_preload=PhyMode.PHY_2M,
+                      pause_done=False):
+        if not mode in SnifferMode:
+            raise ValueError("Invalid mode requested")
+
+        if not (37 <= chan <= 39):
+            raise ValueError("Invalid primary advertising channel")
+
+        if targ_mac and targ_irk:
+            raise UsageError("Can't specify both target MAC and IRK")
+
+        if hop3 and not (targ_mac or targ_irk):
+            raise UsageError("Must specify a target for advertising channel hop")
+
+        if coded_phy and not ext_adv:
+            raise UsageError("Extended advertising needed for coded PHY")
+
+        # set the advertising channel (and return to ad-sniffing mode)
+        self.cmd_chan_aa_phy(chan, BLE_ADV_AA, PhyMode.PHY_CODED if coded_phy else PhyMode.PHY_1M)
+
+        # configure RSSI filter
+        self.cmd_rssi(rssi_min)
+
+        # set whether or not to pause after sniffing
+        self.cmd_pause_done(pause_done)
+
+        # set up whether or not to follow connections
+        self.cmd_follow(mode == SnifferMode.CONN_FOLLOW)
+
+        # configure BT5 extended (aux/secondary) advertising
+        self.cmd_auxadv(ext_adv)
+
+        # set up target filters
+        if targ_mac:
+            self.cmd_mac(targ_mac, hop3)
+        elif targ_irk:
+            self.cmd_irk(targ_irk, hop3)
+        else:
+            self.cmd_mac()
+
+        # preload encrypted connection parameter changes
+        self.cmd_interval_preload(interval_preload)
+        self.cmd_phy_preload(phy_preload)
+
+        # enter active scan mode if requested
+        if mode == SnifferMode.ACTIVE_SCAN:
+            self.cmd_scan()
 
     # Initiate a connection to a peer, with sane auto-generated LLData
     def initiate_conn(self, peerAddr, is_random=True, interval=24, latency=1):

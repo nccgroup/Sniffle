@@ -49,8 +49,7 @@ class PacketMessage:
         chan &= 0x3F
 
         if chan >= 37 and dstate.cur_aa != BLE_ADV_AA:
-            dstate.cur_aa = BLE_ADV_AA
-            dstate.crc_init_rev = rbit24(BLE_ADV_CRCI)
+            dstate.reset_adv()
 
         if dstate.time_offset > 0:
             dstate.first_epoch_time = time()
