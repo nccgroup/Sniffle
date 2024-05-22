@@ -439,8 +439,6 @@ class SniffleExtcapPlugin():
     def close_pipes(self):
         if self.captureStream is not None:
             self.captureStream.close()
-        if self.controlReadStream is not None:
-            self.controlReadStream.close()
         if self.controlWriteStream is not None:
             self.controlWriteStream.close()
 
