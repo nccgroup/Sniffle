@@ -46,10 +46,16 @@ def find_xds110_serport():
         return None
 
 def find_sonoff_serport():
+    # Note: It appears that CP2102N Sonoff dongles have an iManufacturer of "ITead"
+    # and an iSerial of some 32-character hex value (a hash of something?), while
+    # CP2102 (non-N) Sonoff dongles have an iManufacturer of "Silicon Labs" and
+    # an iSerial of 0001, at least based on examples that Slawomir Jasek has seen.
+    # The CP2102 (non-N) dongles appear to have been produced in 2022 and have
+    # serial numbers starting with 203... printed on the back.
     sonoff_ports = [i[0] for i in comports() if (
         i.vid == 0x10C4 and
         i.pid == 0xEA60 and
-        i.manufacturer == "ITead" and
+        (i.manufacturer == "ITead" or i.manufacturer == "Silicon Labs") and
         i.product == "Sonoff Zigbee 3.0 USB Dongle Plus")]
     if len(sonoff_ports) > 0:
         return sorted(sonoff_ports)[0]
