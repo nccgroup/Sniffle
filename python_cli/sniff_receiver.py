@@ -129,8 +129,12 @@ def main():
         pcwriter = PcapBleWriter(args.output)
 
     while True:
-        msg = hw.recv_and_decode()
-        print_message(msg, args.quiet)
+        try:
+            msg = hw.recv_and_decode()
+            print_message(msg, args.quiet)
+        except KeyboardInterrupt:
+            sys.stderr.write("\r")
+            break
 
 def print_message(msg, quiet):
     if isinstance(msg, PacketMessage):
