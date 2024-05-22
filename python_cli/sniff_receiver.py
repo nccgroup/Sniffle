@@ -34,7 +34,9 @@ def main():
     aparse.add_argument("-S", "--string", default=None,
             help="Filter for advertisements containing the specified string")
     aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
-            help="Sniff only advertisements, don't follow connections")
+            help="Passive scanning, don't follow connections")
+    aparse.add_argument("-A", "--scan", action="store_const", default=False, const=True,
+            help="Active scanning, don't follow connections")
     aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
             help="Capture BT5 extended (auxiliary) advertising")
     aparse.add_argument("-H", "--hop", action="store_const", default=False, const=True,
@@ -99,8 +101,15 @@ def main():
             tup = (int(tsplit[0]), int(tsplit[1]))
             preload_pairs.append(tup)
 
+    if args.scan:
+        sniffer_mode = SnifferMode.ACTIVE_SCAN
+    elif args.advonly:
+        sniffer_mode = SnifferMode.PASSIVE_SCAN
+    else:
+        sniffer_mode = SnifferMode.CONN_FOLLOW
+
     hw.setup_sniffer(
-            mode=SnifferMode.PASSIVE_SCAN if args.advonly else SnifferMode.CONN_FOLLOW,
+            mode=sniffer_mode,
             chan=args.advchan,
             targ_mac=mac,
             targ_irk=irk,
