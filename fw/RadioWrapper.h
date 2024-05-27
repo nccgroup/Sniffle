@@ -84,6 +84,10 @@ void RadioWrapper_trigAdv3();
 int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
         const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback);
 
+// Perform active scanning (legacy advertising only)
+int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, const uint16_t *scanAddr,
+        bool scanRandom, RadioWrapper_Callback callback);
+
 // Transmit and receive in master mode
 int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,

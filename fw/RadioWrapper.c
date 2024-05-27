@@ -344,6 +344,83 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     return 0;
 }
 
+/* Active Scanner (Legacy Advertising Only)
+ *
+ * Arguments:
+ *  chan        Channel to listen on
+ *  timeout     When to stop listening (in radio ticks)
+ *  scanAddr    Our (scanner) MAC address
+ *  scanRandom  TxAdd of SCAN_REQ
+ *  callback    Function to call when a packet is received
+ *
+ * Returns:
+ *  Status code (errno.h), 0 on success
+ */
+int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, const uint16_t *scanAddr,
+        bool scanRandom, RadioWrapper_Callback callback)
+{
+
+    if (!configured || chan < 37 || chan > 39)
+        return -EINVAL;
+
+    userCallback = callback;
+    ble4_cmd = true;
+
+    /* set up the receive request */
+    RF_cmdBleScanner.channel = chan;
+    RF_cmdBleScanner.whitening.init = 0x40 + chan;
+    RF_cmdBleScanner.pParams->pRxQ = &dataQueue;
+
+    RF_cmdBleScanner.pParams->scanConfig.scanFilterPolicy = 0; // scan everything
+    RF_cmdBleScanner.pParams->scanConfig.bActiveScan = 1;
+    RF_cmdBleScanner.pParams->scanConfig.deviceAddrType = scanRandom;
+    RF_cmdBleScanner.pParams->scanConfig.rpaFilterPolicy = 1;
+    RF_cmdBleScanner.pParams->scanConfig.bStrictLenFilter = 0;
+    RF_cmdBleScanner.pParams->scanConfig.bAutoWlIgnore = 0;
+    RF_cmdBleScanner.pParams->scanConfig.bEndOnRpt = 0;
+    RF_cmdBleScanner.pParams->scanConfig.rpaMode = 0;
+    RF_cmdBleScanner.pParams->scanConfig.rpaMode = 0;
+
+    RF_cmdBleScanner.pParams->randomState = 0; // radio will self-seed
+    RF_cmdBleScanner.pParams->backoffCount = 1;
+    RF_cmdBleScanner.pParams->backoffPar.logUpperLimit = 0;
+    RF_cmdBleScanner.pParams->backoffPar.bLastSucceeded = 0;
+    RF_cmdBleScanner.pParams->backoffPar.bLastFailed = 0;
+
+    // Note: address pointers must be 16 bit aligned
+    RF_cmdBleScanner.pParams->pDeviceAddress = (uint16_t *)scanAddr;
+    RF_cmdBleScanner.pParams->pWhiteList = NULL;
+
+    RF_cmdBleScanner.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBleScanner.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBleScanner.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBleScanner.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBleScanner.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBleScanner.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBleScanner.pParams->rxConfig.bAppendStatus = 1;
+    RF_cmdBleScanner.pParams->rxConfig.bAppendTimestamp = 1;
+
+    /* receive forever if timeout == 0xFFFFFFFF */
+    if (timeout != 0xFFFFFFFF)
+    {
+        // 4 MHz radio clock, so multiply microsecond timeout by 4
+        RF_cmdBleScanner.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBleScanner.pParams->endTime = timeout;
+    } else {
+        RF_cmdBleScanner.pParams->endTrigger.triggerType = TRIG_NEVER;
+        RF_cmdBleScanner.pParams->endTime = 0;
+    }
+
+    // always use endTrigger for timeout
+    RF_cmdBleScanner.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
+
+    // Enter scanner mode and stay till timeout
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBleScanner, RF_PriorityNormal,
+            &rx_int_callback, IRQ_RX_ENTRY_DONE);
+
+    return 0;
+}
+
 /* Transmit/receive in BLE5 Master Mode
  *
  * Arguments:

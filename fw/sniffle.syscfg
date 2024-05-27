@@ -70,6 +70,7 @@ if (system.deviceData.deviceId[6] == "P") {
         "cmdBleAdv",
         "cmdBle5Initiator",
         "cmdBle5Scanner",
+        "cmdBleScanner",
         "cmdFs"];
 } else {
     ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
@@ -80,6 +81,7 @@ if (system.deviceData.deviceId[6] == "P") {
         "cmdBleAdv",
         "cmdBle5Initiator",
         "cmdBle5Scanner",
+        "cmdBleScanner",
         "cmdFs"];
 }
 

@@ -566,8 +566,12 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 Task_sleep(sleep_ms * 100); // 100 kHz ticks
         } else if (snifferState == SCANNING) {
             // scan forever (until stopped)
-            RadioWrapper_scan(statPHY, statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
-                    indicatePacket);
+            if (auxAdvEnabled)
+                RadioWrapper_scan(statPHY, statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
+                        indicatePacket);
+            else
+                RadioWrapper_scanLegacy(statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
+                        indicatePacket);
         } else if (snifferState == ADVERTISING_EXT) {
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
