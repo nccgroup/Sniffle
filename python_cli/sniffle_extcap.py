@@ -166,8 +166,10 @@ class SniffleExtcapPlugin():
                                help="Used to send control messages to toolbar")
         argParser.add_argument("--serport",
                                help="Sniffer serial port name")
-        argParser.add_argument("--advchan", default='auto',
-                               help="Advertising channel to listen on (auto, all, 37, 38, 39)")
+        argParser.add_argument("--mode", default="conn_follow", choices=["conn_follow", "passive_scan", "active_scan"],
+                               help="Sniffer mode")
+        argParser.add_argument("--advchan", default="auto", choices=["auto", "all", "37", "38", "39"],
+                               help="Advertising channel to listen on")
         argParser.add_argument("--rssi", default=-128,
                                help="Filter packets by minimum RSSI (-128 to 0)")
         argParser.add_argument("--mac", default=None,
@@ -176,8 +178,6 @@ class SniffleExtcapPlugin():
                                help="Filter packets by advertiser IRK (32 hex digits)")
         argParser.add_argument("--string", default=None,
                                help="Filter packets by advertiser string search")
-        argParser.add_argument("--advonly", action="store_true",
-                               help="Sniff only advertisements, don't follow connections")
         argParser.add_argument("--extadv", action="store_true",
                                help="Capture BT5 extended (auxiliary) advertising")
         argParser.add_argument("--longrange", action="store_true",
@@ -195,14 +195,20 @@ class SniffleExtcapPlugin():
             raise UsageError('Please specify exactly one of --capture, --extcap-version, --extcap-interfaces, --extcap-dlts or --extcap-config')
         self.args.op = self.args.op[0]
 
+        # Parse --mode argument
+        if self.args.mode == "conn_follow":
+            self.args.mode = SnifferMode.CONN_FOLLOW
+        elif self.args.mode == "passive_scan":
+            self.args.mode = SnifferMode.PASSIVE_SCAN
+        else:
+            self.args.mode = SnifferMode.ACTIVE_SCAN
+
         # Parse --advchan argument
         self.args.advchan = self.args.advchan.lower()
         try:
             self.args.advchan = int(self.args.advchan)
         except:
             pass
-        if self.args.advchan not in [ 'auto', 'all', 37, 38, 39 ]:
-            raise UsageError('Invalid value specified for advertising channel option: %s' % (self.args.advchan))
 
         # Parse --rssi argument
         try:
@@ -287,30 +293,30 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=0}{call=--serport}{type=selector}{required=true}'
                             '{display=Sniffer serial port}'
                             '{tooltip=Sniffer device serial port}')
-        lines.append('arg {number=1}{call=--advchan}{type=selector}{default=auto}'
+        lines.append('arg {number=1}{call=--mode}{type=selector}{default=conn_follow}'
+                            '{display=Sniffer mode}'
+                            '{tooltip=Sniffing or scanning mode}')
+        lines.append('arg {number=2}{call=--advchan}{type=selector}{default=auto}'
                             '{display=Advertising channel}'
                             '{tooltip=Advertising channel to listen on}')
-        lines.append('arg {number=2}{call=--rssi}{type=integer}{range=-128,0}{default=-128}'
+        lines.append('arg {number=3}{call=--rssi}{type=integer}{range=-128,0}{default=-128}'
                             '{display=Minimum RSSI}'
                             '{tooltip=Filter packets by minimum RSSI (-128 to 0)}')
-        lines.append('arg {number=3}{call=--mac}{type=string}'
+        lines.append('arg {number=4}{call=--mac}{type=string}'
                             '{display=MAC Address}'
                             '{tooltip=Filter packets by advertiser MAC (XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX)}'
                             '{validation=\\b(?:(?:[0-9a-fA-F]{2}:){5}|(?:[0-9a-fA-F]{2}-){5})[0-9a-fA-F]{2}\\b}')
-        lines.append('arg {number=4}{call=--irk}{type=string}'
+        lines.append('arg {number=5}{call=--irk}{type=string}'
                             '{display=IRK}'
                             '{tooltip=Filter packets by advertiser IRK (32 hex digits)}'
                             '{validation=\\b[0-9a-fA-F]{32}\\b}')
-        lines.append('arg {number=5}{call=--string}{type=string}'
-                            '{display=Advertisement String}'
+        lines.append('arg {number=6}{call=--string}{type=string}'
+                            '{display=Advertisement string}'
                             '{tooltip=Filter packets by advertiser string search}')
-        lines.append('arg {number=6}{call=--preload}{type=string}'
+        lines.append('arg {number=7}{call=--preload}{type=string}'
                             '{display=Preloaded encrypted con intervals}'
                             '{tooltip=Preloaded encrypted connection interval changes (<interval>:<delta-instant>,...)}'
                             '{validation=^(?:\\s*\\d+\\s*:\\s*\\d+\\s*,?){1,4}$}')
-        lines.append('arg {number=7}{call=--advonly}{type=boolflag}{default=no}'
-                            '{display=Advertisements only}'
-                            '{tooltip=Sniff for advertisements only, don\'t follow connections}')
         lines.append('arg {number=8}{call=--extadv}{type=boolflag}{default=no}'
                             '{display=Extended advertisements}'
                             '{tooltip=Capture BT5 extended (auxiliary) advertisements}')
@@ -332,11 +338,14 @@ class SniffleExtcapPlugin():
             else:
                 displayName = port.device
             lines.append('value {arg=0}{value=%s}{display=%s}' % (device, displayName))
-        lines.append('value {arg=1}{value=auto}{display=Auto}')
-        lines.append('value {arg=1}{value=all}{display=All}')
-        lines.append('value {arg=1}{value=37}{display=37}')
-        lines.append('value {arg=1}{value=38}{display=38}')
-        lines.append('value {arg=1}{value=39}{display=39}')
+        lines.append('value {arg=1}{value=conn_follow}{display=Connection following}')
+        lines.append('value {arg=1}{value=passive_scan}{display=Passive scanning}')
+        lines.append('value {arg=1}{value=active_scan}{display=Active scanning}')
+        lines.append('value {arg=2}{value=auto}{display=Auto}')
+        lines.append('value {arg=2}{value=all}{display=All}')
+        lines.append('value {arg=2}{value=37}{display=37}')
+        lines.append('value {arg=2}{value=38}{display=38}')
+        lines.append('value {arg=2}{value=39}{display=39}')
         return '\n'.join(lines)
 
     def capture(self):
@@ -375,7 +384,7 @@ class SniffleExtcapPlugin():
             self.logger.info("Found target MAC: %s" % str_mac(self.args.mac))
 
         self.hw.setup_sniffer(
-                mode=SnifferMode.PASSIVE_SCAN if self.args.advonly else SnifferMode.CONN_FOLLOW,
+                mode=self.args.mode,
                 chan=self.args.advchan,
                 targ_mac=self.args.mac,
                 targ_irk=self.args.irk,
