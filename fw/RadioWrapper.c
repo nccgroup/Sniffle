@@ -95,12 +95,13 @@ int RadioWrapper_init()
 //  accessAddr  BLE access address of packet to listen for
 //  crcInit     Initial CRC value of packets being listened for
 //  timeout     When to stop listening (in radio ticks)
+//  forever     Ignore timeout and listen forever
 //  callback    Function to call when a packet is received
 //
 // Returns:
 //  Status code (errno.h), 0 on success
 int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
-    uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback)
+    uint32_t crcInit, uint32_t timeout, bool forever, RadioWrapper_Callback callback)
 {
     if ((!configured) || (chan >= 40))
         return -EINVAL;
@@ -129,15 +130,13 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAppendTimestamp = 1;
 
-    /* receive forever if timeout == 0xFFFFFFFF */
-    if (timeout != 0xFFFFFFFF)
+    if (forever)
     {
-        // 4 MHz radio clock, so multiply microsecond timeout by 4
-        RF_cmdBle5GenericRx.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5GenericRx.pParams->endTime = timeout;
-    } else {
         RF_cmdBle5GenericRx.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5GenericRx.pParams->endTime = 0;
+    } else {
+        RF_cmdBle5GenericRx.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5GenericRx.pParams->endTime = timeout;
     }
 
     /* Enter RX mode and stay in RX till timeout */
@@ -262,6 +261,7 @@ void RadioWrapper_trigAdv3()
  *  phy         PHY mode to use
  *  chan        Channel to listen on
  *  timeout     When to stop listening (in radio ticks)
+ *  forever     Ignore timeout and listen forever
  *  scanAddr    Our (scanner) MAC address
  *  scanRandom  TxAdd of SCAN_REQ
  *  callback    Function to call when a packet is received
@@ -269,7 +269,7 @@ void RadioWrapper_trigAdv3()
  * Returns:
  *  Status code (errno.h), 0 on success
  */
-int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
         const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback)
 {
 
@@ -323,15 +323,13 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_cmdBle5Scanner.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBle5Scanner.pParams->rxConfig.bAppendTimestamp = 1;
 
-    /* receive forever if timeout == 0xFFFFFFFF */
-    if (timeout != 0xFFFFFFFF)
+    if (forever)
     {
-        // 4 MHz radio clock, so multiply microsecond timeout by 4
-        RF_cmdBle5Scanner.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Scanner.pParams->endTime = timeout;
-    } else {
         RF_cmdBle5Scanner.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5Scanner.pParams->endTime = 0;
+    } else {
+        RF_cmdBle5Scanner.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Scanner.pParams->endTime = timeout;
     }
 
     // always use endTrigger for timeout
@@ -349,6 +347,7 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  * Arguments:
  *  chan        Channel to listen on
  *  timeout     When to stop listening (in radio ticks)
+ *  forever     Ignore timeout and listen forever
  *  scanAddr    Our (scanner) MAC address
  *  scanRandom  TxAdd of SCAN_REQ
  *  callback    Function to call when a packet is received
@@ -356,8 +355,8 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
  * Returns:
  *  Status code (errno.h), 0 on success
  */
-int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, const uint16_t *scanAddr,
-        bool scanRandom, RadioWrapper_Callback callback)
+int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
+        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback)
 {
 
     if (!configured || chan < 37 || chan > 39)
@@ -400,15 +399,13 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, const uint16_t *sca
     RF_cmdBleScanner.pParams->rxConfig.bAppendStatus = 1;
     RF_cmdBleScanner.pParams->rxConfig.bAppendTimestamp = 1;
 
-    /* receive forever if timeout == 0xFFFFFFFF */
-    if (timeout != 0xFFFFFFFF)
+    if (forever)
     {
-        // 4 MHz radio clock, so multiply microsecond timeout by 4
-        RF_cmdBleScanner.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBleScanner.pParams->endTime = timeout;
-    } else {
         RF_cmdBleScanner.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBleScanner.pParams->endTime = 0;
+    } else {
+        RF_cmdBleScanner.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBleScanner.pParams->endTime = timeout;
     }
 
     // always use endTrigger for timeout
@@ -485,16 +482,8 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Master.startTime = startTime;
     }
 
-    /* receive forever if timeout == 0xFFFFFFFF */
-    if (timeout != 0xFFFFFFFF)
-    {
-        // 4 MHz radio clock, so multiply microsecond timeout by 4
-        RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Master.pParams->endTime = timeout;
-    } else {
-        RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_NEVER;
-        RF_cmdBle5Master.pParams->endTime = 0;
-    }
+    RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+    RF_cmdBle5Master.pParams->endTime = timeout;
 
     /* Enter master mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
@@ -577,23 +566,13 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Slave.startTime = startTime;
     }
 
-    // receive forever if timeout == 0xFFFFFFFF
     // endTrigger is for after M->S is received
     // timeoutTrigger is for before M->S is received
     // both triggers need to be set for reliability
-    if (timeout != 0xFFFFFFFF)
-    {
-        // 4 MHz radio clock, so multiply microsecond timeout by 4
-        RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Slave.pParams->endTime = timeout;
-        RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Slave.pParams->timeoutTime = timeout;
-    } else {
-        RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_NEVER;
-        RF_cmdBle5Slave.pParams->endTime = 0;
-        RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_NEVER;
-        RF_cmdBle5Slave.pParams->timeoutTime = 0;
-    }
+    RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+    RF_cmdBle5Slave.pParams->endTime = timeout;
+    RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_ABSTIME;
+    RF_cmdBle5Slave.pParams->timeoutTime = timeout;
 
     /* Enter slave mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
@@ -638,6 +617,7 @@ void RadioWrapper_resetSeqStat()
  *  phy         PHY mode to use (primary adv.)
  *  chan        Channel to listen on (primary adv.)
  *  timeout     When to stop (in radio ticks)
+ *  forever     Ignore timeout and listen forever
  *  callback    Function to call when a packet is received
  *  initAddr    Our (initiator) MAC address
  *  initRandom  TxAdd of CONNECT_IND
@@ -655,7 +635,7 @@ void RadioWrapper_resetSeqStat()
  *  1 on legacy connection success with ChSel1
  *  2 on aux connection success (implies ChSel1)
  */
-int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
     RadioWrapper_Callback callback, const uint16_t *initAddr, bool initRandom,
     const uint16_t *peerAddr, bool peerRandom, const void *connReqData,
     uint32_t *connTime, PHY_Mode *connPhy)
@@ -703,15 +683,13 @@ int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
     RF_cmdBle5Initiator.pParams->connectTime = RF_getCurrentTime() + 4000;
     RF_cmdBle5Initiator.pParams->maxWaitTimeForAuxCh = 0xFFFF; // units?
 
-    /* receive forever if timeout == 0xFFFFFFFF */
-    if (timeout != 0xFFFFFFFF)
+    if (forever)
     {
-        // 4 MHz radio clock, so multiply microsecond timeout by 4
-        RF_cmdBle5Initiator.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Initiator.pParams->endTime = timeout;
-    } else {
         RF_cmdBle5Initiator.pParams->endTrigger.triggerType = TRIG_NEVER;
         RF_cmdBle5Initiator.pParams->endTime = 0;
+    } else {
+        RF_cmdBle5Initiator.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Initiator.pParams->endTime = timeout;
     }
 
     /* for now, we're not defining a timeout separate from end */

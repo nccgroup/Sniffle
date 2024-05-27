@@ -58,19 +58,8 @@ int RadioWrapper_init(void);
 int RadioWrapper_close(void);
 
 // Sniff/Receive BLE packets
-//
-// Arguments:
-//  phy         PHY mode to use
-//  chan        Channel to listen on
-//  accessAddr  BLE access address of packet to listen for
-//  crcInit     Initial CRC value of packets being listened for
-//  timeout     When to stop listening (in radio ticks)
-//  callback    Function to call when a packet is received
-//
-// Returns:
-//  Status code (errno.h), 0 on success
 int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
-    uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback);
+    uint32_t crcInit, uint32_t timeout, bool forever, RadioWrapper_Callback callback);
 
 // Sniff channel 37, wait for trigger, sniff 38, sniff 39
 // Waits delay1 radio ticks before going from 38 to 39
@@ -81,12 +70,12 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
 void RadioWrapper_trigAdv3();
 
 // Perform active scanning
-int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
         const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback);
 
 // Perform active scanning (legacy advertising only)
-int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, const uint16_t *scanAddr,
-        bool scanRandom, RadioWrapper_Callback callback);
+int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
+        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback);
 
 // Transmit and receive in master mode
 int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
@@ -102,7 +91,7 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 void RadioWrapper_resetSeqStat(void);
 
 // Initiate connection with peer
-int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout,
+int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
     RadioWrapper_Callback callback, const uint16_t *initAddr, bool initRandom,
     const uint16_t *peerAddr, bool peerRandom, const void *connReqData,
     uint32_t *connTime, PHY_Mode *connPhy);

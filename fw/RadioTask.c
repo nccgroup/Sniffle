@@ -365,10 +365,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     phy = statPHY;
                     aa = accessAddress;
                 }
-                RadioWrapper_recvFrames(phy, chan, aa, statCRCI, etime, indicatePacket);
+                RadioWrapper_recvFrames(phy, chan, aa, statCRCI, etime, false, indicatePacket);
             } else {
                 /* receive forever (until stopped) */
-                RadioWrapper_recvFrames(statPHY, statChan, accessAddress, statCRCI, 0xFFFFFFFF,
+                RadioWrapper_recvFrames(statPHY, statChan, accessAddress, statCRCI, 0, true,
                         indicatePacket);
             }
         } else if (snifferState == ADVERT_SEEK) {
@@ -423,7 +423,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     continue; // pointless to listen for tiny period, may stall radio with etime in past
                 if (chan != 0xFF)
                 {
-                    RadioWrapper_recvFrames(phy, chan, BLE_ADV_AA, 0x555555, etime,
+                    RadioWrapper_recvFrames(phy, chan, BLE_ADV_AA, 0x555555, etime, false,
                             indicatePacket);
                 } else {
                     // we need to force cancel recvAdv3 eventually
@@ -443,14 +443,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             firstPacket = true;
             moreData = 0x3;
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
-                    nextHopTime + timeExtension, indicatePacket);
+                    nextHopTime + timeExtension, false, indicatePacket);
 
             afterConnEvent(true, !firstPacket);
         } else if (snifferState == INITIATING) {
             uint32_t connTime;
             PHY_Mode connPhy;
             g_pkt_dir = 1;
-            int status = RadioWrapper_initiate(statPHY, statChan, 0xFFFFFFFF,
+            int status = RadioWrapper_initiate(statPHY, statChan, 0, true,
                     indicatePacket, ourAddr, ourAddrRandom, peerAddr, peerAddrRandom,
                     connReqLLData, &connTime, &connPhy);
             if (snifferState != INITIATING)
@@ -567,10 +567,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
         } else if (snifferState == SCANNING) {
             // scan forever (until stopped)
             if (auxAdvEnabled)
-                RadioWrapper_scan(statPHY, statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
+                RadioWrapper_scan(statPHY, statChan, 0, true, ourAddr, ourAddrRandom,
                         indicatePacket);
             else
-                RadioWrapper_scanLegacy(statChan, 0xFFFFFFFF, ourAddr, ourAddrRandom,
+                RadioWrapper_scanLegacy(statChan, 0, true, ourAddr, ourAddrRandom,
                         indicatePacket);
         } else if (snifferState == ADVERTISING_EXT) {
             // slightly "randomize" advertisement timing as per spec
