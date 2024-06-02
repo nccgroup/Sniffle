@@ -1027,6 +1027,7 @@ static void rx_int_callback(RF_Handle h, RF_CmdHandle ch, RF_EventMask e)
 
         frame.rssi = (int8_t)packetPointer[frame.length];
         frame.channel = packetPointer[frame.length + 1] & 0x3F;
+        frame.crcError = (packetPointer[frame.length + 1] & 0x80) ? 1 : 0;
 
         if (ble4_cmd)
         {

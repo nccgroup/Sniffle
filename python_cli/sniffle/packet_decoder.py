@@ -40,7 +40,8 @@ class PacketMessage:
 
         # MSB of length is actually packet direction
         pkt_dir = l >> 15
-        l &= 0x7FFF
+        crc_err = True if (l & 0x4000) else False
+        l &= 0x3FFF
 
         if len(body) != l:
             raise SniffleHWPacketError("Incorrect length field!")
@@ -71,8 +72,12 @@ class PacketMessage:
         self.phy = phy
         self.body = body
         self.data_dir = pkt_dir
+        self.crc_err = crc_err
         self.event = event
-        self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
+        if crc_err:
+            self.crc_rev = 0
+        else:
+            self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
 
     @classmethod
     def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
@@ -87,8 +92,9 @@ class PacketMessage:
 
     def str_header(self):
         phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
-        return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s" % (
-            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy])
+        return "Timestamp: %8.6f  Length: %2i  RSSI: %3i  Channel: %2i  PHY: %s  CRC: %s" % (
+            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy],
+            "Invalid" if self.crc_err else "Valid")
 
     def hexdump(self):
         return hexdump(self.body)
@@ -109,6 +115,7 @@ class DPacketMessage(PacketMessage):
         self.phy = pkt.phy
         self.body = pkt.body
         self.data_dir = pkt.data_dir
+        self.crc_err = pkt.crc_err
         self.event = pkt.event
         self.crc_rev = pkt.crc_rev
 
@@ -204,9 +211,7 @@ class DataMessage(DPacketMessage):
         return dtstr
 
     def str_header(self):
-        phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
-        return "Timestamp: %.6f\tLength: %i\tRSSI: %i\tChannel: %i\tPHY: %s\tEvent: %d" % (
-            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy], self.event)
+        return super().str_header() + "  Event: %d" % self.event
 
     def __str__(self):
         return "\n".join([self.str_header(), self.str_datatype(), self.hexdump()])

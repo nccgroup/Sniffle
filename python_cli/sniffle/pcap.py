@@ -83,12 +83,14 @@ class PcapBleWriter(object):
         )
         self.output.write(pkt_header)
 
-    def payload(self, aa, packet, chan, rssi, phy, pdu_type, aux_type, crc_rev):
+    def payload(self, aa, packet, chan, rssi, phy, pdu_type, aux_type, crc_rev, crc_err):
         """
         Generate payload with specific header.
         """
-        # 0xC13 means dewhitened, signal power valid, ref AA valid, CRC check passed
-        flags = 0xC13
+        # 0x0413 means dewhitened, signal power valid, ref AA valid, CRC checked
+        flags = 0x0413
+        if not crc_err:
+            flags |= 0x0800
         if phy != 3:
             flags |= (phy & 0x3) << 14
         else:
@@ -135,7 +137,7 @@ class PcapBleWriter(object):
             return chan + 2
 
     def write_packet(self, ts_usec, aa, chan, rssi, packet,
-            phy=0, pdu_type=0, aux_type=0, crc_rev=0):
+            phy=0, pdu_type=0, aux_type=0, crc_rev=0, crc_err=False):
         """
         Add packet to PCAP output.
 
@@ -144,7 +146,7 @@ class PcapBleWriter(object):
         ts_s = ts_usec // 1000000
         ts_u = int(ts_usec - ts_s*1000000)
         payload = self.payload(aa, packet, self._ble_to_rf_chan(chan), rssi,
-                               phy, pdu_type, aux_type, crc_rev)
+                               phy, pdu_type, aux_type, crc_rev, crc_err)
         self.write_packet_header(ts_s, ts_u, len(payload))
         self.output.write(payload)
 
@@ -160,7 +162,7 @@ class PcapBleWriter(object):
                 aux_type = 3
 
         self.write_packet(int(pkt.ts_epoch * 1000000), pkt.aa, pkt.chan, pkt.rssi,
-                pkt.body, pkt.phy, pdu_type, aux_type, pkt.crc_rev)
+                pkt.body, pkt.phy, pdu_type, aux_type, pkt.crc_rev, pkt.crc_err)
 
     def close(self):
         """

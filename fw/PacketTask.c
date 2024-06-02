@@ -161,8 +161,9 @@ static void sendPacket(BLE_Frame *frame)
         memcpy(msg_ptr, &timestamp_us, sizeof(timestamp_us));
         msg_ptr += sizeof(timestamp_us);
 
-        // bytes 5-6 are length (little endian), MSB is direction
+        // bytes 5-6 are length (little endian), MSBs are CRC and direction
         uint16_t len_dir = frame->length;
+        len_dir |= frame->crcError << 14;
         len_dir |= frame->direction << 15;
         memcpy(msg_ptr, &len_dir, sizeof(len_dir));
         msg_ptr += sizeof(len_dir);
@@ -232,7 +233,8 @@ void indicatePacket(BLE_Frame *frame)
         }
 
         // always process PDU regardless of queue state
-        reactToPDU(frame);
+        if (!frame->crcError)
+            reactToPDU(frame);
     }
 
     if (frame->length > PACKET_SIZE)
@@ -247,6 +249,7 @@ void indicatePacket(BLE_Frame *frame)
 
     memcpy(s_frames[queue_head_].pData, frame->pData, frame->length);
     s_frames[queue_head_].length = frame->length;
+    s_frames[queue_head_].crcError = frame->crcError;
     s_frames[queue_head_].direction = frame->direction;
     s_frames[queue_head_].eventCtr = frame->eventCtr;
     s_frames[queue_head_].rssi = frame->rssi;
