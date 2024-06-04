@@ -164,7 +164,8 @@ CP2102 devices.
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
 usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC] [-i IRK]
-                         [-S STRING] [-a] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-n] [-o OUTPUT]
+                         [-S STRING] [-a] [-A] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-n] [-C]
+                         [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -180,7 +181,8 @@ options:
   -i IRK, --irk IRK     Filter packets by advertiser IRK
   -S STRING, --string STRING
                         Filter for advertisements containing the specified string
-  -a, --advonly         Sniff only advertisements, don't follow connections
+  -a, --advonly         Passive scanning, don't follow connections
+  -A, --scan            Active scanning, don't follow connections
   -e, --extadv          Capture BT5 extended (auxiliary) advertising
   -H, --hop             Hop primary advertising channels in extended mode
   -l, --longrange       Use long range (coded) PHY for primary advertising
@@ -188,6 +190,7 @@ options:
   -Q PRELOAD, --preload PRELOAD
                         Preload expected encrypted connection parameter changes
   -n, --nophychange     Ignore encrypted PHY mode changes
+  -C, --crcerr          Capture packets with CRC errors
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```
@@ -196,9 +199,9 @@ The XDS110 debugger on the Launchpad boards creates two serial ports. On
 Linux, they are typically named `ttyACM0` and `ttyACM1`. The first of the
 two created serial ports is used to communicate with Sniffle. By default,
 the Python CLI communicates using the first CDC-ACM device it sees matching
-the TI XDS110 USB VID:PID combo. You may need to override this with the `-s`
-command line option if you are using a different USB serial adapter or have
-additional USB CDC-ACM devices connected.
+the TI XDS110 USB VID:PID combo, or the first Sonoff dongle it sees. You
+may need to override this with the `-s` command line option if you are using
+a different USB serial adapter or have additional USB CDC-ACM devices connected.
 
 For the `-r` (RSSI filter) option, a value of -40 tends to work well if the
 sniffer is very close to or nearly touching the transmitting device. The RSSI
@@ -281,6 +284,8 @@ pairs, separated by commas (eg. `6:7,39:8`). If you have a device that issues
 encrypted PHY update PDUs that don't change the PHY, or puts out encrypted LE
 power control PDUs without any PHY changes, you can use the `--nophychange`/`-n`
 option.
+
+To stop the sniffer, press Ctrl-C.
 
 If for some reason the sniffer firmware locks up and refuses to capture any
 traffic even with filters disabled, you should reset the sniffer MCU. On
