@@ -94,7 +94,7 @@ class PacketMessage:
         phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
         return "Timestamp: %8.6f  Length: %2i  RSSI: %3i  Channel: %2i  PHY: %s  CRC: %s" % (
             self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy],
-            "Invalid" if self.crc_err else "Valid")
+            "Invalid" if self.crc_err else "0x%06X" % rbit24(self.crc_rev))
 
     def hexdump(self):
         return hexdump(self.body)
