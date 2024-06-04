@@ -3,7 +3,19 @@
 # Released as open source under GPLv3
 
 from struct import unpack
-from .constants import ad_types
+from .constants import ad_types, service_uuids16, company_identifiers
+
+def str_service16(uuid: int):
+    if uuid in service_uuids16:
+        return "0x%04X (%s)" % (uuid, service_uuids16[uuid])
+    else:
+        return "0x%04X" % uuid
+
+def str_mfg(mfg: int):
+    if mfg in company_identifiers:
+        return "0x%04X (%s)" % (mfg, company_identifiers[mfg])
+    else:
+        return "0x%04X" % mfg
 
 class AdvDataRecord:
     def __init__(self, data_type: int, data: bytes):
@@ -28,7 +40,17 @@ class FlagsRecord(AdvDataRecord):
             return "%s: Malformed" % self.str_type()
 
 class ServiceList16Record(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) % 2 == 0:
+            for i in range(0, len(self.data), 2):
+                u, = unpack('<H', self.data[i:i+2])
+                lines.append("    %s" % str_service16(u))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 class ServiceList32Record(AdvDataRecord):
     pass
@@ -59,7 +81,19 @@ class TXPowerLevelRecord(AdvDataRecord):
             return "%s: Malformed" % self.str_type()
 
 class ServiceData16Record(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) >= 2:
+            u, = unpack('<H', self.data[:2])
+            d = self.data[2:]
+            lines.append("    Service: %s" % str_service16(u))
+            lines.append("    Data Length: %d" % len(d))
+            lines.append("    Data: %s" % repr(d))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 class ServiceData32Record(AdvDataRecord):
     pass
@@ -68,7 +102,19 @@ class ServiceData128Record(AdvDataRecord):
     pass
 
 class ManufacturerSpecificDataRecord(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) >= 2:
+            m, = unpack('<H', self.data[:2])
+            d = self.data[2:]
+            lines.append("    Company: %s" % str_mfg(m))
+            lines.append("    Data Length: %d" % len(d))
+            lines.append("    Data: %s" % repr(d))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 # https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/core/ad_types.yaml
 ad_type_classes = {
