@@ -165,7 +165,7 @@ CP2102 devices.
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
 usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC] [-i IRK]
                          [-S STRING] [-a] [-A] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-n] [-C]
-                         [-o OUTPUT]
+                         [-d] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -191,6 +191,7 @@ options:
                         Preload expected encrypted connection parameter changes
   -n, --nophychange     Ignore encrypted PHY mode changes
   -C, --crcerr          Capture packets with CRC errors
+  -d, --decode          Decode advertising data
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
 ```

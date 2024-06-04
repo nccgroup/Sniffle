@@ -13,6 +13,7 @@ from sniffle.sniffle_hw import (SniffleHW, PacketMessage, DebugMessage, StateMes
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
                                     ScanRspMessage, DataMessage, str_mac)
 from sniffle.errors import UsageError
+from sniffle.advdata.decoder import decode_adv_data
 
 # global variable to access hardware
 hw = None
@@ -25,7 +26,7 @@ def main():
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
     aparse.add_argument("-c", "--advchan", default=40, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
-    aparse.add_argument("-p", "--pause", action="store_const", default=False, const=True,
+    aparse.add_argument("-p", "--pause", action="store_true",
             help="Pause sniffer after disconnect")
     aparse.add_argument("-r", "--rssi", default=-128, type=int,
             help="Filter packets by minimum RSSI")
@@ -33,24 +34,26 @@ def main():
     aparse.add_argument("-i", "--irk", default=None, help="Filter packets by advertiser IRK")
     aparse.add_argument("-S", "--string", default=None,
             help="Filter for advertisements containing the specified string")
-    aparse.add_argument("-a", "--advonly", action="store_const", default=False, const=True,
+    aparse.add_argument("-a", "--advonly", action="store_true",
             help="Passive scanning, don't follow connections")
-    aparse.add_argument("-A", "--scan", action="store_const", default=False, const=True,
+    aparse.add_argument("-A", "--scan", action="store_true",
             help="Active scanning, don't follow connections")
-    aparse.add_argument("-e", "--extadv", action="store_const", default=False, const=True,
+    aparse.add_argument("-e", "--extadv", action="store_true",
             help="Capture BT5 extended (auxiliary) advertising")
-    aparse.add_argument("-H", "--hop", action="store_const", default=False, const=True,
+    aparse.add_argument("-H", "--hop", action="store_true",
             help="Hop primary advertising channels in extended mode")
-    aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
+    aparse.add_argument("-l", "--longrange", action="store_true",
             help="Use long range (coded) PHY for primary advertising")
-    aparse.add_argument("-q", "--quiet", action="store_const", default=False, const=True,
+    aparse.add_argument("-q", "--quiet", action="store_true",
             help="Don't display empty packets")
     aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
             "connection parameter changes")
-    aparse.add_argument("-n", "--nophychange", action="store_const", default=False, const=True,
+    aparse.add_argument("-n", "--nophychange", action="store_true",
             help="Ignore encrypted PHY mode changes")
-    aparse.add_argument("-C", "--crcerr", action="store_const", default=False, const=True,
+    aparse.add_argument("-C", "--crcerr", action="store_true",
             help="Capture packets with CRC errors")
+    aparse.add_argument("-d", "--decode", action="store_true",
+            help="Decode advertising data")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -134,20 +137,28 @@ def main():
     while True:
         try:
             msg = hw.recv_and_decode()
-            print_message(msg, args.quiet)
+            print_message(msg, args.quiet, args.decode)
         except KeyboardInterrupt:
             sys.stderr.write("\r")
             break
 
-def print_message(msg, quiet):
+def print_message(msg, quiet, decode_ad):
     if isinstance(msg, PacketMessage):
-        print_packet(msg, quiet)
+        print_packet(msg, quiet, decode_ad)
     elif isinstance(msg, DebugMessage) or isinstance(msg, StateMessage) or \
             isinstance(msg, MeasurementMessage):
         print(msg, end='\n\n')
 
-def print_packet(dpkt, quiet):
-    if not (quiet and isinstance(dpkt, DataMessage) and dpkt.data_length == 0):
+def print_packet(dpkt, quiet, decode_ad):
+    if isinstance(dpkt, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
+                         AdvExtIndMessage)):
+            print(dpkt.str_header())
+            print(dpkt.str_decode())
+            if decode_ad:
+                for ad in decode_adv_data(dpkt.adv_data):
+                    print(ad)
+            print(dpkt.hexdump(), end='\n\n')
+    elif not (quiet and isinstance(dpkt, DataMessage) and dpkt.data_length == 0):
         print(dpkt, end='\n\n')
 
     # Record the packet if PCAP writing is enabled

@@ -9,6 +9,7 @@ from sniffle.constants import BLE_ADV_AA
 from sniffle.sniffle_hw import SniffleHW, PhyMode, SnifferMode, PacketMessage, DebugMessage
 from sniffle.packet_decoder import *
 from sniffle.pcap import PcapBleWriter
+from sniffle.advdata.decoder import decode_adv_data
 
 # global variables
 hw = None
@@ -50,8 +51,10 @@ def main():
             help="Advertising channel to listen on")
     aparse.add_argument("-r", "--rssi", default=-128, type=int,
             help="Filter packets by minimum RSSI")
-    aparse.add_argument("-l", "--longrange", action="store_const", default=False, const=True,
+    aparse.add_argument("-l", "--longrange", action="store_true",
             help="Use long range (coded) PHY for primary advertising")
+    aparse.add_argument("-d", "--decode", action="store_true",
+            help="Decode advertising data")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -92,12 +95,22 @@ def main():
                 advertisers[a].hits))
         if advertisers[a].adv:
             print("\nAdvertisement:")
-            print(advertisers[a].adv)
+            print(advertisers[a].adv.str_header())
+            print(advertisers[a].adv.str_decode())
+            if args.decode:
+                for ad in decode_adv_data(advertisers[a].adv.adv_data):
+                    print(ad)
+            print(advertisers[a].adv.hexdump())
         else:
             print("\nAdvertisement: None")
         if advertisers[a].scan_rsp:
             print("\nScan Response:")
-            print(advertisers[a].scan_rsp)
+            print(advertisers[a].scan_rsp.str_header())
+            print(advertisers[a].scan_rsp.str_decode())
+            if args.decode:
+                for ad in decode_adv_data(advertisers[a].scan_rsp.adv_data):
+                    print(ad)
+            print(advertisers[a].scan_rsp.hexdump())
         else:
             print("\nScan Response: None")
         print("="*80, end="\n\n")

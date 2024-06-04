@@ -294,6 +294,7 @@ class AdvaMessage(AdvertMessage):
     def __init__(self, pkt: PacketMessage):
         super().__init__(pkt)
         self.AdvA = self.body[2:8]
+        self.adv_data = self.body[8:]
 
     def str_adva(self):
         return "AdvA: %s" % str_mac2(self.AdvA, self.TxAdd)
@@ -322,6 +323,7 @@ class AdvDirectIndMessage(AdvertMessage):
         super().__init__(pkt)
         self.AdvA = self.body[2:8]
         self.TargetA = self.body[8:14]
+        self.adv_data = self.body[14:]
 
     def str_ata(self):
         return "AdvA: %s TargetA: %s" % (str_mac2(self.AdvA, self.TxAdd), str_mac2(self.TargetA, self.RxAdd))
@@ -434,48 +436,46 @@ class AdvExtIndMessage(AdvertMessage):
         self.TxPower = None
         self.ACAD = None
 
-        try:
-            if len(self.body) < 3:
-                raise ValueError("Extended advertisement too short!")
-            self.AdvMode = self.body[2] >> 6 # Neither, Connectable, Scannable, or RFU
-            hdrBodyLen = self.body[2] & 0x3F
+        if len(self.body) < 3:
+            raise ValueError("Extended advertisement too short!")
+        self.AdvMode = self.body[2] >> 6 # Neither, Connectable, Scannable, or RFU
+        hdrBodyLen = self.body[2] & 0x3F
 
-            if len(self.body) < hdrBodyLen + 1:
-                raise ValueError("Inconistent header length!")
+        if len(self.body) < hdrBodyLen + 1:
+            raise ValueError("Inconistent header length!")
 
-            hdrFlags = self.body[3]
-            hdrPos = 4
-            dispMsgs = []
+        hdrFlags = self.body[3]
+        hdrPos = 4
+        dispMsgs = []
 
-            if hdrFlags & 0x01:
-                self.AdvA = self.body[hdrPos:hdrPos+6]
-                hdrPos += 6
-            if hdrFlags & 0x02:
-                self.TargetA = self.body[hdrPos:hdrPos+6]
-                hdrPos += 6
-            if hdrFlags & 0x04:
-                self.CTEInfo = self.body[hdrPos]
-                hdrPos += 1
-            if hdrFlags & 0x08:
-                self.AdvDataInfo = AdvDataInfo(self.body[hdrPos:hdrPos+2])
-                hdrPos += 2
-            if hdrFlags & 0x10:
-                self.AuxPtr = AuxPtr(self.body[hdrPos:hdrPos+3])
-                hdrPos += 3
-            if hdrFlags & 0x20:
-                # TODO decode this nicely
-                self.SyncInfo = self.body[hdrPos:hdrPos+18]
-                hdrPos += 18
-            if hdrFlags & 0x40:
-                self.TxPower = unpack("b", self.body[hdrPos:hdrPos+1])[0]
-                hdrPos += 1
-            if hdrPos - 3 < hdrBodyLen:
-                ACADLen = hdrBodyLen - (hdrPos - 3)
-                self.ACAD = self.body[hdrPos:hdrPos+ACADLen]
-                hdrPos += ACADLen
-        except Exception as e:
-            # TODO: nicer error handling
-            print("Parse error!", repr(e))
+        if hdrFlags & 0x01:
+            self.AdvA = self.body[hdrPos:hdrPos+6]
+            hdrPos += 6
+        if hdrFlags & 0x02:
+            self.TargetA = self.body[hdrPos:hdrPos+6]
+            hdrPos += 6
+        if hdrFlags & 0x04:
+            self.CTEInfo = self.body[hdrPos]
+            hdrPos += 1
+        if hdrFlags & 0x08:
+            self.AdvDataInfo = AdvDataInfo(self.body[hdrPos:hdrPos+2])
+            hdrPos += 2
+        if hdrFlags & 0x10:
+            self.AuxPtr = AuxPtr(self.body[hdrPos:hdrPos+3])
+            hdrPos += 3
+        if hdrFlags & 0x20:
+            # TODO decode this nicely
+            self.SyncInfo = self.body[hdrPos:hdrPos+18]
+            hdrPos += 18
+        if hdrFlags & 0x40:
+            self.TxPower = unpack("b", self.body[hdrPos:hdrPos+1])[0]
+            hdrPos += 1
+        if hdrPos - 3 < hdrBodyLen:
+            ACADLen = hdrBodyLen - (hdrPos - 3)
+            self.ACAD = self.body[hdrPos:hdrPos+ACADLen]
+            hdrPos += ACADLen
+
+        self.adv_data = self.body[hdrPos:]
 
     def str_aext(self):
         amodes = ["Non-connectable, non-scannable",
