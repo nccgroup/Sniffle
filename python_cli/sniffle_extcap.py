@@ -186,6 +186,8 @@ class SniffleExtcapPlugin():
                                help="Preload expected encrypted connection parameter changes")
         argParser.add_argument("--nophychange", action="store_true",
                                help="Ignore encrypted PHY mode changes")
+        argParser.add_argument("--crcerr", action="store_true",
+                               help="Capture packets with CRC errors")
 
         self.args = argParser.parse_args(args=args)
 
@@ -326,6 +328,9 @@ class SniffleExtcapPlugin():
         lines.append('arg {number=10}{call=--nophychange}{type=boolflag}{default=no}'
                             '{display=Ignore encrypted PHY change}'
                             '{tooltip=Ignore encrypted PHY mode changes}')
+        lines.append('arg {number=11}{call=--crcerr}{type=boolflag}{default=no}'
+                            '{display=Allow CRC errors}'
+                            '{tooltip=Capture packets with CRC errors}')
         for port in comports():
             if sys.platform == 'win32':
                 device = f'//./{port.device}'
@@ -393,7 +398,8 @@ class SniffleExtcapPlugin():
                 coded_phy=self.args.longrange,
                 rssi_min=self.args.rssi,
                 interval_preload=self.args.preload,
-                phy_preload=None if self.args.nophychange else PhyMode.PHY_2M)
+                phy_preload=None if self.args.nophychange else PhyMode.PHY_2M,
+                validate_crc=not self.args.crcerr)
 
         # zero timestamps and flush old packets
         self.hw.mark_and_flush()
