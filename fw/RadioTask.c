@@ -118,6 +118,7 @@ static PHY_Mode preloadedPhy = PHY_2M;
 static bool postponed = false;
 static bool followConnections = true;
 static bool instaHop = true;
+static bool validateCrc = true;
 
 // bit 0 is M->S, bit 1 is S->M
 static uint8_t moreData;
@@ -365,11 +366,12 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                     phy = statPHY;
                     aa = accessAddress;
                 }
-                RadioWrapper_recvFrames(phy, chan, aa, statCRCI, etime, false, indicatePacket);
+                RadioWrapper_recvFrames(phy, chan, aa, statCRCI, etime, false, validateCrc,
+                        indicatePacket);
             } else {
                 /* receive forever (until stopped) */
                 RadioWrapper_recvFrames(statPHY, statChan, accessAddress, statCRCI, 0, true,
-                        indicatePacket);
+                        validateCrc, indicatePacket);
             }
         } else if (snifferState == ADVERT_SEEK) {
             /* if we get no legacy advertisements for 3 seconds, and we're also interested in
@@ -383,9 +385,9 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
             // Jump straight to 39 after 37, to catch ads in case of very fast hopping
             if (connEventCount == 0 || fastAdvHop)
-                RadioWrapper_recvAdv3(0, 22*4000, indicatePacket);
+                RadioWrapper_recvAdv3(0, 22*4000, validateCrc, indicatePacket);
             else
-                RadioWrapper_recvAdv3(450*4, 22*4000, indicatePacket);
+                RadioWrapper_recvAdv3(450*4, 22*4000, validateCrc, indicatePacket);
 
             // break out early if we cancelled
             if (snifferState != ADVERT_SEEK) continue;
@@ -424,16 +426,16 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 if (chan != 0xFF)
                 {
                     RadioWrapper_recvFrames(phy, chan, BLE_ADV_AA, 0x555555, etime, false,
-                            indicatePacket);
+                            validateCrc, indicatePacket);
                 } else {
                     // we need to force cancel recvAdv3 eventually
                     DelayStopTrigger_trig((etime - RF_getCurrentTime()) >> 2);
                     RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 60,
-                            rconf.hopIntervalTicks + 5000, indicatePacket);
+                            rconf.hopIntervalTicks + 5000, validateCrc, indicatePacket);
                 }
             } else {
                 RadioWrapper_recvAdv3(rconf.hopIntervalTicks - 60,
-                        rconf.hopIntervalTicks + 5000, indicatePacket);
+                        rconf.hopIntervalTicks + 5000, validateCrc, indicatePacket);
             }
         } else if (snifferState == PAUSED) {
             Task_sleep(100);
@@ -443,7 +445,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             firstPacket = true;
             moreData = 0x3;
             RadioWrapper_recvFrames(rconf.phy, chan, accessAddress, crcInit,
-                    nextHopTime + timeExtension, false, indicatePacket);
+                    nextHopTime + timeExtension, false, validateCrc, indicatePacket);
 
             afterConnEvent(true, !firstPacket);
         } else if (snifferState == INITIATING) {
@@ -568,10 +570,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             // scan forever (until stopped)
             if (auxAdvEnabled)
                 RadioWrapper_scan(statPHY, statChan, 0, true, ourAddr, ourAddrRandom,
-                        indicatePacket);
+                        validateCrc, indicatePacket);
             else
                 RadioWrapper_scanLegacy(statChan, 0, true, ourAddr, ourAddrRandom,
-                        indicatePacket);
+                        validateCrc, indicatePacket);
         } else if (snifferState == ADVERTISING_EXT) {
             // slightly "randomize" advertisement timing as per spec
             uint32_t sleep_ms = s_advIntervalMs + (RF_getCurrentTime() & 0x7);
@@ -1535,4 +1537,10 @@ void preloadPhyUpdate(bool ignore, PHY_Mode phy)
 {
     ignoreEncPhyChange = ignore;
     preloadedPhy = phy;
+}
+
+/* Enable/disable discarding of PDUs with invalid CRC */
+void setCrcValidation(bool validate)
+{
+    validateCrc = validate;
 }

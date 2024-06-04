@@ -74,6 +74,9 @@ int preloadConnParamUpdates(const uint16_t *pairs, uint32_t numPairs);
 /* Preload encrypted (unknown key) PHY update */
 void preloadPhyUpdate(bool ignore, PHY_Mode phy);
 
+/* Enable/disable discarding of PDUs with invalid CRC */
+void setCrcValidation(bool validate);
+
 typedef enum {
     ADV_IND,
     ADV_DIRECT_IND,

@@ -292,6 +292,9 @@ class SniffleHW:
             raise ValueError("ADI must be two bytes")
         self._send_cmd([0x25, mode, phy1, phy2, *adi, len(advData), *advData])
 
+    def cmd_crc_valid(self, validate=True):
+        self._send_cmd([0x26, 1 if validate else 0])
+
     def _recv_msg(self, desync=False):
         got_msg = False
         while not (got_msg or self.recv_cancelled):
@@ -428,7 +431,8 @@ class SniffleHW:
                       rssi_min=-128,
                       interval_preload=[],
                       phy_preload=PhyMode.PHY_2M,
-                      pause_done=False):
+                      pause_done=False,
+                      validate_crc=True):
         if not mode in SnifferMode:
             raise ValueError("Invalid mode requested")
 
@@ -466,6 +470,9 @@ class SniffleHW:
             self.cmd_irk(targ_irk, hop3)
         else:
             self.cmd_mac()
+
+        # configure CRC validation
+        self.cmd_crc_valid(validate_crc)
 
         # preload encrypted connection parameter changes
         self.cmd_interval_preload(interval_preload)

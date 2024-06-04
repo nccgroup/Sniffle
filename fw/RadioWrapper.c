@@ -96,12 +96,14 @@ int RadioWrapper_init()
 //  crcInit     Initial CRC value of packets being listened for
 //  timeout     When to stop listening (in radio ticks)
 //  forever     Ignore timeout and listen forever
+//  validateCrc Discard packets with invalid CRC
 //  callback    Function to call when a packet is received
 //
 // Returns:
 //  Status code (errno.h), 0 on success
 int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
-    uint32_t crcInit, uint32_t timeout, bool forever, RadioWrapper_Callback callback)
+    uint32_t crcInit, uint32_t timeout, bool forever, bool validateCrc,
+    RadioWrapper_Callback callback)
 {
     if ((!configured) || (chan >= 40))
         return -EINVAL;
@@ -122,7 +124,7 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5GenericRx.pParams->bRepeat = 0x01; // receive multiple packets
 
     RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushIgnored = 1;
-    RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushCrcErr = validateCrc ? 1 : 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bAutoFlushEmpty = 0;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5GenericRx.pParams->rxConfig.bIncludeCrc = 0;
@@ -158,7 +160,8 @@ int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
  * - I don't know how much of the 160 us is ending the current operation vs preparing
  *   the next operation
  */
-int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callback callback)
+int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, bool validateCrc,
+        RadioWrapper_Callback callback)
 {
     rfc_bleGenericRxPar_t para37;
     rfc_bleGenericRxPar_t para38;
@@ -182,7 +185,7 @@ int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callbac
     para37.bRepeat = 0x01; // receive multiple packets
     para37.__dummy0 = 0x0000;
     para37.rxConfig.bAutoFlushIgnored = 1;
-    para37.rxConfig.bAutoFlushCrcErr = 1;
+    para37.rxConfig.bAutoFlushCrcErr = validateCrc ? 1 : 0;
     para37.rxConfig.bAutoFlushEmpty = 0;
     para37.rxConfig.bIncludeLenByte = 1;
     para37.rxConfig.bIncludeCrc = 0;
@@ -264,13 +267,15 @@ void RadioWrapper_trigAdv3()
  *  forever     Ignore timeout and listen forever
  *  scanAddr    Our (scanner) MAC address
  *  scanRandom  TxAdd of SCAN_REQ
+ *  validateCrc Discard packets with invalid CRC
  *  callback    Function to call when a packet is received
  *
  * Returns:
  *  Status code (errno.h), 0 on success
  */
 int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
-        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback)
+        const uint16_t *scanAddr, bool scanRandom, bool validateCrc,
+        RadioWrapper_Callback callback)
 {
 
     if (!configured || chan < 37 || chan > 39)
@@ -315,7 +320,7 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool foreve
     RF_cmdBle5Scanner.pParams->maxWaitTimeForAuxCh = 0xFFFF; // units?
 
     RF_cmdBle5Scanner.pParams->rxConfig.bAutoFlushIgnored = 1;
-    RF_cmdBle5Scanner.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5Scanner.pParams->rxConfig.bAutoFlushCrcErr = validateCrc ? 1 : 0;
     RF_cmdBle5Scanner.pParams->rxConfig.bAutoFlushEmpty = 0;
     RF_cmdBle5Scanner.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBle5Scanner.pParams->rxConfig.bIncludeCrc = 0;
@@ -350,13 +355,15 @@ int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool foreve
  *  forever     Ignore timeout and listen forever
  *  scanAddr    Our (scanner) MAC address
  *  scanRandom  TxAdd of SCAN_REQ
+ *  validateCrc Discard packets with invalid CRC
  *  callback    Function to call when a packet is received
  *
  * Returns:
  *  Status code (errno.h), 0 on success
  */
 int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
-        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback)
+        const uint16_t *scanAddr, bool scanRandom, bool validateCrc,
+        RadioWrapper_Callback callback)
 {
 
     if (!configured || chan < 37 || chan > 39)
@@ -391,7 +398,7 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
     RF_cmdBleScanner.pParams->pWhiteList = NULL;
 
     RF_cmdBleScanner.pParams->rxConfig.bAutoFlushIgnored = 1;
-    RF_cmdBleScanner.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBleScanner.pParams->rxConfig.bAutoFlushCrcErr = validateCrc ? 1 : 0;
     RF_cmdBleScanner.pParams->rxConfig.bAutoFlushEmpty = 0;
     RF_cmdBleScanner.pParams->rxConfig.bIncludeLenByte = 1;
     RF_cmdBleScanner.pParams->rxConfig.bIncludeCrc = 0;

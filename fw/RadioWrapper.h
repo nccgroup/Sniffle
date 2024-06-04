@@ -60,23 +60,27 @@ int RadioWrapper_close(void);
 
 // Sniff/Receive BLE packets
 int RadioWrapper_recvFrames(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
-    uint32_t crcInit, uint32_t timeout, bool forever, RadioWrapper_Callback callback);
+    uint32_t crcInit, uint32_t timeout, bool forever, bool validateCrc,
+    RadioWrapper_Callback callback);
 
 // Sniff channel 37, wait for trigger, sniff 38, sniff 39
 // Waits delay1 radio ticks before going from 38 to 39
 // Waits delay2 radio ticks on 39 before ending
-int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, RadioWrapper_Callback callback);
+int RadioWrapper_recvAdv3(uint32_t delay1, uint32_t delay2, bool validateCrc,
+        RadioWrapper_Callback callback);
 
 // Send trigger for recvAdv3 function to go from 37 to 38
 void RadioWrapper_trigAdv3();
 
 // Perform active scanning
 int RadioWrapper_scan(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
-        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback);
+        const uint16_t *scanAddr, bool scanRandom, bool validateCrc,
+        RadioWrapper_Callback callback);
 
 // Perform active scanning (legacy advertising only)
 int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
-        const uint16_t *scanAddr, bool scanRandom, RadioWrapper_Callback callback);
+        const uint16_t *scanAddr, bool scanRandom, bool validateCrc,
+        RadioWrapper_Callback callback);
 
 // Transmit and receive in master mode
 int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,

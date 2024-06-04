@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2022, NCC Group plc
+ * Copyright (c) 2018-2024, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -32,5 +32,6 @@ void CommandTask_init(void);
 #define COMMAND_PHY_PRELOAD     0x23
 #define COMMAND_VERSION         0x24
 #define COMMAND_ADV_EXT         0x25
+#define COMMAND_CRC_VALID       0x26
 
 #endif /* COMMANDTASK_H */

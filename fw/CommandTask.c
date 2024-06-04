@@ -205,6 +205,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             advertiseExtended(msgBuf[2], msgBuf + 8, msgBuf[7], msgBuf[3], msgBuf[4],
                     msgBuf[5] | (msgBuf[6] << 8));
             break;
+        case COMMAND_CRC_VALID:
+            if (ret != 3) continue;
+            setCrcValidation(msgBuf[2] ? true : false);
+            break;
         default:
             break;
         }
