@@ -3,6 +3,7 @@
 # Released as open source under GPLv3
 
 from struct import unpack
+from uuid import UUID
 from .constants import ad_types, service_uuids16, company_identifiers
 
 def str_service16(uuid: int):
@@ -10,6 +11,13 @@ def str_service16(uuid: int):
         return "0x%04X (%s)" % (uuid, service_uuids16[uuid])
     else:
         return "0x%04X" % uuid
+
+def str_service32(uuid: int):
+    return "0x%08X" % uuid
+
+def str_service128(uuid: bytes):
+    u = UUID(uuid)
+    return str(u)
 
 def str_mfg(mfg: int):
     if mfg in company_identifiers:
@@ -53,10 +61,30 @@ class ServiceList16Record(AdvDataRecord):
         return "\n".join(lines)
 
 class ServiceList32Record(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) % 4 == 0:
+            for i in range(0, len(self.data), 4):
+                u, = unpack('<I', self.data[i:i+4])
+                lines.append("    %s" % str_service32(u))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 class ServiceList128Record(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) % 16 == 0:
+            for i in range(0, len(self.data), 16):
+                u = self.data[i:i+16]
+                lines.append("    %s" % str_service128(u))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 class LocalNameRecord(AdvDataRecord):
     def __str__(self):
@@ -96,10 +124,34 @@ class ServiceData16Record(AdvDataRecord):
         return "\n".join(lines)
 
 class ServiceData32Record(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) >= 4:
+            u, = unpack('<I', self.data[:4])
+            d = self.data[4:]
+            lines.append("    Service: %s" % str_service32(u))
+            lines.append("    Data Length: %d" % len(d))
+            lines.append("    Data: %s" % repr(d))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 class ServiceData128Record(AdvDataRecord):
-    pass
+    def __str__(self):
+        lines = [self.str_type()]
+        if len(self.data) >= 16:
+            u = self.data[:16]
+            d = self.data[16:]
+            lines.append("    Service: %s" % str_service128(u))
+            lines.append("    Data Length: %d" % len(d))
+            lines.append("    Data: %s" % repr(d))
+        else:
+            lines.append("    Malformed")
+            lines.append("    Length: %d" % len(self.data))
+            lines.append("    Value: %s" % repr(self.data))
+        return "\n".join(lines)
 
 class ManufacturerSpecificDataRecord(AdvDataRecord):
     def __str__(self):
