@@ -119,8 +119,11 @@ class ManufacturerSpecificDataRecord(AdvDataRecord):
 # https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/core/ad_types.yaml
 ad_type_classes = {
     0x01: FlagsRecord,
+    0x02: ServiceList16Record,
     0x03: ServiceList16Record,
+    0x04: ServiceList32Record,
     0x05: ServiceList32Record,
+    0x06: ServiceList128Record,
     0x07: ServiceList128Record,
     0x08: ShortenedLocalNameRecord,
     0x09: CompleteLocalNameRecord,
