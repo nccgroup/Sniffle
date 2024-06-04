@@ -1,0 +1,187 @@
+# This document, regardless of its title or content, is not a Bluetooth
+# Specification as defined in the Bluetooth Patent/Copyright License Agreement
+# (“PCLA”) and Bluetooth Trademark License Agreement. Use of this document by
+# members of Bluetooth SIG is governed by the membership and other related
+# agreements between Bluetooth SIG Inc. (“Bluetooth SIG”) and its members,
+# including the PCLA and other agreements posted on Bluetooth SIG’s website
+# located at www.bluetooth.com.
+# 
+# THIS DOCUMENT IS PROVIDED “AS IS” AND BLUETOOTH SIG, ITS MEMBERS, AND THEIR
+# AFFILIATES MAKE NO REPRESENTATIONS OR WARRANTIES AND DISCLAIM ALL WARRANTIES,
+# EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF MERCHANTABILITY, TITLE,
+# NON-INFRINGEMENT, FITNESS FOR ANY PARTICULAR PURPOSE, THAT THE CONTENT OF THIS
+# DOCUMENT IS FREE OF ERRORS.
+# 
+# TO THE EXTENT NOT PROHIBITED BY LAW, BLUETOOTH SIG, ITS MEMBERS, AND THEIR
+# AFFILIATES DISCLAIM ALL LIABILITY ARISING OUT OF OR RELATING TO USE OF THIS
+# DOCUMENT AND ANY INFORMATION CONTAINED IN THIS DOCUMENT, INCLUDING LOST REVENUE,
+# PROFITS, DATA OR PROGRAMS, OR BUSINESS INTERRUPTION, OR FOR SPECIAL, INDIRECT,
+# CONSEQUENTIAL, INCIDENTAL OR PUNITIVE DAMAGES, HOWEVER CAUSED AND REGARDLESS OF
+# THE THEORY OF LIABILITY, AND EVEN IF BLUETOOTH SIG, ITS MEMBERS, OR THEIR
+# AFFILIATES HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+# 
+# This document is proprietary to Bluetooth SIG. This document may contain or
+# cover subject matter that is intellectual property of Bluetooth SIG and its
+# members. The furnishing of this document does not grant any license to any
+# intellectual property of Bluetooth SIG or its members.
+# 
+# This document is subject to change without notice.
+# 
+# Copyright © 2020–2024 by Bluetooth SIG, Inc. The Bluetooth word mark and logos
+# are owned by Bluetooth SIG, Inc. Other third-party brands and names are the
+# property of their respective owners.
+
+ad_types:
+ - value: 0x01
+   name: Flags
+   reference: Core Specification Supplement, Part A, Section 1.3
+ - value: 0x02
+   name: Incomplete List of 16-bit Service Class UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.1
+ - value: 0x03
+   name: Complete List of 16-bit Service Class UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.1
+ - value: 0x04
+   name: Incomplete List of 32-bit Service Class UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.1
+ - value: 0x05
+   name: Complete List of 32-bit Service Class UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.1
+ - value: 0x06
+   name: Incomplete List of 128-bit Service Class UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.1
+ - value: 0x07
+   name: Complete List of 128-bit Service Class UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.1
+ - value: 0x08
+   name: Shortened Local Name
+   reference: Core Specification Supplement, Part A, Section 1.2
+ - value: 0x09
+   name: Complete Local Name
+   reference: Core Specification Supplement, Part A, Section 1.2
+ - value: 0x0A
+   name: Tx Power Level
+   reference: Core Specification Supplement, Part A, Section 1.5
+ - value: 0x0D
+   name: Class of Device
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x0E
+   name: Simple Pairing Hash C-192
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x0F
+   name: Simple Pairing Randomizer R-192
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x10
+   name: Device ID
+   reference: Device ID Profile (when used in EIR data)
+ - value: 0x10
+   name: Security Manager TK Value
+   reference: Core Specification Supplement, Part A, Section 1.8 (when used in OOB data blocks)
+ - value: 0x11
+   name: Security Manager Out of Band Flags
+   reference: Core Specification Supplement, Part A, Section 1.7
+ - value: 0x12
+   name: Peripheral Connection Interval Range
+   reference: Core Specification Supplement, Part A, Section 1.9
+ - value: 0x14
+   name: List of 16-bit Service Solicitation UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.10
+ - value: 0x15
+   name: List of 128-bit Service Solicitation UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.10
+ - value: 0x16
+   name: Service Data - 16-bit UUID
+   reference: Core Specification Supplement, Part A, Section 1.11
+ - value: 0x17
+   name: Public Target Address
+   reference: Core Specification Supplement, Part A, Section 1.13
+ - value: 0x18
+   name: Random Target Address
+   reference: Core Specification Supplement, Part A, Section 1.14
+ - value: 0x19
+   name: Appearance
+   reference: Core Specification Supplement, Part A, Section 1.12
+ - value: 0x1A
+   name: Advertising Interval
+   reference: Core Specification Supplement, Part A, Section 1.15
+ - value: 0x1B
+   name: LE Bluetooth Device Address
+   reference: Core Specification Supplement, Part A, Section 1.16
+ - value: 0x1C
+   name: LE Role
+   reference: Core Specification Supplement, Part A, Section 1.17
+ - value: 0x1D
+   name: Simple Pairing Hash C-256
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x1E
+   name: Simple Pairing Randomizer R-256
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x1F
+   name: List of 32-bit Service Solicitation UUIDs
+   reference: Core Specification Supplement, Part A, Section 1.10
+ - value: 0x20
+   name: Service Data - 32-bit UUID
+   reference: Core Specification Supplement, Part A, Section 1.11
+ - value: 0x21
+   name: Service Data - 128-bit UUID
+   reference: Core Specification Supplement, Part A, Section 1.11
+ - value: 0x22
+   name: LE Secure Connections Confirmation Value
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x23
+   name: LE Secure Connections Random Value
+   reference: Core Specification Supplement, Part A, Section 1.6
+ - value: 0x24
+   name: URI
+   reference: Core Specification Supplement, Part A, Section 1.18
+ - value: 0x25
+   name: Indoor Positioning
+   reference: Indoor Positioning Service
+ - value: 0x26
+   name: Transport Discovery Data
+   reference: Transport Discovery Service
+ - value: 0x27
+   name: LE Supported Features
+   reference: Core Specification Supplement, Part A, Section 1.19
+ - value: 0x28
+   name: Channel Map Update Indication
+   reference: Core Specification Supplement, Part A, Section 1.20
+ - value: 0x29
+   name: PB-ADV
+   reference: Mesh Profile Specification, Section 5.2.1
+ - value: 0x2A
+   name: Mesh Message
+   reference: Mesh Profile Specification, Section 3.3.1
+ - value: 0x2B
+   name: Mesh Beacon
+   reference: Mesh Profile Specification, Section 3.9
+ - value: 0x2C
+   name: BIGInfo
+   reference: Core Specification Supplement, Part A, Section 1.21
+ - value: 0x2D
+   name: Broadcast_Code
+   reference: Core Specification Supplement, Part A, Section 1.22
+ - value: 0x2E
+   name: Resolvable Set Identifier
+   reference: Coordinated Set Identification Profile v1.0 or later
+ - value: 0x2F
+   name: Advertising Interval - long
+   reference: Core Specification Supplement, Part A, Section 1.15
+ - value: 0x30
+   name: Broadcast_Name
+   reference: Public Broadcast Profile v1.0 or later
+ - value: 0x31
+   name: Encrypted Advertising Data
+   reference: Core Specification Supplement, Part A, Section 1.23
+ - value: 0x32
+   name: Periodic Advertising Response Timing Information
+   reference: Core Specification Supplement, Part A, Section 1.24
+ - value: 0x34
+   name: Electronic Shelf Label
+   reference: ESL Profile
+ - value: 0x3D
+   name: 3D Information Data
+   reference: 3D Synchronization Profile
+ - value: 0xFF
+   name: Manufacturer Specific Data
+   reference: Core Specification Supplement, Part A, Section 1.4
