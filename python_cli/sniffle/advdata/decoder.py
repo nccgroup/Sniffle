@@ -26,6 +26,18 @@ class FlagsRecord(AdvDataRecord):
         else:
             return "%s: Malformed" % self.str_type()
 
+class ServiceList16Record(AdvDataRecord):
+    def str_type(self):
+        return "Complete List of 16-bit Service Class UUIDs"
+
+class ServiceList32Record(AdvDataRecord):
+    def str_type(self):
+        return "Complete List of 32-bit Service Class UUIDs"
+
+class ServiceList128Record(AdvDataRecord):
+    def str_type(self):
+        return "Complete List of 128-bit Service Class UUIDs"
+
 class LocalNameRecord(AdvDataRecord):
     def __str__(self):
         try:
@@ -72,6 +84,9 @@ class ManufacturerSpecificDataRecord(AdvDataRecord):
 # https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/core/ad_types.yaml
 ad_types = {
     0x01: FlagsRecord,
+    0x03: ServiceList16Record,
+    0x05: ServiceList32Record,
+    0x07: ServiceList128Record,
     0x08: ShortenedLocalNameRecord,
     0x09: CompleteLocalNameRecord,
     0x0A: TXPowerLevelRecord,
