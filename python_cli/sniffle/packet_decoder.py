@@ -119,14 +119,17 @@ class DPacketMessage(PacketMessage):
         self.event = pkt.event
         self.crc_rev = pkt.crc_rev
 
-    def str_decode(self):
+    def _str_decode(self):
         raise NotImplementedError("Use a derived class")
 
-    def __str__(self):
+    def str_decode(self):
         try:
-            return "\n".join([self.str_header(), self.str_decode(), self.hexdump()])
+            return self._str_decode()
         except:
-            return "\n".join([self.str_header(), "Decode error", self.hexdump()])
+            return "Decode error"
+
+    def __str__(self):
+        return "\n".join([self.str_header(), self.str_decode(), self.hexdump()])
 
     @classmethod
     def from_body(cls, body, is_data=False, slave_send=False):
@@ -159,7 +162,7 @@ class AdvertMessage(DPacketMessage):
         atstr += "Ad Length: %i" % self.ad_length
         return atstr
 
-    def str_decode(self):
+    def _str_decode(self):
         return self.str_adtype()
 
     @staticmethod
@@ -222,7 +225,7 @@ class DataMessage(DPacketMessage):
     def str_header(self):
         return super().str_header() + "  Event: %d" % self.event
 
-    def str_decode(self):
+    def _str_decode(self):
         return self.str_datatype()
 
     @staticmethod
@@ -282,7 +285,7 @@ class LlControlMessage(DataMessage):
         else:
             return "Opcode: RFU (0x%02X)" % self.opcode
 
-    def str_decode(self):
+    def _str_decode(self):
         return "\n".join([
             self.str_datatype(),
             self.str_opcode()])
@@ -295,7 +298,7 @@ class AdvaMessage(AdvertMessage):
     def str_adva(self):
         return "AdvA: %s" % str_mac2(self.AdvA, self.TxAdd)
 
-    def str_decode(self):
+    def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_adva()])
@@ -323,7 +326,7 @@ class AdvDirectIndMessage(AdvertMessage):
     def str_ata(self):
         return "AdvA: %s TargetA: %s" % (str_mac2(self.AdvA, self.TxAdd), str_mac2(self.TargetA, self.RxAdd))
 
-    def str_decode(self):
+    def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_ata()])
@@ -339,7 +342,7 @@ class ScanReqMessage(AdvertMessage):
     def str_asa(self):
         return "ScanA: %s AdvA: %s" % (str_mac2(self.ScanA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd))
 
-    def str_decode(self):
+    def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_asa()])
@@ -385,7 +388,7 @@ class ConnectIndMessage(AdvertMessage):
         chanstr = "%02X %02X %02X %02X %02X" % tuple(self.ChM)
         return "Channel Map: %s (%s)" % (chanstr, descstr)
 
-    def str_decode(self):
+    def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_aia(),
@@ -503,7 +506,7 @@ class AdvExtIndMessage(AdvertMessage):
         else:
             return dmsg
 
-    def str_decode(self):
+    def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_aext()])
