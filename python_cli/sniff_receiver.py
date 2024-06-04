@@ -49,6 +49,8 @@ def main():
             "connection parameter changes")
     aparse.add_argument("-n", "--nophychange", action="store_const", default=False, const=True,
             help="Ignore encrypted PHY mode changes")
+    aparse.add_argument("-C", "--crcerr", action="store_const", default=False, const=True,
+            help="Capture packets with CRC errors")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
@@ -119,7 +121,8 @@ def main():
             rssi_min=args.rssi,
             interval_preload=preload_pairs,
             phy_preload=None if args.nophychange else PhyMode.PHY_2M,
-            pause_done=args.pause)
+            pause_done=args.pause,
+            validate_crc=not args.crcerr)
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()
