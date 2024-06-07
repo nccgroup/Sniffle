@@ -2,7 +2,20 @@
 # Copyright (c) 2024, NCC Group plc
 # Released as open source under GPLv3
 
+from struct import unpack
 from .ad_types import *
+from .msd_apple import decode_apple_msd
+
+company_msd_decoders = {
+    0x004C: decode_apple_msd
+}
+
+def decode_msd(data_type: int, data: bytes):
+    company, = unpack("<H", data[:2])
+    if company in company_msd_decoders:
+        return company_msd_decoders[company](data_type, data)
+    else:
+        return ManufacturerSpecificDataRecord(data_type, data)
 
 # https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/core/ad_types.yaml
 ad_type_classes = {
@@ -19,7 +32,7 @@ ad_type_classes = {
     0x16: ServiceData16Record,
     0x20: ServiceData32Record,
     0x21: ServiceData128Record,
-    0xFF: ManufacturerSpecificDataRecord
+    0xFF: decode_msd
 }
 
 def record_from_type_data(data_type: int, data: bytes):

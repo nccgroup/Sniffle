@@ -15,12 +15,6 @@ def str_service16(uuid: int):
 def str_service32(uuid: int):
     return "0x%08X" % uuid
 
-def str_company(company: int):
-    if company in company_identifiers:
-        return "0x%04X (%s)" % (company, company_identifiers[company])
-    else:
-        return "0x%04X" % company
-
 # This base class should never throw exceptions when called correctly
 # Subclasses may throw exceptions in their constructor, but not in string conversion
 class AdvDataRecord:
@@ -168,9 +162,15 @@ class ManufacturerSpecificDataRecord(AdvDataRecord):
         self.company, = unpack('<H', self.data[:2])
         self.company_data = self.data[2:]
 
+    def str_company(self):
+        if self.company in company_identifiers:
+            return "0x%04X (%s)" % (self.company, company_identifiers[self.company])
+        else:
+            return "0x%04X" % self.company
+
     def str_lines(self):
         lines = [self.str_type()]
-        lines.append("Company: %s" % str_company(self.company))
+        lines.append("Company: %s" % self.str_company())
         lines.append("Data Length: %d" % len(self.company_data))
         lines.append("Data: %s" % repr(self.company_data))
         return lines
