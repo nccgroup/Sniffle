@@ -24,7 +24,10 @@ ad_type_classes = {
 
 def record_from_type_data(data_type: int, data: bytes):
     if data_type in ad_type_classes:
-        return ad_type_classes[data_type](data_type, data)
+        try:
+            return ad_type_classes[data_type](data_type, data)
+        except:
+            return AdvDataRecord(data_type, data, malformed=True)
     else:
         return AdvDataRecord(data_type, data)
 
