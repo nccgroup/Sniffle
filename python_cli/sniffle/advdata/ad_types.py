@@ -84,7 +84,7 @@ class ServiceList128Record(AdvDataRecord):
         super().__init__(data_type, data)
         self.services = []
         for i in range(0, len(self.data), 16):
-            u = UUID(self.data[i:i+16])
+            u = UUID(bytes=self.data[i:i+16])
             self.services.append(u)
 
     def str_lines(self):
@@ -146,7 +146,7 @@ class ServiceData32Record(AdvDataRecord):
 class ServiceData128Record(AdvDataRecord):
     def __init__(self, data_type: int, data: bytes):
         super().__init__(data_type, data)
-        self.service = UUID(self.data[:16])
+        self.service = UUID(bytes=self.data[:16])
         self.service_data = self.data[16:]
 
     def str_lines(self):
