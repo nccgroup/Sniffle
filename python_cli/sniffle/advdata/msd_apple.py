@@ -46,12 +46,46 @@ class AppleMSDRecord(ManufacturerSpecificDataRecord):
         lines.append("Data: %s" % repr(self.company_data))
         return lines
 
+# Note that for some message types, self.company_data[1] is not the body length
+# This is why I'm setting self.msg_len inside subclasses instead of the parent class
+class AppleMSDWithLength(AppleMSDRecord):
+    def __init__(self, data_type: int, data: bytes):
+        super().__init__(data_type, data)
+        self.msg_len = self.company_data[1]
+        if self.msg_len != len(self.company_data) - 2:
+            raise ValueError("Length field mismatch")
+
+    def str_lines(self):
+        lines = [self.str_type()]
+        lines.append("Company: %s" % self.str_company())
+        lines.append("Type: %s" % self.str_msg_type())
+        lines.append("Length: %d" % self.msg_len)
+        lines.append("Body: %s" % repr(self.company_data[2:]))
+        return lines
+
+
+class iBeaconMessage(AppleMSDWithLength):
+    pass
+
+class AirDropMessage(AppleMSDWithLength):
+    pass
+
+class AirPlayTargetMessage(AppleMSDRecord):
+    pass
+
+class NearbyInfoMessage(AppleMSDWithLength):
+    pass
+
 apple_message_classes = {
+    0x02: iBeaconMessage,
+    0x05: AirDropMessage,
+    0x09: AirPlayTargetMessage,
+    0x10: NearbyInfoMessage,
 }
 
 def decode_apple_msd(data_type: int, data: bytes):
     assert data_type == 0xFF
-    if data[0] in apple_message_classes:
-        return apple_message_classes[data[0]](data_type, data)
+    if data[2] in apple_message_classes:
+        return apple_message_classes[data[2]](data_type, data)
     else:
         return AppleMSDRecord(data_type, data)
