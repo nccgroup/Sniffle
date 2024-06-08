@@ -102,7 +102,21 @@ class AirDropMessage(AppleMessage):
     pass
 
 class AirPlayTargetMessage(AppleMessage):
-    pass
+    def __init__(self, msg_type: int, data: bytes):
+        super().__init__(msg_type, data)
+        self.flags = self.data[0]
+        self.seed = self.data[1]
+        self.ip = self.data[2:6]
+
+    def str_lines(self):
+        lines = []
+        lines.append(self.str_msg_type())
+        lines.append("    Flags: 0x%02X" % self.flags)
+        lines.append("    Seed: 0x%02X" % self.seed)
+        lines.append("    IP: %d.%d.%d.%d" % tuple(self.ip))
+        if len(self.data) > 6:
+            lines.append("    Extra: %s" % hexline(self.data[6:]))
+        return lines
 
 # This message has changed across iOS/MacOS versions
 # It seems the first two bytes of data are always there and consistently meaningful
@@ -164,7 +178,7 @@ class NearbyInfoMessage(AppleMessage):
         lines.append("    Action Code: %s" % self.str_action())
         lines.append("    Data Flags: %s" % self.str_data_flags())
         if len(self.data) > 2:
-            lines.append("    Additional: %s" % hexline(self.data[2:]))
+            lines.append("    Extra: %s" % hexline(self.data[2:]))
         return lines
 
 apple_message_classes = {
