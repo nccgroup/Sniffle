@@ -2,6 +2,8 @@
 # Copyright (c) 2024, NCC Group plc
 # Released as open source under GPLv3
 
+from uuid import UUID
+from struct import unpack
 from .ad_types import ManufacturerSpecificDataRecord
 
 # Decoders for the Apple Continuity protocol
@@ -74,7 +76,23 @@ def flaglist(flags: int, flag_map: dict):
     return ", ".join(descs)
 
 class iBeaconMessage(AppleMSDWithLength):
-    pass
+    def __init__(self, data_type: int, data: bytes):
+        super().__init__(data_type, data)
+        if self.msg_len != 21:
+            raise ValueError("Unexpected length field")
+        self.prox_uuid = UUID(bytes=self.company_data[2:18])
+        self.major, self.minor = unpack('<HH', self.company_data[18:22])
+        self.meas_power = unpack('<b', self.company_data[22:23])
+
+    def str_lines(self):
+        lines = [self.str_type()]
+        lines.append("Company: %s" % self.str_company())
+        lines.append("Type: %s" % self.str_msg_type())
+        lines.append("Proximity UUID: %s" % str(self.prox_uuid))
+        lines.append("Major: 0x%04X" % self.major)
+        lines.append("Minor: 0x%04X" % self.minor)
+        lines.append("Measured Power: %d" % self.meas_power)
+        return lines
 
 class AirDropMessage(AppleMSDWithLength):
     pass
