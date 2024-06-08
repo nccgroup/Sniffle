@@ -4,10 +4,10 @@
 
 from struct import unpack
 from .ad_types import *
-from .msd_apple import decode_apple_msd
+from .msd_apple import AppleMSDRecord
 
 company_msd_decoders = {
-    0x004C: decode_apple_msd
+    0x004C: AppleMSDRecord
 }
 
 def decode_msd(data_type: int, data: bytes):

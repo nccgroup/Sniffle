@@ -11,6 +11,30 @@ from .ad_types import ManufacturerSpecificDataRecord
 #   https://github.com/furiousMAC/continuity
 #   https://github.com/netspooky/dissectors/blob/main/acble.lua
 
+class AppleMSDRecord(ManufacturerSpecificDataRecord):
+    def __init__(self, data_type: int, data: bytes):
+        super().__init__(data_type, data)
+        assert data_type == 0xFF
+        self.messages = []
+        i = 0
+        while i < len(self.company_data):
+            t = self.company_data[i]
+            if t != 0x01:
+                l = self.company_data[i+1]
+            else:
+                # I don't know what these messages are
+                l = len(self.company_data) - i - 2
+            v = self.company_data[i+2:i+2+l]
+            i += 2 + l
+            self.messages.append(decode_apple_message(t, v))
+
+    def str_lines(self):
+        lines = [self.str_type()]
+        lines.append("Company: %s" % self.str_company())
+        for m in self.messages:
+            lines.extend(m.str_lines())
+        return lines
+
 apple_message_types = {
     0x02: "iBeacon",
     0x03: "AirPrint",
@@ -29,10 +53,10 @@ apple_message_types = {
     0x12: "Find My"
 }
 
-class AppleMSDRecord(ManufacturerSpecificDataRecord):
-    def __init__(self, data_type: int, data: bytes):
-        super().__init__(data_type, data)
-        self.msg_type = self.company_data[0]
+class AppleMessage:
+    def __init__(self, msg_type: int, data: bytes):
+        self.msg_type = msg_type
+        self.data = data
 
     def str_msg_type(self):
         if self.msg_type in apple_message_types:
@@ -41,28 +65,9 @@ class AppleMSDRecord(ManufacturerSpecificDataRecord):
             return "Unknown (0x%02X)" % self.msg_type
 
     def str_lines(self):
-        lines = [self.str_type()]
-        lines.append("Company: %s" % self.str_company())
-        lines.append("Type: %s" % self.str_msg_type())
-        lines.append("Data Length: %d" % len(self.company_data))
-        lines.append("Data: %s" % repr(self.company_data))
-        return lines
-
-# Note that for some message types, self.company_data[1] is not the body length
-# This is why I'm setting self.msg_len inside subclasses instead of the parent class
-class AppleMSDWithLength(AppleMSDRecord):
-    def __init__(self, data_type: int, data: bytes):
-        super().__init__(data_type, data)
-        self.msg_len = self.company_data[1]
-        if self.msg_len != len(self.company_data) - 2:
-            raise ValueError("Length field mismatch")
-
-    def str_lines(self):
-        lines = [self.str_type()]
-        lines.append("Company: %s" % self.str_company())
-        lines.append("Type: %s" % self.str_msg_type())
-        lines.append("Length: %d" % self.msg_len)
-        lines.append("Body: %s" % repr(self.company_data[2:]))
+        lines = []
+        lines.append(self.str_msg_type())
+        lines.append("    Data: %s" % repr(self.data))
         return lines
 
 def hexline(d: bytes):
@@ -75,39 +80,38 @@ def flaglist(flags: int, flag_map: dict):
             descs.append(flag_map[f])
     return ", ".join(descs)
 
-class iBeaconMessage(AppleMSDWithLength):
-    def __init__(self, data_type: int, data: bytes):
-        super().__init__(data_type, data)
-        if self.msg_len != 21:
-            raise ValueError("Unexpected length field")
-        self.prox_uuid = UUID(bytes=self.company_data[2:18])
-        self.major, self.minor = unpack('<HH', self.company_data[18:22])
-        self.meas_power = unpack('<b', self.company_data[22:23])
+class iBeaconMessage(AppleMessage):
+    def __init__(self, msg_type: int, data: bytes):
+        super().__init__(msg_type, data)
+        if len(self.data) != 21:
+            raise ValueError("Unexpected data length")
+        self.prox_uuid = UUID(bytes=self.data[:16])
+        self.major, self.minor = unpack('<HH', self.data[16:20])
+        self.meas_power = unpack('<b', self.data[20:21])
 
     def str_lines(self):
-        lines = [self.str_type()]
-        lines.append("Company: %s" % self.str_company())
-        lines.append("Type: %s" % self.str_msg_type())
-        lines.append("Proximity UUID: %s" % str(self.prox_uuid))
-        lines.append("Major: 0x%04X" % self.major)
-        lines.append("Minor: 0x%04X" % self.minor)
-        lines.append("Measured Power: %d" % self.meas_power)
+        lines = []
+        lines.append(self.str_msg_type())
+        lines.append("    Proximity UUID: %s" % str(self.prox_uuid))
+        lines.append("    Major: 0x%04X" % self.major)
+        lines.append("    Minor: 0x%04X" % self.minor)
+        lines.append("    Measured Power: %d" % self.meas_power)
         return lines
 
-class AirDropMessage(AppleMSDWithLength):
+class AirDropMessage(AppleMessage):
     pass
 
-class AirPlayTargetMessage(AppleMSDRecord):
+class AirPlayTargetMessage(AppleMessage):
     pass
 
 # This message has changed across iOS/MacOS versions
 # It seems the first two bytes of data are always there and consistently meaningful
-class NearbyInfoMessage(AppleMSDWithLength):
-    def __init__(self, data_type: int, data: bytes):
-        super().__init__(data_type, data)
-        self.status = self.company_data[2] & 0x0F
-        self.action = self.company_data[2] >> 4
-        self.data_flags = self.company_data[3]
+class NearbyInfoMessage(AppleMessage):
+    def __init__(self, msg_type: int, data: bytes):
+        super().__init__(msg_type, data)
+        self.status = self.data[0] & 0x0F
+        self.action = self.data[0] >> 4
+        self.data_flags = self.data[1]
 
     def str_status(self):
         status_flags = {
@@ -154,14 +158,13 @@ class NearbyInfoMessage(AppleMSDWithLength):
             return "0x%02X" % self.data_flags
 
     def str_lines(self):
-        lines = [self.str_type()]
-        lines.append("Company: %s" % self.str_company())
-        lines.append("Type: %s" % self.str_msg_type())
-        lines.append("Length: %d" % self.msg_len)
-        lines.append("Status Flags: %s" % self.str_status())
-        lines.append("Action Code: %s" % self.str_action())
-        lines.append("Data Flags: %s" % self.str_data_flags())
-        lines.append("Body: %s" % hexline(self.company_data[2:]))
+        lines = []
+        lines.append(self.str_msg_type())
+        lines.append("    Status Flags: %s" % self.str_status())
+        lines.append("    Action Code: %s" % self.str_action())
+        lines.append("    Data Flags: %s" % self.str_data_flags())
+        if len(self.data) > 2:
+            lines.append("    Additional: %s" % hexline(self.data[2:]))
         return lines
 
 apple_message_classes = {
@@ -171,9 +174,8 @@ apple_message_classes = {
     0x10: NearbyInfoMessage,
 }
 
-def decode_apple_msd(data_type: int, data: bytes):
-    assert data_type == 0xFF
-    if data[2] in apple_message_classes:
-        return apple_message_classes[data[2]](data_type, data)
+def decode_apple_message(msg_type: int, data: bytes):
+    if msg_type in apple_message_classes:
+        return apple_message_classes[msg_type](msg_type, data)
     else:
-        return AppleMSDRecord(data_type, data)
+        return AppleMessage(msg_type, data)
