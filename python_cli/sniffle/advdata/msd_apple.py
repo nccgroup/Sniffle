@@ -63,6 +63,15 @@ class AppleMSDWithLength(AppleMSDRecord):
         lines.append("Body: %s" % repr(self.company_data[2:]))
         return lines
 
+def hexline(d: bytes):
+    return " ".join(["%02X" % c for c in d])
+
+def flaglist(flags: int, flag_map: dict):
+    descs = []
+    for f in flag_map:
+        if f & flags:
+            descs.append(flag_map[f])
+    return ", ".join(descs)
 
 class iBeaconMessage(AppleMSDWithLength):
     pass
@@ -73,8 +82,69 @@ class AirDropMessage(AppleMSDWithLength):
 class AirPlayTargetMessage(AppleMSDRecord):
     pass
 
+# This message has changed across iOS/MacOS versions
+# It seems the first two bytes of data are always there and consistently meaningful
 class NearbyInfoMessage(AppleMSDWithLength):
-    pass
+    def __init__(self, data_type: int, data: bytes):
+        super().__init__(data_type, data)
+        self.status = self.company_data[2] & 0x0F
+        self.action = self.company_data[2] >> 4
+        self.data_flags = self.company_data[3]
+
+    def str_status(self):
+        status_flags = {
+            0x01: "Primary iCloud device",
+            0x04: "AirDrop receive enabled"
+        }
+        fdesc = flaglist(self.status, status_flags)
+        if len(fdesc):
+            return "0x%X (%s)" % (self.status, fdesc)
+        else:
+            return "0x%X" % self.status
+
+    def str_action(self):
+        action_types = {
+            0x00: "Activity level is not known",
+            0x01: "Activity reporting is disabled",
+            0x03: "User is idle",
+            0x05: "Audio is playing with the screen off",
+            0x07: "Screen is on",
+            0x09: "Screen on and video playing",
+            0x0A: "Watch is on wrist and unlocked",
+            0x0B: "Recent user interaction",
+            0x0D: "User is driving a vehicle",
+            0x0E: "Phone call or Facetime"
+        }
+        if self.action in action_types:
+            return "0x%X (%s)" % (self.action, action_types[self.action])
+        else:
+            return "0x%X" % self.action
+
+    def str_data_flags(self):
+        data_flags = {
+            0x02: "Four byte auth tag",
+            0x04: "Wi-Fi on",
+            0x10: "Auth tag present",
+            0x20: "Apple Watch locked",
+            0x40: "Apple Watch auto unlock",
+            0x80: "Auto unlock"
+        }
+        fdesc = flaglist(self.data_flags, data_flags)
+        if len(fdesc):
+            return "0x%02X (%s)" % (self.data_flags, fdesc)
+        else:
+            return "0x%02X" % self.data_flags
+
+    def str_lines(self):
+        lines = [self.str_type()]
+        lines.append("Company: %s" % self.str_company())
+        lines.append("Type: %s" % self.str_msg_type())
+        lines.append("Length: %d" % self.msg_len)
+        lines.append("Status Flags: %s" % self.str_status())
+        lines.append("Action Code: %s" % self.str_action())
+        lines.append("Data Flags: %s" % self.str_data_flags())
+        lines.append("Body: %s" % hexline(self.company_data[2:]))
+        return lines
 
 apple_message_classes = {
     0x02: iBeaconMessage,
