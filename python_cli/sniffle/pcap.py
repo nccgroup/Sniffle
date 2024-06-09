@@ -3,7 +3,7 @@
 # Released as open source under GPLv3
 
 """
-SQK: taken from virtuallabs btlejack code (rev d7e6555)
+SQK: based on virtuallabs btlejack code (rev d7e6555)
 Originally licensed under the MIT license
 https://github.com/virtualabs/btlejack/blob/master/btlejack/pcap.py
 
@@ -30,11 +30,14 @@ SOFTWARE.
 
 import os.path
 from io import BytesIO, BufferedIOBase, RawIOBase
-from struct import pack
-from .packet_decoder import (DPacketMessage, DataMessage, AuxChainIndMessage,
-                            AuxScanRspMessage)
+from struct import pack, unpack
+from .sniffle_hw import PhyMode
+from .packet_decoder import (PacketMessage, DPacketMessage, DataMessage,
+                             AuxChainIndMessage, AuxScanRspMessage)
+from .constants import BLE_ADV_AA
+from .decoder_state import SniffleDecoderState
 
-class PcapBleWriter(object):
+class PcapBleWriter:
     """
     PCAP BLE Link-layer with PHDR.
     """
@@ -101,7 +104,7 @@ class PcapBleWriter(object):
 
         payload_header = pack(
             '<BbbBIH',
-            chan,   # RF power
+            chan,   # Channel
             rssi,   # Signal power
             -128,   # Noise power
             0,      # Access address offenses
@@ -170,3 +173,95 @@ class PcapBleWriter(object):
         """
         if not isinstance(self.output, BytesIO):
             self.output.close()
+
+class PcapBleReader:
+    DLT = 256 # DLT_BLUETOOTH_LE_LL_WITH_PHDR
+
+    def __init__(self, _input=None):
+        if isinstance(_input, (BufferedIOBase, RawIOBase)):
+            self.input = _input
+        elif os.path.isfile(_input):
+            self.input = open(_input,'rb')
+        else:
+            self.input = open(_input,'rb', buffering=0)
+
+        self.read_header()
+        self.decoder_state = SniffleDecoderState()
+
+    def read_header(self):
+        expected_header = pack(
+            '<IHHIIII',
+            0xa1b2c3d4,
+            2,
+            4,
+            0,
+            0,
+            65535,
+            self.DLT
+        )
+        read_header = self.input.read(len(expected_header))
+        if read_header != expected_header:
+            raise ValueError("Unexpected PCAP header")
+
+    @staticmethod
+    def _rf_to_ble_chan(chan):
+        if chan == 0:
+            return 37
+        elif chan == 12:
+            return 38
+        elif chan == 39:
+            return 39
+        elif chan <= 11:
+            return chan - 1
+        else:
+            return chan - 2
+
+    def read_packet(self):
+        # Read and parse packet header
+        hdr = self.input.read(16)
+        if len(hdr) < 16:
+            raise EOFError
+        ts_sec, ts_usec, size1, size2 = unpack('<IIII', hdr)
+        assert size1 == size2
+
+        payload = self.input.read(size1)
+
+        # Parse payload header
+        rf_chan, rssi, _, _, aa, flags, _ = unpack('<BbbBIHI', payload[:14])
+        assert (flags & 0x0413) == 0x0413
+        crc_err = False if (flags & 0x0800) else True
+        phy = PhyMode(flags >> 14)
+        pdu_type = (flags & 0x0380) >> 15
+        assert pdu_type < 4 # isochronous unsupported for now
+
+        body_idx = 14
+        if phy == PhyMode.PHY_CODED:
+            coding = phy[body_idx]
+            body_idx += 1
+            assert coding <= 1
+            if coding == 1:
+                phy = PhyMode.PHY_CODED_S2
+
+        body = payload[body_idx:-3]
+        crc_rev = payload[-3] + (payload[-2] << 8) + (payload[-1] << 16)
+        assert len(body) == body[1] + 2
+
+        ts32 = (ts_sec*1000000 + ts_usec) & 0x3FFFFFFF
+        chan = self._rf_to_ble_chan(rf_chan)
+        slave_send = True if pdu_type == 3 else False
+
+        pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, body, crc_rev,
+                                        crc_err, self.decoder_state, slave_send)
+        try:
+            return DPacketMessage.decode(pkt, self.decoder_state)
+        except BaseException as e:
+            return pkt
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return self.read_packet()
+        except EOFError:
+            raise StopIteration

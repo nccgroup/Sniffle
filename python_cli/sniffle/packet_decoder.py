@@ -4,8 +4,9 @@
 # Copyright (c) 2019-2024, NCC Group plc
 # Released as open source under GPLv3
 
-from struct import unpack
+from struct import pack, unpack
 from traceback import print_exception
+from time import time
 from .crc_ble import rbit24
 from .constants import BLE_ADV_AA
 from .sniffer_state import SnifferState
@@ -34,7 +35,7 @@ def str_mac2(mac, is_random):
 TS_WRAP_PERIOD = 0x100000000 / 4E6
 
 class PacketMessage:
-    def __init__(self, raw_msg, dstate: SniffleDecoderState):
+    def __init__(self, raw_msg, dstate: SniffleDecoderState, crc_rev=None):
         ts, l, event, rssi, chan = unpack("<LHHbB", raw_msg[:10])
         body = raw_msg[10:]
 
@@ -74,7 +75,10 @@ class PacketMessage:
         self.data_dir = pkt_dir
         self.crc_err = crc_err
         self.event = event
-        if crc_err:
+
+        if crc_rev:
+            self.crc_rev = crc_rev
+        elif crc_err:
             self.crc_rev = 0
         else:
             self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
@@ -84,6 +88,16 @@ class PacketMessage:
         fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
                 0 if is_data or is_aux_adv else 37)
         return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
+
+    @classmethod
+    def from_fields(cls, ts, _len, event, rssi, chan, body, crc_rev, crc_err, dstate,
+                    slave_send=False):
+        if slave_send:
+            _len |= 0x8000
+        if crc_err:
+            _len |= 0x4000
+        fake_hdr = pack("<LHHbB", ts, _len, event, rssi, chan)
+        return PacketMessage(fake_hdr + body, dstate, crc_rev=crc_rev)
 
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, event=%d, body=%s)" % (
