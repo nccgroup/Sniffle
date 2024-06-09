@@ -5,8 +5,10 @@
 from struct import unpack
 from .ad_types import *
 from .msd_apple import AppleMSDRecord
+from .msd_microsoft import MicrosoftMSDRecord
 
 company_msd_decoders = {
+    0x0006: MicrosoftMSDRecord,
     0x004C: AppleMSDRecord
 }
 
