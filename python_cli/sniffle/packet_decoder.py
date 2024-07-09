@@ -203,7 +203,9 @@ class AdvertMessage(DPacketMessage):
                 tc = AuxConnectReqMessage
             elif pdu_type == 7:
                 if dstate.aux_pending_scan_rsp and \
-                        pkt.ts < dstate.aux_pending_scan_rsp:
+                        pkt.chan == dstate.aux_pending_scan_rsp[1] and \
+                        pkt.ts < dstate.aux_pending_scan_rsp[2]:
+                    # TODO: check ADI match
                     tc = AuxScanRspMessage
                 elif dstate.aux_pending_chain and \
                         pkt.chan == dstate.aux_pending_chain[1] and \
@@ -550,19 +552,31 @@ def update_state(pkt: DPacketMessage, dstate: SniffleDecoderState):
         dstate.aux_pending_aa = None
         dstate.crc_init_rev = rbit24(dstate.aux_pending_crci)
         dstate.aux_pending_crci = None
-    elif isinstance(pkt, AuxScanReqMessage):
-        dstate.aux_pending_scan_rsp = pkt.ts + 0.0005
     elif isinstance(pkt, AuxAdvIndMessage) and pkt.AuxPtr:
         dstate.aux_pending_chain = (pkt.AdvDataInfo, pkt.AuxPtr.chan,
                                     pkt.ts + pkt.AuxPtr.offsetUsec*1E-6 + 0.0005)
-    elif dstate.last_state == SnifferState.SCANNING and \
-            isinstance(pkt, AuxAdvIndMessage) and \
-            pkt.AdvMode == 2: # scannable
-        dstate.aux_pending_scan_rsp = pkt.ts + 0.001
+    elif isinstance(pkt, AuxAdvIndMessage) and pkt.AdvMode == 2: # scannable
+        overhead_bytes = 8 # 1 byte preamble, 4 byte AA, 3 byte CRC
+        if pkt.phy == 1: # 2M
+            time_per_byte = 4E-6
+        elif pkt.phy == 2: # Coded S=8
+            overhead_bytes = 10
+            time_per_byte = 64E-6
+        elif pkt.phy == 3: # Coded S=2
+            overhead_bytes = 27
+            time_per_byte = 16E-6
+        else:
+            time_per_byte = 8E-6
+        ad_duration = (overhead_bytes + len(pkt.body)) * time_per_byte
+        scan_req_duration = (overhead_bytes + 14) * time_per_byte
+        T_IFS = 150E-6
+        tolerance = 50E-6
+        timeout = ad_duration + T_IFS + scan_req_duration + T_IFS + tolerance
+        dstate.aux_pending_scan_rsp = (pkt.AdvDataInfo, pkt.chan, pkt.ts + timeout)
 
     # Clear pending flags as appropriate
     if dstate.aux_pending_scan_rsp:
-        if pkt.ts > dstate.aux_pending_scan_rsp or \
+        if pkt.ts > dstate.aux_pending_scan_rsp[2] or \
                 isinstance(pkt, AuxScanRspMessage):
             dstate.aux_pending_scan_rsp = None
     if dstate.aux_pending_chain:
