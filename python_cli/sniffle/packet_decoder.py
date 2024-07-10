@@ -204,13 +204,13 @@ class AdvertMessage(DPacketMessage):
             elif pdu_type == 7:
                 if dstate.aux_pending_scan_rsp and \
                         pkt.chan == dstate.aux_pending_scan_rsp[1] and \
-                        pkt.ts < dstate.aux_pending_scan_rsp[2]:
-                    # TODO: check ADI match
+                        pkt.ts < dstate.aux_pending_scan_rsp[2] and \
+                        get_adi(pkt) == dstate.aux_pending_scan_rsp[0]:
                     tc = AuxScanRspMessage
                 elif dstate.aux_pending_chain and \
                         pkt.chan == dstate.aux_pending_chain[1] and \
-                        pkt.ts < dstate.aux_pending_chain[2]:
-                    # TODO: check ADI match
+                        pkt.ts < dstate.aux_pending_chain[2] and \
+                        get_adi(pkt) == dstate.aux_pending_chain[0]:
                     tc = AuxChainIndMessage
                 else:
                     tc = AuxAdvIndMessage
@@ -438,6 +438,11 @@ class AdvDataInfo:
     def __str__(self):
         return "AdvDataInfo DID: 0x%03x SID: 0x%01x" % (self.did, self.sid)
 
+    def __eq__(self, other):
+        if isinstance(other, AdvDataInfo):
+            return self.did == other.did and self.sid == other.sid
+        return False
+
 class AdvExtIndMessage(AdvertMessage):
     pdutype = "ADV_EXT_IND"
 
@@ -462,7 +467,6 @@ class AdvExtIndMessage(AdvertMessage):
 
         hdrFlags = self.body[3]
         hdrPos = 4
-        dispMsgs = []
 
         if hdrFlags & 0x01:
             self.AdvA = self.body[hdrPos:hdrPos+6]
@@ -526,6 +530,10 @@ class AdvExtIndMessage(AdvertMessage):
         return "\n".join([
             self.str_adtype(),
             self.str_aext()])
+
+def get_adi(pkt: PacketMessage):
+    dpkt = AdvExtIndMessage(pkt)
+    return dpkt.AdvDataInfo
 
 class AuxAdvIndMessage(AdvExtIndMessage):
     pdutype = "AUX_ADV_IND"
