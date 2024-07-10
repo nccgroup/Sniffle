@@ -90,12 +90,13 @@ class PacketMessage:
         return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
 
     @classmethod
-    def from_fields(cls, ts, _len, event, rssi, chan, body, crc_rev, crc_err, dstate,
-                    slave_send=False):
+    def from_fields(cls, ts, _len, event, rssi, chan, phy, body, crc_rev, crc_err,
+                    dstate, slave_send=False):
         if slave_send:
             _len |= 0x8000
         if crc_err:
             _len |= 0x4000
+        chan |= phy << 6
         fake_hdr = pack("<LHHbB", ts, _len, event, rssi, chan)
         return PacketMessage(fake_hdr + body, dstate, crc_rev=crc_rev)
 

@@ -236,7 +236,7 @@ class PcapBleReader:
 
         body_idx = 14
         if phy == PhyMode.PHY_CODED:
-            coding = phy[body_idx]
+            coding = payload[body_idx]
             body_idx += 1
             assert coding <= 1
             if coding == 1:
@@ -250,8 +250,8 @@ class PcapBleReader:
         chan = self._rf_to_ble_chan(rf_chan)
         slave_send = True if pdu_type == 3 else False
 
-        pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, body, crc_rev,
-                                        crc_err, self.decoder_state, slave_send)
+        pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, phy, body,
+                                        crc_rev, crc_err, self.decoder_state, slave_send)
         try:
             return DPacketMessage.decode(pkt, self.decoder_state)
         except BaseException as e:
