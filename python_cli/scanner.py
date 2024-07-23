@@ -6,7 +6,7 @@
 
 import argparse, sys, signal
 from sniffle.constants import BLE_ADV_AA
-from sniffle.sniffle_hw import SniffleHW, PhyMode, SnifferMode, PacketMessage, DebugMessage
+from sniffle.sniffle_hw import make_sniffle_hw, PhyMode, SnifferMode, PacketMessage, DebugMessage
 from sniffle.packet_decoder import *
 from sniffle.pcap import PcapBleWriter
 from sniffle.advdata.decoder import decode_adv_data
@@ -59,7 +59,7 @@ def main():
     args = aparse.parse_args()
 
     global hw
-    hw = SniffleHW(args.serport)
+    hw = make_sniffle_hw(args.serport)
 
     hw.setup_sniffer(
             mode=SnifferMode.ACTIVE_SCAN,

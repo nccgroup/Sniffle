@@ -141,6 +141,9 @@ class SniffleSDR:
             self.worker.start()
 
         pkt = self.pktq.get()
+        if pkt is None:
+            return None
+
         try:
             return DPacketMessage.decode(pkt, self.decoder_state)
         except BaseException as e:
@@ -155,6 +158,7 @@ class SniffleSDR:
         if self.worker_running:
             self.worker_running = False
             self.worker.join()
+            self.pktq.put(None)
 
     def setup_sniffer(self,
                       mode=SnifferMode.CONN_FOLLOW,

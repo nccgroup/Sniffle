@@ -8,7 +8,7 @@ import argparse, sys
 from binascii import unhexlify
 from sniffle.constants import BLE_ADV_AA
 from sniffle.pcap import PcapBleWriter
-from sniffle.sniffle_hw import (SniffleHW, PacketMessage, DebugMessage, StateMessage,
+from sniffle.sniffle_hw import (make_sniffle_hw, PacketMessage, DebugMessage, StateMessage,
                                 MeasurementMessage, SnifferMode, PhyMode)
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
                                     ScanRspMessage, DataMessage, str_mac)
@@ -70,11 +70,7 @@ def main():
         raise UsageError("Don't specify an advertising channel if you want advertising channel hopping!")
 
     global hw
-    if args.serport == "RFNM":
-        from sniffle.sniffle_sdr import SniffleSDR
-        hw = SniffleSDR(args.serport)
-    else:
-        hw = SniffleHW(args.serport)
+    hw = make_sniffle_hw(args.serport)
 
     # if a channel was explicitly specified, don't hop
     hop3 = True if targ_specs else False

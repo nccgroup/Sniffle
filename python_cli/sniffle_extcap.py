@@ -38,7 +38,7 @@ import signal
 import traceback
 from serial.tools.list_ports import comports
 from sniffle.constants import BLE_ADV_AA
-from sniffle.sniffle_hw import SniffleHW, PacketMessage, SnifferMode, PhyMode
+from sniffle.sniffle_hw import make_sniffle_hw, PacketMessage, SnifferMode, PhyMode
 from sniffle.packet_decoder import (DataMessage, AdvaMessage, AdvDirectIndMessage,
                             ScanRspMessage, AdvExtIndMessage, str_mac)
 from sniffle.pcap import PcapBleWriter
@@ -366,7 +366,7 @@ class SniffleExtcapPlugin():
         self.logger.info('Initializing Sniffle hardware interface')
 
         # initialize the Sniffle hardware interface
-        self.hw = SniffleHW(self.args.serport, logger=logging.getLogger('sniffle_hw'))
+        self.hw = make_sniffle_hw(self.args.serport, logger=logging.getLogger('sniffle_hw'))
 
         targ_specs = bool(self.args.mac) + bool(self.args.irk) + bool(self.args.string)
 

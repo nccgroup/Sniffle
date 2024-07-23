@@ -71,6 +71,13 @@ def is_cp2102(serport):
                 return True
     return False
 
+def make_sniffle_hw(serport=None, logger=None, timeout=None):
+    if serport == "RFNM":
+        from sniffle.sniffle_sdr import SniffleSDR
+        return SniffleSDR(serport, logger)
+    else:
+        return SniffleHW(serport, logger, timeout)
+
 class SniffleHW:
     max_interval_preload_pairs = 4
     api_level = 0
