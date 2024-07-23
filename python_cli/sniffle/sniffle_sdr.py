@@ -22,6 +22,20 @@ from .sniffle_hw import TrivialLogger
 from .sdr_utils import decimate, burst_detect, fsk_decode, find_sync32, unpack_syms, calc_rssi
 from .whitening_ble import le_dewhiten
 
+def freq_from_chan(chan):
+    if chan == 37:
+        rf = 0
+    elif chan == 38:
+        rf = 12
+    elif chan == 39:
+        rf = 39
+    elif chan <= 10:
+        rf = chan + 1
+    else:
+        rf = chan + 2
+
+    return 2402e6 + rf * 2e6
+
 class SniffleSDR:
     def __init__(self, driver="RFNM", logger=None):
         self.sdr = SoapyDevice({'driver': driver})
@@ -48,7 +62,7 @@ class SniffleSDR:
         self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
 
         self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
-        self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, 2402E6)
+        self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
         self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
         self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
 
@@ -63,6 +77,9 @@ class SniffleSDR:
         self.aa = aa
         self.phy = phy
         self.crci = crci
+
+        # configure SDR
+        self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
 
     # Specify minimum RSSI for received advertisements
     def cmd_rssi(self, rssi=-128):
