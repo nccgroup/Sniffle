@@ -79,7 +79,7 @@ class PacketMessage:
         if crc_rev:
             self.crc_rev = crc_rev
         elif crc_err:
-            self.crc_rev = 0
+            self.crc_rev = -1
         else:
             self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
 
@@ -107,9 +107,15 @@ class PacketMessage:
 
     def str_header(self):
         phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
+        if self.crc_err:
+            if self.crc_rev >= 0:
+                crc_str = "0x%06X (Invalid)" % rbit24(self.crc_rev)
+            else:
+                crc_str = "Invalid"
+        else:
+            crc_str = "0x%06X" % rbit24(self.crc_rev)
         return "Timestamp: %8.6f  Length: %2i  RSSI: %3i  Channel: %2i  PHY: %s  CRC: %s" % (
-            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy],
-            "Invalid" if self.crc_err else "0x%06X" % rbit24(self.crc_rev))
+            self.ts, len(self.body), self.rssi, self.chan, phy_names[self.phy], crc_str)
 
     def hexdump(self):
         return hexdump(self.body)
