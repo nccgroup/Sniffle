@@ -32,6 +32,7 @@ class SniffleSDR:
         self.worker = None
         self.worker_running = False
 
+        self.gain = 10
         self.chan = 37
         self.aa = BLE_ADV_AA
         self.phy = PhyMode.PHY_1M
@@ -48,7 +49,7 @@ class SniffleSDR:
 
         self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
         self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, 2402E6)
-        self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", 10)
+        self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
         self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
@@ -111,7 +112,7 @@ class SniffleSDR:
                 offset = find_sync32(syms, self.aa)
                 if offset == None:
                     continue
-                rssi = int(calc_rssi(burst))
+                rssi = int(calc_rssi(burst) - self.gain)
                 t_sync = t_buf + (a + offset * samps_per_sym) / fs_decim
                 data = unpack_syms(syms, offset)
                 data_dw = le_dewhiten(data[4:], self.chan)
