@@ -8,18 +8,17 @@ from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from time import time
-from enum import IntEnum
 from random import randint, randbytes
 from serial.tools.list_ports import comports
 from traceback import format_exception
 from .measurements import MeasurementMessage, VersionMeasurement
-from .constants import BLE_ADV_AA, BLE_ADV_CRCI
+from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .sniffer_state import StateMessage, SnifferState
 from .decoder_state import SniffleDecoderState
 from .packet_decoder import PacketMessage, DPacketMessage
 from .errors import SniffleHWPacketError, UsageError
 
-class _TrivialLogger:
+class TrivialLogger:
     def _log(self, msg, *args, exc_info=None, **kwargs):
         msg = msg % args
         print(msg, file=sys.stderr)
@@ -72,18 +71,6 @@ def is_cp2102(serport):
                 return True
     return False
 
-class SnifferMode(IntEnum):
-    CONN_FOLLOW = 0
-    PASSIVE_SCAN = 1
-    ACTIVE_SCAN = 2
-
-class PhyMode(IntEnum):
-    PHY_1M = 0
-    PHY_2M = 1
-    PHY_CODED = 2
-    PHY_CODED_S8 = 2
-    PHY_CODED_S2 = 3
-
 class SniffleHW:
     max_interval_preload_pairs = 4
     api_level = 0
@@ -105,7 +92,7 @@ class SniffleHW:
         self.decoder_state = SniffleDecoderState()
         self.ser = Serial(serport, baud, timeout=timeout)
         self.recv_cancelled = False
-        self.logger = logger if logger else _TrivialLogger()
+        self.logger = logger if logger else TrivialLogger()
         self.cmd_marker(b'@') # command sync
 
     def _send_cmd(self, cmd_byte_list):

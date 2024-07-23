@@ -70,7 +70,11 @@ def main():
         raise UsageError("Don't specify an advertising channel if you want advertising channel hopping!")
 
     global hw
-    hw = SniffleHW(args.serport)
+    if args.serport == "RFNM":
+        from sniffle.sniffle_sdr import SniffleSDR
+        hw = SniffleSDR(args.serport)
+    else:
+        hw = SniffleHW(args.serport)
 
     # if a channel was explicitly specified, don't hop
     hop3 = True if targ_specs else False
@@ -139,6 +143,7 @@ def main():
             msg = hw.recv_and_decode()
             print_message(msg, args.quiet, args.decode)
         except KeyboardInterrupt:
+            hw.cancel_recv()
             sys.stderr.write("\r")
             break
 

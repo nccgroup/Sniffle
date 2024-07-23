@@ -8,5 +8,8 @@ __all__ = [
     "packet_decoder",
     "pcap",
     "sniffer_state",
-    "sniffle_hw"
+    "sniffle_hw",
+    "sdr_utils",
+    "whitening_ble",
+    "sniffle_sdr"
 ]
