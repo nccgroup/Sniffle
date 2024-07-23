@@ -21,6 +21,7 @@ from .errors import SniffleHWPacketError, UsageError
 from .sniffle_hw import TrivialLogger
 from .sdr_utils import decimate, burst_detect, fsk_decode, find_sync32, unpack_syms, calc_rssi
 from .whitening_ble import le_dewhiten
+from .crc_ble import rbit24, crc_ble_reverse
 
 def freq_from_chan(chan):
     if chan == 37:
@@ -50,7 +51,7 @@ class SniffleSDR:
         self.chan = 37
         self.aa = BLE_ADV_AA
         self.phy = PhyMode.PHY_1M
-        self.crci = BLE_ADV_CRCI
+        self.crci_rev = rbit24(BLE_ADV_CRCI)
         self.rssi_min = -128
         self.mac = None
         self.validate_crc = True
@@ -76,7 +77,7 @@ class SniffleSDR:
         self.chan = chan
         self.aa = aa
         self.phy = phy
-        self.crci = crci
+        self.crci_rev = rbit24(crci)
 
         # configure SDR
         self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
@@ -142,8 +143,10 @@ class SniffleSDR:
                 ts32 = int(t_sync * 1e6) & 0x3FFFFFFF
                 crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
 
-                # TODO: validate CRC
-                crc_err = False
+                crc_calc = crc_ble_reverse(self.crci_rev, body)
+                crc_err = (crc_calc == crc_rev)
+                if self.validate_crc and crc_err:
+                    continue
 
                 pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, self.chan, self.phy, body,
                                 crc_rev, crc_err, self.decoder_state, False)
