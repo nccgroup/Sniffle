@@ -80,7 +80,7 @@ def calc_rssi(signal):
     # dBFS
     return 20 * numpy.log10(numpy.mean(numpy.abs(signal)))
 
-def find_sync32(syms, sync_word, big_endian=False):
+def find_sync32(syms, sync_word, big_endian=False, corr_thresh=3):
     if big_endian:
         seq = numpy.unpackbits(numpy.frombuffer(pack('>I', sync_word), numpy.uint8), bitorder='big')
     else:
@@ -88,7 +88,8 @@ def find_sync32(syms, sync_word, big_endian=False):
     found = False
     i = 0
     while i < len(syms) - 32:
-        if numpy.array_equal(syms[i:i+32], seq):
+        bit_diff = numpy.sum(syms[i:i+32] ^ seq)
+        if bit_diff <= corr_thresh:
             found = True
             break
         i += 1
