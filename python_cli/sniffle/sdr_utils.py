@@ -67,7 +67,7 @@ def fsk_decode(signal, samps_per_sym, clock_recovery=False):
 
     offset = 0
     if clock_recovery:
-        skip = int(samps_per_sym)
+        skip = int(samps_per_sym * 2)
         offset = skip + numpy.argmax(demod[skip:skip * 3])
 
     indices = numpy.array(numpy.arange(offset, len(signal), samps_per_sym), numpy.int64)
