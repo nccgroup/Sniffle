@@ -136,6 +136,8 @@ class SniffleSDR:
                 if sym_offset == None:
                     continue
                 rssi = int(calc_rssi(burst) - self.gain)
+                if rssi < self.rssi_min:
+                    continue
                 t_sync = t_burst + samp_offset / fs_decim + sym_offset / SYMBOL_RATE
                 data = unpack_syms(syms, sym_offset)
                 data_dw = le_dewhiten(data[4:], self.chan)
@@ -155,6 +157,7 @@ class SniffleSDR:
 
                 pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, self.chan, self.phy, body,
                                 crc_rev, crc_err, self.decoder_state, False)
+                # TODO: MAC filtering (from static MAC or IRK)
                 self.pktq.put(pkt)
 
         self.sdr.deactivateStream(stream)
