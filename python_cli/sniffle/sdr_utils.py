@@ -6,7 +6,7 @@ import numpy
 import scipy.signal
 from struct import pack
 
-DEFAULT_BURST_THRESH = 0.01
+DEFAULT_BURST_THRESH = 0.002
 DEFAULT_BURST_PAD = 10
 
 def decimate(signal, factor, bw=None):
