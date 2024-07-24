@@ -104,6 +104,7 @@ class SniffleSDR:
         self.sdr.activateStream(stream)
         t_start = time()
         fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
+        filt_ic = None
 
         CHUNK_SZ = 1 << 20
         buffers = [zeros(CHUNK_SZ, complex64)]
@@ -119,7 +120,7 @@ class SniffleSDR:
             # /8 decimation (4x2)
             INIT_DECIM = 4
             FILT_DECIM = 2
-            filtered = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1E6 * INIT_DECIM / fs)
+            filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1E6 * INIT_DECIM / fs, filt_ic)
             fs_decim = fs // (FILT_DECIM * INIT_DECIM)
             samps_per_sym = fs_decim / 1E6
 

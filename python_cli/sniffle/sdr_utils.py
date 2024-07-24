@@ -9,12 +9,14 @@ from struct import pack
 DEFAULT_BURST_THRESH = 0.002
 DEFAULT_BURST_PAD = 10
 
-def decimate(signal, factor, bw=None):
+def decimate(signal, factor, bw=None, ic=None):
     if bw is None:
         bw = 0.8 / factor
     b, a = scipy.signal.butter(3, bw)
-    filtered = scipy.signal.lfilter(b, a, signal)
-    return filtered[::factor]
+    if ic is None:
+        ic = scipy.signal.lfiltic(b, a, [])
+    filtered, zf = scipy.signal.lfilter(b, a, signal, zi=ic)
+    return filtered[::factor], zf
 
 def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
     mag_low = numpy.abs(signal) > thresh * 0.7
