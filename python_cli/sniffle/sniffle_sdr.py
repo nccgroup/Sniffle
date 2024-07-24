@@ -116,13 +116,14 @@ class SniffleSDR:
                 break
             t_buf = t_start + status.timeNs / 1e9
 
-            # /16 decimation (8x2)
-            INIT_DECIM = 8
-            filtered = decimate(buffers[0][::INIT_DECIM], 2, 1E6 * INIT_DECIM / fs)
-            fs_decim = fs // 16
+            # /8 decimation (4x2)
+            INIT_DECIM = 4
+            FILT_DECIM = 2
+            filtered = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1E6 * INIT_DECIM / fs)
+            fs_decim = fs // (FILT_DECIM * INIT_DECIM)
             samps_per_sym = fs_decim / 1E6
 
-            burst_ranges = burst_detect(filtered)
+            burst_ranges = burst_detect(filtered, pad=int(samps_per_sym))
 
             for a, b in burst_ranges:
                 burst = filtered[a:b]
