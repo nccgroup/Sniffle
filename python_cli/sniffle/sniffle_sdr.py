@@ -145,7 +145,7 @@ class SniffleSDR:
                 crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
 
                 crc_calc = crc_ble_reverse(self.crci_rev, body)
-                crc_err = (crc_calc == crc_rev)
+                crc_err = (crc_calc != crc_rev)
                 if self.validate_crc and crc_err:
                     continue
 
