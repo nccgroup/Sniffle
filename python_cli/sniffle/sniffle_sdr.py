@@ -16,7 +16,7 @@ from numpy import zeros, complex64
 
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .decoder_state import SniffleDecoderState
-from .packet_decoder import PacketMessage, DPacketMessage
+from .packet_decoder import PacketMessage, DPacketMessage, AdvertMessage
 from .errors import SniffleHWPacketError, UsageError
 from .sniffle_hw import TrivialLogger
 from .sdr_utils import decimate, BurstDetector, fsk_decode, find_sync32, unpack_syms, calc_rssi
@@ -93,7 +93,7 @@ class SniffleSDR:
         else:
             if len(mac_bytes) != 6:
                 raise ValueError("MAC must be 6 bytes!")
-            self.mac = mac_bytes
+            self.mac = bytes(mac_bytes)
 
     def cmd_crc_valid(self, validate=True):
         self.validate_crc = validate
@@ -157,8 +157,19 @@ class SniffleSDR:
 
                 pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, self.chan, self.phy, body,
                                 crc_rev, crc_err, self.decoder_state, False)
-                # TODO: MAC filtering (from static MAC or IRK)
-                self.pktq.put(pkt)
+                try:
+                    dpkt = DPacketMessage.decode(pkt, self.decoder_state)
+                except BaseException as e:
+                    #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
+                    #self.logger.warning("Packet: %s", pkt)
+                    dpkt = pkt
+
+                if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
+                    # TODO: IRK-based MAC filtering
+                    if self.mac and dpkt.AdvA != self.mac:
+                        continue
+
+                self.pktq.put(dpkt)
 
         self.sdr.deactivateStream(stream)
         self.sdr.closeStream(stream)
@@ -169,16 +180,7 @@ class SniffleSDR:
             self.worker = Thread(target=self._recv_worker)
             self.worker.start()
 
-        pkt = self.pktq.get()
-        if pkt is None:
-            return None
-
-        try:
-            return DPacketMessage.decode(pkt, self.decoder_state)
-        except BaseException as e:
-            self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
-            self.logger.warning("Packet: %s", pkt)
-            return pkt
+        return self.pktq.get()
 
     def mark_and_flush(self):
         pass
@@ -225,7 +227,7 @@ class SniffleSDR:
 
         # set up target filters
         if targ_mac:
-            self.cmd_mac(targ_mac, hop3)
+            self.cmd_mac(targ_mac) #, hop3)
         elif targ_irk:
             pass
             #self.cmd_irk(targ_irk, hop3)
