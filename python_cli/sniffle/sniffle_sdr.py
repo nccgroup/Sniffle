@@ -19,7 +19,7 @@ from .decoder_state import SniffleDecoderState
 from .packet_decoder import PacketMessage, DPacketMessage
 from .errors import SniffleHWPacketError, UsageError
 from .sniffle_hw import TrivialLogger
-from .sdr_utils import decimate, burst_detect, fsk_decode, find_sync32, unpack_syms, calc_rssi
+from .sdr_utils import decimate, BurstDetector, fsk_decode, find_sync32, unpack_syms, calc_rssi
 from .whitening_ble import le_dewhiten
 from .crc_ble import rbit24, crc_ble_reverse
 
@@ -103,10 +103,19 @@ class SniffleSDR:
         stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
         self.sdr.activateStream(stream)
         t_start = time()
-        fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
-        filt_ic = None
 
-        CHUNK_SZ = 1 << 20
+        # /8 decimation (4x2)
+        INIT_DECIM = 4
+        FILT_DECIM = 2
+        SYMBOL_RATE = 1E6
+        fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
+        fs_decim = fs // (FILT_DECIM * INIT_DECIM)
+        samps_per_sym = fs_decim / SYMBOL_RATE
+
+        filt_ic = None
+        burst_det = BurstDetector(pad=int(samps_per_sym))
+
+        CHUNK_SZ = 1 << 16
         buffers = [zeros(CHUNK_SZ, complex64)]
 
         # TODO: operate on a stream rather than independently processing chunks (since packets may span across chunks)
@@ -115,26 +124,20 @@ class SniffleSDR:
             if status.ret < CHUNK_SZ:
                 self.logger.error("Read timeout, got %d of %d" % (status.ret, CHUNK_SZ))
                 break
-            t_buf = t_start + status.timeNs / 1e9
+            #t_buf = t_start + status.timeNs / 1e9
 
-            # /8 decimation (4x2)
-            INIT_DECIM = 4
-            FILT_DECIM = 2
-            filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1E6 * INIT_DECIM / fs, filt_ic)
-            fs_decim = fs // (FILT_DECIM * INIT_DECIM)
-            samps_per_sym = fs_decim / 1E6
+            filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, SYMBOL_RATE * INIT_DECIM / fs, filt_ic)
+            bursts = burst_det.feed(filtered)
 
-            burst_ranges = burst_detect(filtered, pad=int(samps_per_sym))
-
-            for a, b in burst_ranges:
-                burst = filtered[a:b]
-                syms = fsk_decode(burst, samps_per_sym, True)
-                offset = find_sync32(syms, self.aa)
-                if offset == None:
+            for start_idx, burst in bursts:
+                t_burst = t_start + start_idx / fs_decim
+                samp_offset, syms = fsk_decode(burst, samps_per_sym, True)
+                sym_offset = find_sync32(syms, self.aa)
+                if sym_offset == None:
                     continue
                 rssi = int(calc_rssi(burst) - self.gain)
-                t_sync = t_buf + (a + offset * samps_per_sym) / fs_decim
-                data = unpack_syms(syms, offset)
+                t_sync = t_burst + samp_offset / fs_decim + sym_offset / SYMBOL_RATE
+                data = unpack_syms(syms, sym_offset)
                 data_dw = le_dewhiten(data[4:], self.chan)
                 if len(data_dw) < 2 or len(data_dw) < 5 + data_dw[1]:
                     continue

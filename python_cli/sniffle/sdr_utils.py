@@ -43,6 +43,76 @@ def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
 
     return ranges
 
+class BurstDetector:
+    def __init__(self, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
+        self.thresh = thresh
+        self.pad = pad
+        self.in_burst = False
+        self.burst_start_idx = None
+        self.buf = None
+        self.buf_start_idx = 0
+
+    def feed(self, signal):
+        # will contain tuples of (start_idx, buf)
+        bursts = []
+
+        # add new data
+        if self.buf is None:
+            self.buf = signal
+        else:
+            self.buf = numpy.concatenate([self.buf, signal])
+
+        # initialize burst detection
+        mag_low = numpy.abs(self.buf) > self.thresh * 0.7
+        mag_high = numpy.abs(self.buf) > self.thresh
+        x = 0
+
+        # finish previously started burst
+        if self.in_burst:
+            stop = numpy.argmin(mag_low)
+            if stop == 0 and mag_low[-1]:
+                pass # stil in burst
+            else:
+                stop += self.pad
+                if stop > len(self.buf):
+                    # ok to cut off end padding
+                    stop = len(self.buf)
+                self.in_burst = False
+                if stop >= self.pad * 20:
+                    bursts.append((self.buf_start_idx, self.buf[:stop]))
+                x = stop
+
+        # detect new bursts
+        if not self.in_burst:
+            while x < len(self.buf):
+                start = x + numpy.argmax(mag_high[x:])
+                if start == x and not mag_high[x]:
+                    break
+                stop = start + numpy.argmin(mag_low[start:])
+                if stop == start and mag_low[-1]:
+                    self.in_burst = True
+                    self.burst_start_idx = self.buf_start_idx + start
+                    break
+                start -= self.pad
+                stop += self.pad
+                if start < 0:
+                    start = 0
+                if stop > len(self.buf):
+                    stop = len(self.buf)
+                if stop - start >= self.pad * 20:
+                    bursts.append((self.buf_start_idx + start, self.buf[start:stop]))
+                x = stop
+
+        # remove old data that we're done processing
+        if self.in_burst:
+            self.buf = self.buf[self.burst_start_idx - self.buf_start_idx:]
+            self.buf_start_idx = self.burst_start_idx
+        else:
+            self.buf_start_idx += len(self.buf)
+            self.buf = None
+
+        return bursts
+
 def burst_extract(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
     burst_ranges = burst_detect(signal, thresh, pad)
     ranges = []
@@ -76,7 +146,7 @@ def fsk_decode(signal, samps_per_sym, clock_recovery=False):
     indices = numpy.array(numpy.arange(offset, len(signal), samps_per_sym), numpy.int64)
     digital_demod = demod > 0
 
-    return numpy.array(digital_demod[indices], numpy.uint8)
+    return offset, numpy.array(digital_demod[indices], numpy.uint8)
 
 def calc_rssi(signal):
     # dBFS
