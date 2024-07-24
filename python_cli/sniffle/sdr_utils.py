@@ -17,8 +17,8 @@ def decimate(signal, factor, bw=None):
     return filtered[::factor]
 
 def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
-    mag_low = numpy.abs(signal) > thresh * 0.8
-    mag_high = numpy.abs(signal) > thresh * 1.2
+    mag_low = numpy.abs(signal) > thresh * 0.7
+    mag_high = numpy.abs(signal) > thresh
 
     ranges = []
     x = 0
@@ -35,7 +35,8 @@ def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
             start = 0
         if stop > len(signal):
             stop = len(signal)
-        ranges.append((start, stop))
+        if stop - start >= pad * 20:
+            ranges.append((start, stop))
         x = stop
 
     return ranges
