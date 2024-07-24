@@ -38,7 +38,7 @@ def freq_from_chan(chan):
     return 2402e6 + rf * 2e6
 
 class SniffleSDR:
-    def __init__(self, driver="RFNM", logger=None):
+    def __init__(self, driver="rfnm", logger=None):
         self.sdr = SoapyDevice({'driver': driver})
         self.sdr_chan = 0
         self.pktq = Queue()
