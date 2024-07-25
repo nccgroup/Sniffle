@@ -73,7 +73,7 @@ def is_cp2102(serport):
 
 def make_sniffle_hw(serport=None, logger=None, timeout=None):
     if serport == "rfnm":
-        from sniffle.sniffle_sdr import SniffleSDR
+        from .sniffle_sdr import SniffleSDR
         return SniffleSDR(serport, logger)
     else:
         return SniffleHW(serport, logger, timeout)
