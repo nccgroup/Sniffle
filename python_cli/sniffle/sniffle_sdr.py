@@ -39,7 +39,14 @@ def freq_from_chan(chan):
 
 class SniffleSDR:
     def __init__(self, driver="rfnm", logger=None):
-        self.sdr = SoapyDevice({'driver': driver})
+        self.sdr = None
+        results = SoapyDevice.enumerate()
+        for device in results:
+            if device["driver"] == driver:
+                self.sdr = SoapyDevice(device)
+                break
+        if self.sdr is None:
+            assert False, "No SoapySDR found"
         self.sdr_chan = 0
         self.pktq = Queue()
         self.decoder_state = SniffleDecoderState()

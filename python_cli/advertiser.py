@@ -14,10 +14,11 @@ hw = None
 def main():
     aparse = argparse.ArgumentParser(description="Connection initiator test script for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baudrate")
     args = aparse.parse_args()
 
     global hw
-    hw = SniffleHW(args.serport)
+    hw = SniffleHW(args.serport,baudrate=args.baudrate)
 
     # set the advertising channel (and return to ad-sniffing mode)
     hw.cmd_chan_aa_phy(37, BLE_ADV_AA, 0)

@@ -71,29 +71,33 @@ def is_cp2102(serport):
                 return True
     return False
 
-def make_sniffle_hw(serport=None, logger=None, timeout=None):
+def make_sniffle_hw(serport=None, logger=None, baudrate=None, timeout=None):
     if serport == "rfnm":
-        from sniffle.sniffle_sdr import SniffleSDR
+        from .sniffle_sdr import SniffleSDR
         return SniffleSDR(serport, logger)
     else:
-        return SniffleHW(serport, logger, timeout)
+        return SniffleHW(serport, baudrate, logger, timeout)
 
 class SniffleHW:
     max_interval_preload_pairs = 4
     api_level = 0
 
-    def __init__(self, serport=None, logger=None, timeout=None):
-        baud = 2000000
+    def __init__(self, serport=None, baudrate=None, logger=None, timeout=None):
+        if baudrate is None:
+            baud = 2000000
+        else:
+            baud = baudrate
         if serport is None:
             serport = find_xds110_serport()
             if serport is None:
                 serport = find_sonoff_serport()
                 if serport is None:
                     raise IOError("Sniffle device not found")
-                else:
+                elif baudrate is None:
                     baud = 921600
         elif is_cp2102(serport):
-            baud = 921600
+            if baudrate is None:
+                baud = 921600
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
