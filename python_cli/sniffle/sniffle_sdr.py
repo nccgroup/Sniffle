@@ -107,13 +107,11 @@ class SniffleSDR:
         # /8 decimation (4x2)
         INIT_DECIM = 4
         FILT_DECIM = 2
-        SYMBOL_RATE = 1E6
         fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
         fs_decim = fs // (FILT_DECIM * INIT_DECIM)
-        samps_per_sym = fs_decim / SYMBOL_RATE
 
         filt_ic = None
-        burst_det = BurstDetector(pad=int(samps_per_sym))
+        burst_det = BurstDetector(pad=int(fs_decim * 1e-6))
 
         CHUNK_SZ = 1 << 16
         buffers = [zeros(CHUNK_SZ, complex64)]
@@ -126,37 +124,13 @@ class SniffleSDR:
                 break
             #t_buf = t_start + status.timeNs / 1e9
 
-            filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, SYMBOL_RATE * INIT_DECIM / fs, filt_ic)
+            filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / fs, filt_ic)
             bursts = burst_det.feed(filtered)
 
             for start_idx, burst in bursts:
                 t_burst = t_start + start_idx / fs_decim
-                samp_offset, syms = fsk_decode(burst, samps_per_sym, True)
-                sym_offset = find_sync32(syms, self.aa)
-                if sym_offset == None:
-                    continue
-                rssi = int(calc_rssi(burst) - self.gain)
-                if rssi < self.rssi_min:
-                    continue
-                t_sync = t_burst + samp_offset / fs_decim + sym_offset / SYMBOL_RATE
-                data = unpack_syms(syms, sym_offset)
-                data_dw = le_dewhiten(data[4:], self.chan)
-                if len(data_dw) < 2 or len(data_dw) < 5 + data_dw[1]:
-                    continue
-                body = data_dw[:data_dw[1] + 2]
-                crc_bytes = data_dw[data_dw[1] + 2 : data_dw[1] + 5]
+                pkt = self.process_burst(t_burst, burst, fs_decim)
 
-                # TODO/HACK: handle timestamps properly, don't do this
-                ts32 = int(t_sync * 1e6) & 0x3FFFFFFF
-                crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
-
-                crc_calc = crc_ble_reverse(self.crci_rev, body)
-                crc_err = (crc_calc != crc_rev)
-                if self.validate_crc and crc_err:
-                    continue
-
-                pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, self.chan, self.phy, body,
-                                crc_rev, crc_err, self.decoder_state, False)
                 try:
                     dpkt = DPacketMessage.decode(pkt, self.decoder_state)
                 except BaseException as e:
@@ -174,6 +148,41 @@ class SniffleSDR:
         self.sdr.deactivateStream(stream)
         self.sdr.closeStream(stream)
         self.worker_running = False
+
+    def process_burst(self, t_burst, burst, fs, phy=PhyMode.PHY_1M):
+        if phy == PhyMode.PHY_2M:
+            symbol_rate = 2e6
+        else:
+            symbol_rate = 1e6
+        samps_per_sym = fs / symbol_rate
+
+        samp_offset, syms = fsk_decode(burst, samps_per_sym, True)
+        # TODO: handle coded PHY
+        sym_offset = find_sync32(syms, self.aa)
+        if sym_offset == None:
+            return None
+        rssi = int(calc_rssi(burst) - self.gain)
+        if rssi < self.rssi_min:
+            return None
+        t_sync = t_burst + samp_offset / fs + sym_offset / symbol_rate
+        data = unpack_syms(syms, sym_offset)
+        data_dw = le_dewhiten(data[4:], self.chan)
+        if len(data_dw) < 2 or len(data_dw) < 5 + data_dw[1]:
+            return None
+        body = data_dw[:data_dw[1] + 2]
+        crc_bytes = data_dw[data_dw[1] + 2 : data_dw[1] + 5]
+
+        # TODO/HACK: handle timestamps properly, don't do this
+        ts32 = int(t_sync * 1e6) & 0x3FFFFFFF
+        crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
+
+        crc_calc = crc_ble_reverse(self.crci_rev, body)
+        crc_err = (crc_calc != crc_rev)
+        if self.validate_crc and crc_err:
+            return None
+
+        return PacketMessage.from_fields(ts32, len(body), 0, rssi, self.chan, self.phy, body,
+                                         crc_rev, crc_err, self.decoder_state, False)
 
     def recv_and_decode(self):
         if not self.worker_running:
