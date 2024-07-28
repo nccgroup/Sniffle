@@ -5,6 +5,8 @@
 import numpy
 import scipy.signal
 import scipy.fft
+import concurrent.futures
+import os
 
 class PolyphaseChannelizer:
     def __init__(self, channel_count: int, taps_per_chan: int = 16, chan_rel_bw: float = 0.8,
@@ -16,7 +18,7 @@ class PolyphaseChannelizer:
 
         self.channel_count = channel_count
         self.filter_coeffs = numpy.reshape(filter_coeffs, (channel_count, -1), order='F')
-        self.filter_ic = numpy.zeros((channel_count, taps_per_chan - 1), dtype=dtype)
+        self.filter_ic = numpy.zeros(channel_count * (taps_per_chan - 1), dtype=dtype)
 
         # first column of data for rows (channels) other than the first
         self.extra = numpy.zeros(channel_count - 1, dtype=dtype)
@@ -27,29 +29,55 @@ class PolyphaseChannelizer:
     def process(self, samples: numpy.typing.ArrayLike) -> numpy.ndarray:
         # amount of samples we process per operation must be a multiple of channel count
         if self.leftover:
-            samples = numpy.hstack([self.leftover, samples])
+            samples = numpy.hstack([self.filter_ic, self.leftover, samples])
             self.leftover = None
+        else:
+            samples = numpy.hstack([self.filter_ic, samples])
 
         leftover_samps = len(samples) % self.channel_count
         if leftover_samps:
             self.leftover = samples[-leftover_samps:]
             samples = samples[:-leftover_samps]
 
+        output_len = (len(samples) - len(self.filter_ic)) // self.channel_count
+        self.filter_ic = samples[-len(self.filter_ic):]
+
+        filtered_samps = numpy.zeros((self.channel_count, output_len + 1), dtype=samples.dtype)
+        filtered_samps[1:, 0] = self.extra
+        self.extra = filtered_samps[1:, -1]
+
+        # Do the filtering in a thread pool
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count())
+        futures = []
+        for i in range(self.channel_count):
+            futures.append(executor.submit(self._filter, i, samples, filtered_samps))
+        concurrent.futures.wait(futures)
+
+        # Do the FFTs in a thread pool
+        output = numpy.zeros((self.channel_count, output_len), dtype=filtered_samps.dtype)
+        futures = []
+        chunk_size = 8192
+        for i in range(0, filtered_samps.shape[1] - 1, chunk_size):
+            if filtered_samps.shape[1] - 1 - i < chunk_size:
+                chunk_size = filtered_samps.shape[1] - 1 - i
+            futures.append(executor.submit(self._fft, filtered_samps, output, i, chunk_size))
+        concurrent.futures.wait(futures)
+
+        return output
+
+    def _filter(self, i, samples, dst):
         # For columns to line up properly:
         # - append a 0 to first row (channel)
         # - prepend previous values (or zeros) to other rows
         # Row ordering also needs to be 0 M-1 M-2 ... 2 1
         # See https://kastnerkyle.github.io/posts/polyphase-signal-processing/index.html
-        filtered_samps = numpy.zeros((self.channel_count, len(samples) // self.channel_count + 1), dtype=samples.dtype)
-        filtered_samps[0, :-1], self.filter_ic[0] = scipy.signal.lfilter(
-                self.filter_coeffs[0], 1, samples[::self.channel_count], zi=self.filter_ic[0])
-        filtered_samps[1:, 0] = self.extra
-        for i in range(1, self.channel_count):
-            filtered_samps[i, 1:], self.filter_ic[i] = scipy.signal.lfilter(
-                    self.filter_coeffs[i], 1, samples[self.channel_count - i::self.channel_count], zi=self.filter_ic[i])
-        self.extra = filtered_samps[1:, -1]
+        if i == 0:
+            dst[i, :-1] = numpy.convolve(samples[::self.channel_count], self.filter_coeffs[i], mode='valid')
+        else:
+            dst[i, 1:] = numpy.convolve(samples[self.channel_count - i::self.channel_count], self.filter_coeffs[i], mode='valid')
 
-        return scipy.fft.ifft(filtered_samps[:, :-1], axis=0, norm="forward")
+    def _fft(self, src, dst, offset, size):
+        dst[:, offset:offset + size] = scipy.fft.ifft(src[:, offset:offset + size], axis=0, norm='forward')
 
     def chan_idx(chan: int) -> int:
         # Maps from a channel index (signed int relative to centre) to index in channelizer output array
