@@ -28,7 +28,7 @@ class PolyphaseChannelizer:
 
     def process(self, samples: numpy.typing.ArrayLike) -> numpy.ndarray:
         # amount of samples we process per operation must be a multiple of channel count
-        if self.leftover:
+        if self.leftover is not None:
             samples = numpy.hstack([self.filter_ic, self.leftover, samples])
             self.leftover = None
         else:
@@ -79,7 +79,7 @@ class PolyphaseChannelizer:
     def _fft(self, src, dst, offset, size):
         dst[:, offset:offset + size] = scipy.fft.ifft(src[:, offset:offset + size], axis=0, norm='forward')
 
-    def chan_idx(chan: int) -> int:
+    def chan_idx(self, chan: int) -> int:
         # Maps from a channel index (signed int relative to centre) to index in channelizer output array
         # Odd channel count (ex. 5):  maps -2 -1 0 1 2 to 3 4 0 1 2
         # Even channel count (ex. 4): maps -2 -1 0 1 2 to 2 3 0 1 2
