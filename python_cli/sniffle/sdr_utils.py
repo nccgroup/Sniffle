@@ -179,3 +179,6 @@ def find_sync32(syms, sync_word, big_endian=False, corr_thresh=3):
 def unpack_syms(syms, start_offset, big_endian=False):
     bit_order = 'big' if big_endian else 'little'
     return numpy.packbits(syms[start_offset:], bitorder=bit_order)
+
+def resample(samples, fs_orig, fs_new):
+    return scipy.signal.resample(samples, int(len(samples) * fs_new / fs_orig))

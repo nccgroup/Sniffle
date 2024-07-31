@@ -19,7 +19,7 @@ from .decoder_state import SniffleDecoderState
 from .packet_decoder import PacketMessage, DPacketMessage, AdvertMessage
 from .errors import SniffleHWPacketError, UsageError
 from .sniffle_hw import TrivialLogger
-from .sdr_utils import decimate, BurstDetector, fsk_decode, find_sync32, unpack_syms, calc_rssi
+from .sdr_utils import decimate, BurstDetector, fsk_decode, find_sync32, unpack_syms, calc_rssi, resample
 from .whitening_ble import le_dewhiten
 from .crc_ble import rbit24, crc_ble_reverse
 
@@ -174,7 +174,11 @@ class SniffleSDR:
         else:
             symbol_rate = 1e6
 
-        samp_offset, syms = fsk_decode(burst, fs, symbol_rate, True)
+        # Resample every burst to 4 MSPS (a multiple of symbol rate) for improved decode
+        fs_resamp = 4e6
+        burst_resamp = resample(burst, fs, fs_resamp)
+
+        samp_offset, syms = fsk_decode(burst_resamp, fs_resamp, symbol_rate, True)
         # TODO: handle coded PHY
         sym_offset = find_sync32(syms, self.aa)
         if sym_offset == None:
@@ -182,7 +186,7 @@ class SniffleSDR:
         rssi = int(calc_rssi(burst) - self.gain)
         if rssi < self.rssi_min:
             return None
-        t_sync = t_burst + samp_offset / fs + sym_offset / symbol_rate
+        t_sync = t_burst + samp_offset / fs_resamp + sym_offset / symbol_rate
         data = unpack_syms(syms, sym_offset)
         data_dw = le_dewhiten(data[4:], self.chan)
         if len(data_dw) < 2 or len(data_dw) < 5 + data_dw[1]:
