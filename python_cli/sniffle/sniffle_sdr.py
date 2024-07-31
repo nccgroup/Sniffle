@@ -116,7 +116,6 @@ class SniffleSDR:
         CHUNK_SZ = 1 << 16
         buffers = [zeros(CHUNK_SZ, complex64)]
 
-        # TODO: operate on a stream rather than independently processing chunks (since packets may span across chunks)
         while self.worker_running:
             status = self.sdr.readStream(stream, buffers, CHUNK_SZ)
             if status.ret < CHUNK_SZ:
