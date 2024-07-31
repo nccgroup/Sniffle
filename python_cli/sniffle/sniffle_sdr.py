@@ -154,9 +154,8 @@ class SniffleSDR:
             symbol_rate = 2e6
         else:
             symbol_rate = 1e6
-        samps_per_sym = fs / symbol_rate
 
-        samp_offset, syms = fsk_decode(burst, samps_per_sym, True)
+        samp_offset, syms = fsk_decode(burst, fs, symbol_rate, True)
         # TODO: handle coded PHY
         sym_offset = find_sync32(syms, self.aa)
         if sym_offset == None:
