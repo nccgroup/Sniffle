@@ -176,7 +176,7 @@ class SniffleSDR:
 
         # Resample every burst to 4 MSPS (a multiple of symbol rate) for improved decode
         fs_resamp = 4e6
-        burst_resamp = resample(burst, fs, fs_resamp)
+        fs_resamp, burst_resamp = resample(burst, fs, fs_resamp)
 
         samp_offset, syms = fsk_decode(burst_resamp, fs_resamp, symbol_rate, True)
         # TODO: handle coded PHY

@@ -180,5 +180,8 @@ def unpack_syms(syms, start_offset, big_endian=False):
     bit_order = 'big' if big_endian else 'little'
     return numpy.packbits(syms[start_offset:], bitorder=bit_order)
 
-def resample(samples, fs_orig, fs_new):
-    return scipy.signal.resample(samples, int(len(samples) * fs_new / fs_orig))
+def resample(samples, fs_orig, fs_targ):
+    duration = len(samples) / fs_orig
+    new_len = int((duration * fs_targ) + 0.5)
+    fs_new = new_len / duration
+    return fs_new, scipy.signal.resample(samples, new_len)
