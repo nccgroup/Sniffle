@@ -35,6 +35,22 @@ def chan_from_freq(freq):
     rf = (freq - 2402e6) / 2e6
     return rf_to_ble_chan(int(rf))
 
+class _SDRPacket:
+    def __init__(self, ts, rssi, chan, phy, body, crc_rev, crc_err):
+        self.ts = ts
+        self.rssi = rssi
+        self.chan = chan
+        self.phy = phy
+        self.body = body
+        self.crc_rev = crc_rev
+        self.crc_err = crc_err
+
+    def to_packet_message(self, decoder_state):
+        # TODO/HACK: handle timestamps properly, don't do this
+        ts32 = int(self.ts * 1e6) & 0x3FFFFFFF
+        return PacketMessage.from_fields(ts32, len(self.body), 0, self.rssi, self.chan, self.phy, self.body,
+                                         self.crc_rev, self.crc_err, decoder_state, False)
+
 class SniffleSDR:
     def __init__(self, driver="rfnm", logger=None):
         self.sdr = None
@@ -193,9 +209,22 @@ class SniffleSDR:
             pkts = []
             for f in futures:
                 pkts.extend(f.result())
-            pkts.sort(key=lambda p: p.ts if p else -1)
+            pkts.sort(key=lambda p: p.ts)
             for p in pkts:
-                self.pktq.put(p)
+                pkt = p.to_packet_message(self.decoder_state)
+                try:
+                    dpkt = DPacketMessage.decode(pkt, self.decoder_state)
+                except BaseException as e:
+                    #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
+                    #self.logger.warning("Packet: %s", pkt)
+                    dpkt = pkt
+
+                if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
+                    # TODO: IRK-based MAC filtering
+                    if self.mac and dpkt.AdvA != self.mac:
+                        continue
+
+                self.pktq.put(dpkt)
 
         if self.sdr:
             self.sdr.deactivateStream(stream)
@@ -209,21 +238,8 @@ class SniffleSDR:
         for start_idx, burst in bursts:
             t_burst = self.t_start + start_idx / fs
             pkt = self.process_burst(chan, t_burst, burst, fs, cfo)
-            if pkt is None: continue
-
-            try:
-                dpkt = DPacketMessage.decode(pkt, self.decoder_state)
-            except BaseException as e:
-                #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
-                #self.logger.warning("Packet: %s", pkt)
-                dpkt = pkt
-
-            if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
-                # TODO: IRK-based MAC filtering
-                if self.mac and dpkt.AdvA != self.mac:
-                    continue
-
-            pkts.append(dpkt)
+            if pkt:
+                pkts.append(pkt)
 
         return pkts
 
@@ -257,8 +273,6 @@ class SniffleSDR:
         body = data_dw[:data_dw[1] + 2]
         crc_bytes = data_dw[data_dw[1] + 2 : data_dw[1] + 5]
 
-        # TODO/HACK: handle timestamps properly, don't do this
-        ts32 = int(t_sync * 1e6) & 0x3FFFFFFF
         crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
 
         crc_calc = crc_ble_reverse(self.crci_rev, body)
@@ -266,8 +280,7 @@ class SniffleSDR:
         if self.validate_crc and crc_err:
             return None
 
-        return PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, self.phy, body,
-                                         crc_rev, crc_err, self.decoder_state, False)
+        return _SDRPacket(t_sync, rssi, chan, self.phy, body, crc_rev, crc_err)
 
     def recv_and_decode(self):
         if not self.worker_running:
