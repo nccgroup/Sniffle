@@ -148,7 +148,7 @@ def fsk_decode(signal, fs, sym_rate, clock_recovery=False, cfo=0):
     # convert Carrier Frequency Offset (CFO) in Hz to radians per sample
     demod_offset = cfo * 2 * numpy.pi / fs
 
-    indices = numpy.array(numpy.arange(offset, len(signal) - 0.1, samps_per_sym), numpy.int64)
+    indices = numpy.array(numpy.arange(offset + 0.5, len(signal) - 0.1, samps_per_sym), numpy.int64)
     digital_demod = demod > demod_offset
 
     return offset, numpy.array(digital_demod[indices], numpy.uint8)
