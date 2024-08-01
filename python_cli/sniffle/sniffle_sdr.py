@@ -52,16 +52,14 @@ class _SDRPacket:
                                          self.crc_rev, self.crc_err, decoder_state, False)
 
 class SniffleSDR:
-    def __init__(self, driver="rfnm", logger=None):
-        self.sdr = None
-        self.sdr_chan = 0
-        self.file = None
+    def __init__(self, logger=None):
         self.pktq = Queue()
         self.decoder_state = SniffleDecoderState()
         self.logger = logger if logger else TrivialLogger()
         self.worker = None
         self.worker_running = False
         self.use_channelizer = False
+        self.source_ready = True
 
         self.gain = 10
         self.chan = 37
@@ -71,42 +69,6 @@ class SniffleSDR:
         self.rssi_min = -128
         self.mac = None
         self.validate_crc = True
-
-        if driver.startswith('rfnm'):
-            self.sdr = SoapyDevice({'driver': 'rfnm'})
-
-            rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
-            antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
-            self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
-            self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
-            self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
-
-            if driver == 'rfnm:full':
-                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 90E6)
-                self.chan = 17 # 2440 MHz
-                self.use_channelizer = True
-                rate_idx = 0
-            elif driver == 'rfnm:partial':
-                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 60E6)
-                self.chan = 12 # 2430 MHz
-                self.use_channelizer = True
-                rate_idx = 1
-            else: # rfnm:single
-                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
-                rate_idx = 1
-
-            self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[rate_idx])
-            self.fs = rates[rate_idx]
-            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
-
-        elif driver.startswith('file:'):
-            # driver should be like "file:filename.cf32"
-            self.file = open(driver[5:], 'rb')
-            self.fs = 122.88e6
-            self.chan = 17
-            self.use_channelizer = True
-        else:
-            raise ValueError("Unknown driver")
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
     # Expect PDU CRCs to use the specified initial CRC
@@ -119,10 +81,6 @@ class SniffleSDR:
         self.aa = aa
         self.phy = phy
         self.crci_rev = rbit24(crci)
-
-        # configure SDR
-        if self.sdr:
-            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
 
     # Specify minimum RSSI for received advertisements
     def cmd_rssi(self, rssi=-128):
@@ -142,9 +100,7 @@ class SniffleSDR:
 
     def _recv_worker(self):
         self.worker_running = True
-        if self.sdr:
-            stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
-            self.sdr.activateStream(stream)
+        self.source_start()
         self.t_start = time()
 
         if self.use_channelizer:
@@ -178,19 +134,9 @@ class SniffleSDR:
         buffers = [zeros(CHUNK_SZ, complex64)]
 
         while self.worker_running:
-            if self.sdr:
-                status = self.sdr.readStream(stream, buffers, CHUNK_SZ)
-                if status.ret < CHUNK_SZ:
-                    self.logger.error("Read timeout, got %d of %d" % (status.ret, CHUNK_SZ))
-                    break
-                #t_buf = t_start + status.timeNs / 1e9
-            else:
-                chunk = self.file.read(CHUNK_SZ * 8)
-                if len(chunk) == 0:
-                    self.file.close()
-                    self.file = None
-                    break
-                buffers[0] = frombuffer(chunk, complex64)
+            if not self.source_read(buffers):
+                self.source_ready = False
+                break
 
             if self.use_channelizer:
                 channelized = channelizer.process(buffers[0])
@@ -226,9 +172,7 @@ class SniffleSDR:
 
                 self.pktq.put(dpkt)
 
-        if self.sdr:
-            self.sdr.deactivateStream(stream)
-            self.sdr.closeStream(stream)
+        self.source_stop()
         self.worker_running = False
 
     def process_channel(self, chan, samples, burst_det, fs, cfo):
@@ -283,10 +227,9 @@ class SniffleSDR:
         return _SDRPacket(t_sync, rssi, chan, self.phy, body, crc_rev, crc_err)
 
     def recv_and_decode(self):
-        if not self.worker_running:
-            if self.file or self.sdr:
-                self.worker = Thread(target=self._recv_worker)
-                self.worker.start()
+        if not self.worker_running and self.source_ready:
+            self.worker = Thread(target=self._recv_worker)
+            self.worker.start()
 
         return self.pktq.get()
 
@@ -346,3 +289,84 @@ class SniffleSDR:
 
         # configure CRC validation
         self.cmd_crc_valid(validate_crc)
+
+    def source_start(self):
+        pass
+
+    def source_stop(self):
+        pass
+
+    def source_read(self, buffers):
+        return False
+
+class SniffleSoapySDR(SniffleSDR):
+    def __init__(self, driver='rfnm', mode='single', logger=None):
+        super().__init__(logger)
+        self.sdr = None
+        self.sdr_chan = 0
+
+        if driver == 'rfnm':
+            self.sdr = SoapyDevice({'driver': driver})
+
+            rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
+            antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
+            self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
+            self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
+            self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
+
+            if mode == 'full':
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 90E6)
+                self.chan = 17 # 2440 MHz
+                self.use_channelizer = True
+                rate_idx = 0
+            elif mode == 'partial':
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 60E6)
+                self.chan = 12 # 2430 MHz
+                self.use_channelizer = True
+                rate_idx = 1
+            else: # mode == 'single'
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
+                rate_idx = 1
+
+            self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[rate_idx])
+            self.fs = rates[rate_idx]
+            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
+        else:
+            raise ValueError("Unknown driver")
+
+    def source_start(self):
+        self.stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
+        self.sdr.activateStream(self.stream)
+
+    def source_stop(self):
+        self.sdr.deactivateStream(self.stream)
+        self.sdr.closeStream(self.stream)
+
+    def source_read(self, buffers):
+        chunk_sz = len(buffers[0])
+        status = self.sdr.readStream(self.stream, buffers, chunk_sz)
+        if status.ret < chunk_sz:
+            self.logger.error("Read timeout, got %d of %d" % (status.ret, chunk_sz))
+            return False
+        return True
+
+    def cmd_chan_aa_phy(self, chan=37, aa=BLE_ADV_AA, phy=PhyMode.PHY_1M, crci=BLE_ADV_CRCI):
+        super().cmd_chan_aa_phy(chan, aa, phy, crci)
+        self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
+
+class SniffleFileSDR(SniffleSDR):
+    def __init__(self, file_name, fs=122.88e6, chan=17, logger=None):
+        super().__init__(logger)
+        self.file = open(file_name, 'rb')
+        self.fs = fs
+        self.chan = chan
+        self.use_channelizer = True
+
+    def source_read(self, buffers):
+        chunk = self.file.read(len(buffers[0]) * 8)
+        if len(chunk) == 0:
+            self.file.close()
+            self.file = None
+            return False
+        buffers[0] = frombuffer(chunk, complex64)
+        return True
