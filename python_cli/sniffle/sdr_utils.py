@@ -8,6 +8,7 @@ from struct import pack
 
 DEFAULT_BURST_THRESH = 0.002
 DEFAULT_BURST_PAD = 10
+DEFAULT_BURST_MIN_LEN = 20
 
 def decimate(signal, factor, bw=None, ic=None):
     if bw is None:
@@ -18,7 +19,7 @@ def decimate(signal, factor, bw=None, ic=None):
     filtered, zf = scipy.signal.lfilter(b, a, signal, zi=ic)
     return filtered[::factor], zf
 
-def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
+def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD, min_len=DEFAULT_BURST_MIN_LEN):
     mag_low = numpy.abs(signal) > thresh * 0.7
     mag_high = numpy.abs(signal) > thresh
 
@@ -37,20 +38,21 @@ def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
             start = 0
         if stop > len(signal):
             stop = len(signal)
-        if stop - start >= pad * 20:
+        if stop - start >= min_len:
             ranges.append((start, stop))
         x = stop
 
     return ranges
 
 class BurstDetector:
-    def __init__(self, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
+    def __init__(self, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD, min_len=DEFAULT_BURST_MIN_LEN):
         self.thresh = thresh
         self.pad = pad
         self.in_burst = False
         self.burst_start_idx = None
         self.buf = None
         self.buf_start_idx = 0
+        self.min_len = min_len
 
     def feed(self, signal):
         # will contain tuples of (start_idx, buf)
@@ -78,7 +80,7 @@ class BurstDetector:
                     # ok to cut off end padding
                     stop = len(self.buf)
                 self.in_burst = False
-                if stop >= self.pad * 20:
+                if stop >= self.min_len:
                     bursts.append((self.buf_start_idx, self.buf[:stop]))
                 x = stop
 
@@ -99,7 +101,7 @@ class BurstDetector:
                     start = 0
                 if stop > len(self.buf):
                     stop = len(self.buf)
-                if stop - start >= self.pad * 20:
+                if stop - start >= self.min_len:
                     bursts.append((self.buf_start_idx + start, self.buf[start:stop]))
                 x = stop
 

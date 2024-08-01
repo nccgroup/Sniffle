@@ -127,7 +127,11 @@ class SniffleSDR:
             channels = [self.chan]
             channels_cfo = [0]
 
-        burst_dets = [BurstDetector(pad=int(fs_decim * 1e-6)) for i in range(len(channels))]
+        # exclude preamble, 4 bytes AA, 2 bytes header, 3 bytes CRC = minimum 72 (9*8) symbols @ 2 msym/s
+        samps_per_sym_2M = fs_decim / 2e6
+        min_burst = samps_per_sym_2M * 9 * 8
+        burst_dets = [BurstDetector(pad=int(fs_decim * 1e-6), min_len=min_burst) for i in range(len(channels))]
+
         executor = ThreadPoolExecutor(max_workers=cpu_count())
 
         CHUNK_SZ = 1 << 22
