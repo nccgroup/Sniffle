@@ -12,7 +12,7 @@ from threading import Thread
 
 from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
 from SoapySDR import Device as SoapyDevice
-from numpy import zeros, complex64, frombuffer
+from numpy import zeros, complex64, frombuffer, reshape
 
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .decoder_state import SniffleDecoderState
@@ -22,20 +22,16 @@ from .sniffle_hw import TrivialLogger
 from .sdr_utils import decimate, BurstDetector, fsk_decode, find_sync32, unpack_syms, calc_rssi, resample
 from .whitening_ble import le_dewhiten
 from .crc_ble import rbit24, crc_ble_reverse
+from .pcap import rf_to_ble_chan, ble_to_rf_chan
+from .channelizer import PolyphaseChannelizer
 
 def freq_from_chan(chan):
-    if chan == 37:
-        rf = 0
-    elif chan == 38:
-        rf = 12
-    elif chan == 39:
-        rf = 39
-    elif chan <= 10:
-        rf = chan + 1
-    else:
-        rf = chan + 2
-
+    rf = ble_to_rf_chan(chan)
     return 2402e6 + rf * 2e6
+
+def chan_from_freq(freq):
+    rf = (freq - 2402e6) / 2e6
+    return rf_to_ble_chan(int(rf))
 
 class SniffleSDR:
     def __init__(self, driver="rfnm", logger=None):
@@ -47,6 +43,7 @@ class SniffleSDR:
         self.logger = logger if logger else TrivialLogger()
         self.worker = None
         self.worker_running = False
+        self.use_channelizer = False
 
         self.gain = 10
         self.chan = 37
@@ -57,21 +54,36 @@ class SniffleSDR:
         self.mac = None
         self.validate_crc = True
 
-        if driver == 'rfnm':
-            self.sdr = SoapyDevice({'driver': driver})
-            rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
-            self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
+        if driver.startswith('rfnm'):
+            self.sdr = SoapyDevice({'driver': 'rfnm'})
 
+            rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
             antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
             self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
-
-            self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
-            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
             self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
             self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
-        elif driver.startswith('file'):
+
+            if driver == 'rfnm:full':
+                self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[0])
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 90E6)
+                self.chan = 17 # 2440 MHz
+                self.use_channelizer = True
+            elif driver == 'rfnm:partial':
+                self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 60E6)
+                self.chan = 12 # 2430 MHz
+                self.use_channelizer = True
+            else: # rfnm:single
+                self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
+
+            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
+
+        elif driver.startswith('file:'):
             # driver should be like "file:filename.cf32"
             self.file = open(driver[5:], 'rb')
+        else:
+            raise ValueError("Unknown driver")
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
     # Expect PDU CRCs to use the specified initial CRC
@@ -112,19 +124,38 @@ class SniffleSDR:
             self.sdr.activateStream(stream)
         t_start = time()
 
-        # /8 decimation (4x2)
-        INIT_DECIM = 4
-        FILT_DECIM = 2
         if self.sdr:
             fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
         else:
             fs = 61.44e6 # TODO: don't hard code
-        fs_decim = fs // (FILT_DECIM * INIT_DECIM)
 
-        filt_ic = None
-        burst_det = BurstDetector(pad=int(fs_decim * 1e-6))
+        if self.use_channelizer:
+            num_channels = int((fs / 2e6) + 0.5)
+            fs_decim = fs / num_channels
+            chan_err = fs_decim - 2E6
+            chan_max = (num_channels - 1) // 2
+            channelizer = PolyphaseChannelizer(num_channels)
 
-        CHUNK_SZ = 1 << 16
+            channels = [None] * num_channels
+            channels_cfo = [0.0] * num_channels
+            for rf_rel in range(-chan_max, chan_max + 1):
+                idx = channelizer.chan_idx(rf_rel)
+                rf_abs = ble_to_rf_chan(self.chan) + rf_rel
+                if 0 <= rf_abs < 40:
+                    channels[idx] = rf_to_ble_chan(rf_abs)
+                    channels_cfo[idx] = -rf_rel * chan_err
+        else:
+            # /8 decimation (4x2)
+            INIT_DECIM = 4
+            FILT_DECIM = 2
+            fs_decim = fs // (FILT_DECIM * INIT_DECIM)
+            filt_ic = None
+            channels = [self.chan]
+            channels_cfo = [0]
+
+        burst_dets = [BurstDetector(pad=int(fs_decim * 1e-6)) for i in range(len(channels))]
+
+        CHUNK_SZ = 1 << 22
         buffers = [zeros(CHUNK_SZ, complex64)]
 
         while self.worker_running:
@@ -142,33 +173,43 @@ class SniffleSDR:
                     break
                 buffers[0] = frombuffer(chunk, complex64)
 
-            filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / fs, filt_ic)
-            bursts = burst_det.feed(filtered)
+            if self.use_channelizer:
+                channelized = channelizer.process(buffers[0])
+            else:
+                filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / fs, filt_ic)
+                channelized = reshape(filtered, (1, len(filtered)))
 
-            for start_idx, burst in bursts:
-                t_burst = t_start + start_idx / fs_decim
-                pkt = self.process_burst(t_burst, burst, fs_decim)
+            for i, c in enumerate(channels):
+                if c is None or c < 37:
+                    continue
+                cfo = channels_cfo[i]
+                bursts = burst_dets[i].feed(channelized[i])
 
-                try:
-                    dpkt = DPacketMessage.decode(pkt, self.decoder_state)
-                except BaseException as e:
-                    #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
-                    #self.logger.warning("Packet: %s", pkt)
-                    dpkt = pkt
+                # TODO: parallelize processing of channels
+                for start_idx, burst in bursts:
+                    t_burst = t_start + start_idx / fs_decim
+                    pkt = self.process_burst(c, t_burst, burst, fs_decim, cfo)
 
-                if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
-                    # TODO: IRK-based MAC filtering
-                    if self.mac and dpkt.AdvA != self.mac:
-                        continue
+                    try:
+                        dpkt = DPacketMessage.decode(pkt, self.decoder_state)
+                    except BaseException as e:
+                        #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
+                        #self.logger.warning("Packet: %s", pkt)
+                        dpkt = pkt
 
-                self.pktq.put(dpkt)
+                    if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
+                        # TODO: IRK-based MAC filtering
+                        if self.mac and dpkt.AdvA != self.mac:
+                            continue
+
+                    self.pktq.put(dpkt)
 
         if self.sdr:
             self.sdr.deactivateStream(stream)
             self.sdr.closeStream(stream)
         self.worker_running = False
 
-    def process_burst(self, t_burst, burst, fs, phy=PhyMode.PHY_1M):
+    def process_burst(self, chan, t_burst, burst, fs, cfo=0, phy=PhyMode.PHY_1M):
         if phy == PhyMode.PHY_2M:
             symbol_rate = 2e6
         else:
@@ -182,7 +223,7 @@ class SniffleSDR:
             fs_resamp = fs
             burst_resamp = burst
 
-        samp_offset, syms = fsk_decode(burst_resamp, fs_resamp, symbol_rate, True)
+        samp_offset, syms = fsk_decode(burst_resamp, fs_resamp, symbol_rate, True, cfo=cfo)
         # TODO: handle coded PHY
         sym_offset = find_sync32(syms, self.aa)
         if sym_offset == None:
@@ -192,7 +233,7 @@ class SniffleSDR:
             return None
         t_sync = t_burst + samp_offset / fs_resamp + sym_offset / symbol_rate
         data = unpack_syms(syms, sym_offset)
-        data_dw = le_dewhiten(data[4:], self.chan)
+        data_dw = le_dewhiten(data[4:], chan)
         if len(data_dw) < 2 or len(data_dw) < 5 + data_dw[1]:
             return None
         body = data_dw[:data_dw[1] + 2]
@@ -207,7 +248,7 @@ class SniffleSDR:
         if self.validate_crc and crc_err:
             return None
 
-        return PacketMessage.from_fields(ts32, len(body), 0, rssi, self.chan, self.phy, body,
+        return PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, self.phy, body,
                                          crc_rev, crc_err, self.decoder_state, False)
 
     def recv_and_decode(self):
@@ -243,7 +284,9 @@ class SniffleSDR:
         if not mode in SnifferMode:
             raise ValueError("Invalid mode requested")
 
-        if not (37 <= chan <= 39):
+        if self.use_channelizer:
+            chan = self.chan
+        elif not (37 <= chan <= 39):
             raise ValueError("Invalid primary advertising channel")
 
         if targ_mac and targ_irk:
