@@ -12,7 +12,7 @@ from threading import Thread
 
 from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
 from SoapySDR import Device as SoapyDevice
-from numpy import zeros, complex64
+from numpy import zeros, complex64, frombuffer
 
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .decoder_state import SniffleDecoderState
@@ -39,8 +39,9 @@ def freq_from_chan(chan):
 
 class SniffleSDR:
     def __init__(self, driver="rfnm", logger=None):
-        self.sdr = SoapyDevice({'driver': driver})
+        self.sdr = None
         self.sdr_chan = 0
+        self.file = None
         self.pktq = Queue()
         self.decoder_state = SniffleDecoderState()
         self.logger = logger if logger else TrivialLogger()
@@ -56,16 +57,21 @@ class SniffleSDR:
         self.mac = None
         self.validate_crc = True
 
-        rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
-        self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
+        if driver == 'rfnm':
+            self.sdr = SoapyDevice({'driver': driver})
+            rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
+            self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
 
-        antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
-        self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
+            antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
+            self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
 
-        self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
-        self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
-        self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
-        self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
+            self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
+            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
+            self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", self.gain)
+            self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
+        elif driver.startswith('file'):
+            # driver should be like "file:filename.cf32"
+            self.file = open(driver[5:], 'rb')
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
     # Expect PDU CRCs to use the specified initial CRC
@@ -80,7 +86,8 @@ class SniffleSDR:
         self.crci_rev = rbit24(crci)
 
         # configure SDR
-        self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
+        if self.sdr:
+            self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
 
     # Specify minimum RSSI for received advertisements
     def cmd_rssi(self, rssi=-128):
@@ -100,14 +107,18 @@ class SniffleSDR:
 
     def _recv_worker(self):
         self.worker_running = True
-        stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
-        self.sdr.activateStream(stream)
+        if self.sdr:
+            stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
+            self.sdr.activateStream(stream)
         t_start = time()
 
         # /8 decimation (4x2)
         INIT_DECIM = 4
         FILT_DECIM = 2
-        fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
+        if self.sdr:
+            fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
+        else:
+            fs = 61.44e6 # TODO: don't hard code
         fs_decim = fs // (FILT_DECIM * INIT_DECIM)
 
         filt_ic = None
@@ -117,11 +128,19 @@ class SniffleSDR:
         buffers = [zeros(CHUNK_SZ, complex64)]
 
         while self.worker_running:
-            status = self.sdr.readStream(stream, buffers, CHUNK_SZ)
-            if status.ret < CHUNK_SZ:
-                self.logger.error("Read timeout, got %d of %d" % (status.ret, CHUNK_SZ))
-                break
-            #t_buf = t_start + status.timeNs / 1e9
+            if self.sdr:
+                status = self.sdr.readStream(stream, buffers, CHUNK_SZ)
+                if status.ret < CHUNK_SZ:
+                    self.logger.error("Read timeout, got %d of %d" % (status.ret, CHUNK_SZ))
+                    break
+                #t_buf = t_start + status.timeNs / 1e9
+            else:
+                chunk = self.file.read(CHUNK_SZ * 8)
+                if len(chunk) == 0:
+                    self.file.close()
+                    self.file = None
+                    break
+                buffers[0] = frombuffer(chunk, complex64)
 
             filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / fs, filt_ic)
             bursts = burst_det.feed(filtered)
@@ -144,8 +163,9 @@ class SniffleSDR:
 
                 self.pktq.put(dpkt)
 
-        self.sdr.deactivateStream(stream)
-        self.sdr.closeStream(stream)
+        if self.sdr:
+            self.sdr.deactivateStream(stream)
+            self.sdr.closeStream(stream)
         self.worker_running = False
 
     def process_burst(self, t_burst, burst, fs, phy=PhyMode.PHY_1M):
@@ -184,8 +204,9 @@ class SniffleSDR:
 
     def recv_and_decode(self):
         if not self.worker_running:
-            self.worker = Thread(target=self._recv_worker)
-            self.worker.start()
+            if self.file or self.sdr:
+                self.worker = Thread(target=self._recv_worker)
+                self.worker.start()
 
         return self.pktq.get()
 
