@@ -209,6 +209,7 @@ class SniffleSDR:
         for start_idx, burst in bursts:
             t_burst = self.t_start + start_idx / fs
             pkt = self.process_burst(chan, t_burst, burst, fs, cfo)
+            if pkt is None: continue
 
             try:
                 dpkt = DPacketMessage.decode(pkt, self.decoder_state)
