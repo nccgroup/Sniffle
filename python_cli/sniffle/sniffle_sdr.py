@@ -9,6 +9,8 @@ from random import randint, randbytes
 from traceback import format_exception
 from queue import Queue
 from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
+from os import cpu_count
 
 from SoapySDR import SOAPY_SDR_RX, SOAPY_SDR_CF32
 from SoapySDR import Device as SoapyDevice
@@ -127,7 +129,7 @@ class SniffleSDR:
         if self.sdr:
             stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
             self.sdr.activateStream(stream)
-        t_start = time()
+        self.t_start = time()
 
         if self.use_channelizer:
             num_channels = int((self.fs / 2e6) + 0.5)
@@ -154,6 +156,7 @@ class SniffleSDR:
             channels_cfo = [0]
 
         burst_dets = [BurstDetector(pad=int(fs_decim * 1e-6)) for i in range(len(channels))]
+        executor = ThreadPoolExecutor(max_workers=cpu_count())
 
         CHUNK_SZ = 1 << 22
         buffers = [zeros(CHUNK_SZ, complex64)]
@@ -179,35 +182,49 @@ class SniffleSDR:
                 filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / self.fs, filt_ic)
                 channelized = reshape(filtered, (1, len(filtered)))
 
+            futures = []
             for i, c in enumerate(channels):
                 if c is None or c < 37:
                     continue
-                cfo = channels_cfo[i]
-                bursts = burst_dets[i].feed(channelized[i])
+                futures.append(executor.submit(self.process_channel, c, channelized[i],
+                                               burst_dets[i], fs_decim, channels_cfo[i]))
 
-                # TODO: parallelize processing of channels
-                for start_idx, burst in bursts:
-                    t_burst = t_start + start_idx / fs_decim
-                    pkt = self.process_burst(c, t_burst, burst, fs_decim, cfo)
-
-                    try:
-                        dpkt = DPacketMessage.decode(pkt, self.decoder_state)
-                    except BaseException as e:
-                        #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
-                        #self.logger.warning("Packet: %s", pkt)
-                        dpkt = pkt
-
-                    if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
-                        # TODO: IRK-based MAC filtering
-                        if self.mac and dpkt.AdvA != self.mac:
-                            continue
-
-                    self.pktq.put(dpkt)
+            # put the packets in chronological order
+            pkts = []
+            for f in futures:
+                pkts.extend(f.result())
+            pkts.sort(key=lambda p: p.ts if p else -1)
+            for p in pkts:
+                self.pktq.put(p)
 
         if self.sdr:
             self.sdr.deactivateStream(stream)
             self.sdr.closeStream(stream)
         self.worker_running = False
+
+    def process_channel(self, chan, samples, burst_det, fs, cfo):
+        bursts = burst_det.feed(samples)
+        pkts = []
+
+        for start_idx, burst in bursts:
+            t_burst = self.t_start + start_idx / fs
+            pkt = self.process_burst(chan, t_burst, burst, fs, cfo)
+
+            try:
+                dpkt = DPacketMessage.decode(pkt, self.decoder_state)
+            except BaseException as e:
+                #self.logger.warning("Skipping decode due to exception: %s", e, exc_info=e)
+                #self.logger.warning("Packet: %s", pkt)
+                dpkt = pkt
+
+            if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
+                # TODO: IRK-based MAC filtering
+                if self.mac and dpkt.AdvA != self.mac:
+                    continue
+
+            pkts.append(dpkt)
+
+        return pkts
 
     def process_burst(self, chan, t_burst, burst, fs, cfo=0, phy=PhyMode.PHY_1M):
         if phy == PhyMode.PHY_2M:
