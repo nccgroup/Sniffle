@@ -64,24 +64,29 @@ class SniffleSDR:
             self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
 
             if driver == 'rfnm:full':
-                self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[0])
                 self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 90E6)
                 self.chan = 17 # 2440 MHz
                 self.use_channelizer = True
+                rate_idx = 0
             elif driver == 'rfnm:partial':
-                self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
                 self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 60E6)
                 self.chan = 12 # 2430 MHz
                 self.use_channelizer = True
+                rate_idx = 1
             else: # rfnm:single
-                self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[1])
                 self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
+                rate_idx = 1
 
+            self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[rate_idx])
+            self.fs = rates[rate_idx]
             self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
 
         elif driver.startswith('file:'):
             # driver should be like "file:filename.cf32"
             self.file = open(driver[5:], 'rb')
+            self.fs = 122.88e6
+            self.chan = 17
+            self.use_channelizer = True
         else:
             raise ValueError("Unknown driver")
 
@@ -124,14 +129,9 @@ class SniffleSDR:
             self.sdr.activateStream(stream)
         t_start = time()
 
-        if self.sdr:
-            fs = self.sdr.getSampleRate(SOAPY_SDR_RX, self.sdr_chan)
-        else:
-            fs = 61.44e6 # TODO: don't hard code
-
         if self.use_channelizer:
-            num_channels = int((fs / 2e6) + 0.5)
-            fs_decim = fs / num_channels
+            num_channels = int((self.fs / 2e6) + 0.5)
+            fs_decim = self.fs / num_channels
             chan_err = fs_decim - 2E6
             chan_max = (num_channels - 1) // 2
             channelizer = PolyphaseChannelizer(num_channels)
@@ -148,7 +148,7 @@ class SniffleSDR:
             # /8 decimation (4x2)
             INIT_DECIM = 4
             FILT_DECIM = 2
-            fs_decim = fs // (FILT_DECIM * INIT_DECIM)
+            fs_decim = self.fs // (FILT_DECIM * INIT_DECIM)
             filt_ic = None
             channels = [self.chan]
             channels_cfo = [0]
@@ -176,7 +176,7 @@ class SniffleSDR:
             if self.use_channelizer:
                 channelized = channelizer.process(buffers[0])
             else:
-                filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / fs, filt_ic)
+                filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / self.fs, filt_ic)
                 channelized = reshape(filtered, (1, len(filtered)))
 
             for i, c in enumerate(channels):
