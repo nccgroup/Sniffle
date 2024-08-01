@@ -87,7 +87,7 @@ class PacketMessage:
     def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
         fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
                 0 if is_data or is_aux_adv else 37)
-        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
+        return cls(fake_hdr + body, SniffleDecoderState(is_data))
 
     @classmethod
     def from_fields(cls, ts, _len, event, rssi, chan, phy, body, crc_rev, crc_err,
@@ -98,7 +98,7 @@ class PacketMessage:
             _len |= 0x4000
         chan |= phy << 6
         fake_hdr = pack("<LHHbB", ts, _len, event, rssi, chan)
-        return PacketMessage(fake_hdr + body, dstate, crc_rev=crc_rev)
+        return cls(fake_hdr + body, dstate, crc_rev=crc_rev)
 
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, event=%d, body=%s)" % (
