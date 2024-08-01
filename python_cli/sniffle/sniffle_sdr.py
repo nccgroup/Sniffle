@@ -320,8 +320,8 @@ class SniffleSoapySDR(SniffleSDR):
                 self.use_channelizer = True
                 rate_idx = 0
             elif mode == 'partial':
-                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 60E6)
-                self.chan = 12 # 2430 MHz
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 40E6)
+                self.chan = 8 # 2420 MHz
                 self.use_channelizer = True
                 rate_idx = 1
             else: # mode == 'single'
