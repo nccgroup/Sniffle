@@ -49,7 +49,6 @@ class BurstDetector:
         self.thresh = thresh
         self.pad = pad
         self.in_burst = False
-        self.burst_start_idx = None
         self.buf = None
         self.buf_start_idx = 0
         self.min_len = min_len
@@ -60,13 +59,13 @@ class BurstDetector:
 
         # add new data
         if self.buf is None:
-            self.buf = signal
+            buf = signal
         else:
-            self.buf = numpy.concatenate([self.buf, signal])
+            buf = numpy.concatenate([self.buf, signal])
 
         # initialize burst detection
-        mag_low = numpy.abs(self.buf) > self.thresh * 0.7
-        mag_high = numpy.abs(self.buf) > self.thresh
+        mag_low = numpy.abs(buf) > self.thresh * 0.7
+        mag_high = numpy.abs(buf) > self.thresh
         x = 0
 
         # finish previously started burst
@@ -76,41 +75,41 @@ class BurstDetector:
                 pass # stil in burst
             else:
                 stop += self.pad
-                if stop > len(self.buf):
+                if stop > len(buf):
                     # ok to cut off end padding
-                    stop = len(self.buf)
+                    stop = len(buf)
                 self.in_burst = False
                 if stop >= self.min_len:
-                    bursts.append((self.buf_start_idx, self.buf[:stop]))
+                    bursts.append((self.buf_start_idx, buf[:stop]))
                 x = stop
 
         # detect new bursts
         if not self.in_burst:
-            while x < len(self.buf):
+            while x < len(buf):
                 start = x + numpy.argmax(mag_high[x:])
                 if start == x and not mag_high[x]:
                     break
                 stop = start + numpy.argmin(mag_low[start:])
                 if stop == start and mag_low[-1]:
                     self.in_burst = True
-                    self.burst_start_idx = self.buf_start_idx + start
+                    burst_start_idx = self.buf_start_idx + start
                     break
                 start -= self.pad
                 stop += self.pad
                 if start < 0:
                     start = 0
-                if stop > len(self.buf):
-                    stop = len(self.buf)
+                if stop > len(buf):
+                    stop = len(buf)
                 if stop - start >= self.min_len:
-                    bursts.append((self.buf_start_idx + start, self.buf[start:stop]))
+                    bursts.append((self.buf_start_idx + start, buf[start:stop]))
                 x = stop
 
         # remove old data that we're done processing
         if self.in_burst:
-            self.buf = self.buf[self.burst_start_idx - self.buf_start_idx:]
-            self.buf_start_idx = self.burst_start_idx
+            self.buf = buf[burst_start_idx - self.buf_start_idx:]
+            self.buf_start_idx = burst_start_idx
         else:
-            self.buf_start_idx += len(self.buf)
+            self.buf_start_idx += len(buf)
             self.buf = None
 
         return bursts
