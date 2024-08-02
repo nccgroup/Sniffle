@@ -19,6 +19,14 @@ def decimate(signal, factor, bw=None, ic=None):
     filtered, zf = scipy.signal.lfilter(b, a, signal, zi=ic)
     return filtered[::factor], zf
 
+def rising_edges(a, thresh):
+    edges = numpy.flatnonzero(numpy.diff(a >= thresh, prepend=False))
+    return numpy.extract(a[edges] >= thresh, edges)
+
+def falling_edges(a, thresh):
+    edges = numpy.flatnonzero(numpy.diff(a >= thresh, prepend=False))
+    return numpy.extract(a[edges] < thresh, edges)
+
 def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD, min_len=DEFAULT_BURST_MIN_LEN):
     mag = numpy.abs(signal)
     mag_low = mag > thresh * 0.7
@@ -64,52 +72,59 @@ class BurstDetector:
         else:
             buf = numpy.concatenate([self.buf, signal])
 
-        # initialize burst detection
+        # detect edges
         mag = numpy.abs(buf)
-        mag_low = mag > self.thresh * 0.7
-        mag_high = mag > self.thresh
+        rising = rising_edges(mag, self.thresh)
+        falling = falling_edges(mag, self.thresh * 0.7)
+
         x = 0
+        rising_idx = 0
+        falling_idx = 0
 
         # finish previously started burst
-        if self.in_burst:
-            stop = numpy.argmin(mag_low)
-            if stop == 0 and mag_low[-1]:
-                pass # stil in burst
-            else:
-                stop += self.pad
-                if stop > len(buf):
-                    # ok to cut off end padding
-                    stop = len(buf)
-                self.in_burst = False
-                if stop >= self.min_len:
-                    bursts.append((self.buf_start_idx, buf[:stop]))
-                x = stop
+        if self.in_burst and len(falling):
+            x = falling[0]
+            stop = x + self.pad
+            if stop > len(buf):
+                # ok to cut off end padding
+                stop = len(buf)
+            self.in_burst = False
+            if stop >= self.min_len:
+                bursts.append((self.buf_start_idx, buf[:stop]))
+            falling_idx += 1
 
         # detect new bursts
         if not self.in_burst:
-            while x < len(buf):
-                start = x + numpy.argmax(mag_high[x:])
-                if start == x and not mag_high[x]:
-                    break
-                stop = start + numpy.argmin(mag_low[start:])
-                if stop == start and mag_low[-1]:
+            while rising_idx < len(rising):
+                start = rising[rising_idx]
+                rising_idx += 1
+                if start < x: continue
+                stop = -1
+                while falling_idx < len(falling):
+                    stop = falling[falling_idx]
+                    falling_idx += 1
+                    if stop > start: break
+                if stop > start:
+                    x = stop
+                    start -= self.pad
+                    stop += self.pad
+                    if start < 0:
+                        start = 0
+                    if stop > len(buf):
+                        stop = len(buf)
+                    if stop - start >= self.min_len:
+                        bursts.append((self.buf_start_idx + start, buf[start:stop]))
+                else:
+                    start -= self.pad
+                    if start < 0:
+                        start = 0
                     self.in_burst = True
-                    burst_start_idx = self.buf_start_idx + start
                     break
-                start -= self.pad
-                stop += self.pad
-                if start < 0:
-                    start = 0
-                if stop > len(buf):
-                    stop = len(buf)
-                if stop - start >= self.min_len:
-                    bursts.append((self.buf_start_idx + start, buf[start:stop]))
-                x = stop
 
         # remove old data that we're done processing
         if self.in_burst:
-            self.buf = buf[burst_start_idx - self.buf_start_idx:]
-            self.buf_start_idx = burst_start_idx
+            self.buf = buf[start:]
+            self.buf_start_idx = self.buf_start_idx + start
         else:
             self.buf_start_idx += len(buf)
             self.buf = None
