@@ -47,11 +47,11 @@ def burst_detect(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD, min
 class BurstDetector:
     def __init__(self, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD, min_len=DEFAULT_BURST_MIN_LEN):
         self.thresh = thresh
-        self.pad = pad
+        self.pad = int(pad)
         self.in_burst = False
         self.buf = None
         self.buf_start_idx = 0
-        self.min_len = min_len
+        self.min_len = int(min_len)
 
     def feed(self, signal):
         # will contain tuples of (start_idx, buf)
