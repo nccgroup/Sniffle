@@ -192,10 +192,19 @@ class SniffleSDR:
         return pkts
 
     def process_burst(self, chan, t_burst, burst, fs, cfo=0, phy=PhyMode.PHY_1M):
+        if phy == PhyMode.PHY_1M:
+            symbol_rate = 1e6
+            min_burst_duration = 72e-6
         if phy == PhyMode.PHY_2M:
             symbol_rate = 2e6
-        else:
+            min_burst_duration = 36e-6
+        else: # coded
             symbol_rate = 1e6
+            min_burst_duration = 150e-6
+
+        min_burst_len = int(fs * min_burst_duration)
+        if len(burst) < min_burst_len:
+            return None
 
         if fs < 4e6:
             # Resample every burst to 4 MSPS (a multiple of symbol rate) for improved decode
