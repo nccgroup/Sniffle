@@ -53,17 +53,8 @@ class PolyphaseChannelizer:
             futures.append(executor.submit(self._filter, i, samples, filtered_samps))
         concurrent.futures.wait(futures)
 
-        # Do the FFTs in a thread pool
-        output = numpy.zeros((self.channel_count, output_len), dtype=filtered_samps.dtype)
-        futures = []
-        chunk_size = 8192
-        for i in range(0, filtered_samps.shape[1] - 1, chunk_size):
-            if filtered_samps.shape[1] - 1 - i < chunk_size:
-                chunk_size = filtered_samps.shape[1] - 1 - i
-            futures.append(executor.submit(self._fft, filtered_samps, output, i, chunk_size))
-        concurrent.futures.wait(futures)
-
-        return output
+        # Let SciPy parallelize the FFTs
+        return scipy.fft.ifft(filtered_samps[:, :-1], axis=0, norm='forward', workers=os.cpu_count())
 
     def _filter(self, i, samples, dst):
         # For columns to line up properly:
@@ -75,9 +66,6 @@ class PolyphaseChannelizer:
             dst[i, :-1] = numpy.convolve(samples[::self.channel_count], self.filter_coeffs[i], mode='valid')
         else:
             dst[i, 1:] = numpy.convolve(samples[self.channel_count - i::self.channel_count], self.filter_coeffs[i], mode='valid')
-
-    def _fft(self, src, dst, offset, size):
-        dst[:, offset:offset + size] = scipy.fft.ifft(src[:, offset:offset + size], axis=0, norm='forward')
 
     def chan_idx(self, chan: int) -> int:
         # Maps from a channel index (signed int relative to centre) to index in channelizer output array
