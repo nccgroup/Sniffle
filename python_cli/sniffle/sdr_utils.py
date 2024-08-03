@@ -77,6 +77,7 @@ class BurstDetector:
         rising = rising_edges(mag, self.thresh)
         falling = falling_edges(mag, self.thresh * 0.7)
 
+        start = 0
         x = 0
         rising_idx = 0
         falling_idx = 0
