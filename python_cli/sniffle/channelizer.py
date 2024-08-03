@@ -42,7 +42,7 @@ class PolyphaseChannelizer:
         output_len = (len(samples) - len(self.filter_ic)) // self.channel_count
         self.filter_ic = samples[-len(self.filter_ic):]
 
-        filtered_samps = numpy.zeros((self.channel_count, output_len + 1), dtype=samples.dtype)
+        filtered_samps = numpy.empty((self.channel_count, output_len + 1), dtype=samples.dtype)
         filtered_samps[1:, 0] = self.extra
         self.extra = filtered_samps[1:, -1]
 
