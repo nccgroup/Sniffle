@@ -181,17 +181,14 @@ def find_sync32(syms, sync_word, big_endian=False, corr_thresh=3):
         seq = numpy.unpackbits(numpy.frombuffer(pack('>I', sync_word), numpy.uint8), bitorder='big')
     else:
         seq = numpy.unpackbits(numpy.frombuffer(pack('<I', sync_word), numpy.uint8), bitorder='little')
-    found = False
-    i = 0
-    while i < len(syms) - 32:
-        bit_diff = numpy.sum(syms[i:i+32] ^ seq)
-        if bit_diff <= corr_thresh:
-            found = True
-            break
-        i += 1
 
-    if found:
-        return i
+    # make the sequences -1 or +1 so that cross correlation equals number of matching bits
+    seq_signed = ((2 * seq) - 1).view(numpy.int8)
+    syms_signed = ((2 * syms) - 1).view(numpy.int8)
+    corr = numpy.correlate(syms_signed, seq_signed)
+    pos = numpy.argmax(corr)
+    if corr[pos] >= 32 - corr_thresh:
+        return pos
     else:
         return None
 
