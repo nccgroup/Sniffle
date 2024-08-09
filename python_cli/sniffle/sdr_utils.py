@@ -150,12 +150,26 @@ def squelch(signal, thresh=DEFAULT_BURST_THRESH, pad=DEFAULT_BURST_PAD):
 
     return arr
 
+# Slow textbook implementation using atan2 and unwrapping
+# Uses numpy.gradient on phase, which takes second-order difference
+# Second-order difference works well for 2+ samples per symbol (SPS), but not for 1 SPS
 def fm_demod(signal):
     phase = numpy.angle(signal)
     return numpy.gradient(numpy.unwrap(phase))
 
+# Faster approach using derivative of atan
+# https://wirelesspi.com/frequency-modulation-fm-and-demodulation-using-dsp-techniques/
+# Uses first order difference to support 1 sample per symbol
+def fm_demod2(signal, prev=numpy.complex64(0)):
+    i = numpy.real(signal)
+    q = numpy.imag(signal)
+    idot = numpy.diff(i, prepend=numpy.real(prev))
+    qdot = numpy.diff(q, prepend=numpy.imag(prev))
+    sq = numpy.square(i) + numpy.square(q)
+    return (i*qdot - q*idot) / sq
+
 def fsk_decode(signal, fs, sym_rate, clock_recovery=False, cfo=0):
-    demod = fm_demod(signal)
+    demod = fm_demod2(signal)
 
     samps_per_sym = fs / sym_rate
     offset = 0
