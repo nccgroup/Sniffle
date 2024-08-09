@@ -72,7 +72,9 @@ def is_cp2102(serport):
     return False
 
 def make_sniffle_hw(serport=None, logger=None, timeout=None):
-    if serport.startswith('rfnm'):
+    if serport is None:
+        return SniffleHW(serport, logger, timeout)
+    elif serport.startswith('rfnm'):
         from .sniffle_sdr import SniffleSoapySDR
         if ':' in serport:
             driver, mode = serport.split(':')
