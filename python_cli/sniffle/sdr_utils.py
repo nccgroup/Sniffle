@@ -5,6 +5,7 @@
 import numpy
 import scipy.signal
 from struct import pack
+from re import finditer
 
 DEFAULT_BURST_THRESH = 0.002
 DEFAULT_BURST_PAD = 10
@@ -190,24 +191,85 @@ def calc_rssi(signal):
     # dBFS
     return 20 * numpy.log10(numpy.mean(numpy.abs(signal)))
 
-def find_sync32(syms, sync_word, big_endian=False, corr_thresh=3):
-    if big_endian:
-        seq = numpy.unpackbits(numpy.frombuffer(pack('>I', sync_word), numpy.uint8), bitorder='big')
-    else:
-        seq = numpy.unpackbits(numpy.frombuffer(pack('<I', sync_word), numpy.uint8), bitorder='little')
+# interface / abstract class
+class SyncDetector:
+    def __init__(self, sync: bytes, samps_per_sym=2, msb_first=False):
+        self.bit_order = 'big' if msb_first else 'little'
+        self.samps_per_sym = samps_per_sym
+        self.sync_len = len(sync) * 8
+
+    def feed(self, samples_demod):
+        return []
+
+# String search approach, faster, requires exact match for substring
+class ExactSyncDetector(SyncDetector):
+    def __init__(self, sync: bytes, samps_per_sym=2, msb_first=False, deduplicate=True):
+        super().__init__(sync, samps_per_sym, msb_first)
+        self.deduplicate = deduplicate
+        sync_bits = numpy.unpackbits(numpy.frombuffer(sync, numpy.uint8), bitorder=self.bit_order)
+        self.sync_seqs = [numpy.packbits(sync_bits[8-i:self.sync_len-i], bitorder=self.bit_order).tobytes() for i in range(8)]
+
+    def feed(self, samples_demod):
+        indices = []
+
+        for i in range(self.samps_per_sym):
+            syms = numpy.packbits(samples_demod[i::self.samps_per_sym], bitorder=self.bit_order).tobytes()
+            for j, seq in enumerate(self.sync_seqs):
+                indices.extend([((m.start() - 1)*8 + j)*self.samps_per_sym + i for m in finditer(seq, syms)])
+
+        indices.sort()
+        if self.deduplicate:
+            last_index = -self.samps_per_sym
+            indices2 = []
+            for i in indices:
+                if i - last_index < self.samps_per_sym: continue
+                indices2.append(i)
+                last_index = i
+            return indices2
+        else:
+            return indices
+
+# Correlator based approach, slower, allows inexact matching
+class CorrelatorSyncDetector(SyncDetector):
+    def __init__(self, sync: bytes, samps_per_sym=2, msb_first=False, corr_thresh=2):
+        super().__init__(sync, samps_per_sym, msb_first)
+        self.corr_thresh = corr_thresh
+        sync_bits = numpy.unpackbits(numpy.frombuffer(sync, numpy.uint8), bitorder=self.bit_order)
+
+        # make the sequence -1 or +1 so that cross correlation equals number of matching bits
+        # dtype of float32 is intentional; correlation for floats in numpy is faster than for ints
+        self.corr_seq = numpy.zeros(self.sync_len * samps_per_sym, dtype=numpy.float32)
+        self.corr_seq[0::samps_per_sym] = ((2 * sync_bits) - 1).view(numpy.int8)
+
+    def feed(self, samples_demod):
+        syms_signed = (2 * samples_demod.view(numpy.int8)) - 1
+        corr = numpy.correlate(syms_signed, self.corr_seq)
+        peaks, _ = scipy.signal.find_peaks(corr, self.sync_len - self.corr_thresh)
+        return peaks
+
+def find_sync(syms, sync: bytes, msb_first=False, corr_thresh=2):
+    bit_order = 'big' if msb_first else 'little'
+    seq = numpy.unpackbits(numpy.frombuffer(sync, numpy.uint8), bitorder=bit_order)
 
     # make the sequences -1 or +1 so that cross correlation equals number of matching bits
     seq_signed = ((2 * seq) - 1).view(numpy.int8)
     syms_signed = ((2 * syms) - 1).view(numpy.int8)
     corr = numpy.correlate(syms_signed, seq_signed)
     pos = numpy.argmax(corr)
-    if corr[pos] >= 32 - corr_thresh:
+    if corr[pos] >= len(seq) - corr_thresh:
         return pos
     else:
         return None
 
-def unpack_syms(syms, start_offset, big_endian=False):
-    bit_order = 'big' if big_endian else 'little'
+def find_sync32(syms, sync_word, big_endian=False, msb_first=False, corr_thresh=2):
+    if big_endian:
+        sync = pack('>I', sync_word)
+    else:
+        sync = pack('<I', sync_word)
+    return find_sync(syms, sync, msb_first, corr_thresh)
+
+def unpack_syms(syms, start_offset, msb_first=False):
+    bit_order = 'big' if msb_first else 'little'
     return numpy.packbits(syms[start_offset:], bitorder=bit_order)
 
 def resample(samples, fs_orig, fs_targ):
