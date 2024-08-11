@@ -277,3 +277,19 @@ def resample(samples, fs_orig, fs_targ):
     new_len = int((duration * fs_targ) + 0.5)
     fs_new = new_len / duration
     return fs_new, scipy.signal.resample(samples, new_len)
+
+class PolyphaseResampler:
+    def __init__(self, up, down, dtype=numpy.complex64):
+        self.up = up
+        self.down = down
+        self.filt_multiple = 5
+        filt_size = self.filt_multiple * up
+        self.filt_coeffs = scipy.signal.firwin(filt_size, 1.0 / down).astype(dtype) * up
+        self.state = numpy.zeros(self.filt_multiple - 1, dtype)
+        self.trim_idx = int(((self.filt_multiple - 1) * up / down) + 0.999999)
+
+    def feed(self, samples):
+        samples2 = numpy.concatenate([self.state, samples])
+        resamp = scipy.signal.upfirdn(self.filt_coeffs, samples2, self.up, self.down)
+        self.state = samples2[-self.filt_multiple + 1:]
+        return resamp[self.trim_idx:self.trim_idx + len(samples) * self.up // self.down]
