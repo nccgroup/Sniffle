@@ -168,7 +168,8 @@ def fm_demod2(signal, prev=numpy.complex64(0)):
     idot = numpy.diff(i, prepend=numpy.real(prev))
     qdot = numpy.diff(q, prepend=numpy.imag(prev))
     sq = numpy.square(i) + numpy.square(q)
-    return (i*qdot - q*idot) / sq
+    with numpy.errstate(divide='ignore'):
+        return (i*qdot - q*idot) / sq
 
 def fsk_decode(signal, fs, sym_rate, clock_recovery=False, cfo=0):
     demod = fm_demod2(signal)
