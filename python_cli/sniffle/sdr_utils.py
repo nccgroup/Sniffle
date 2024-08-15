@@ -280,13 +280,13 @@ def resample(samples, fs_orig, fs_targ):
     return fs_new, scipy.signal.resample(samples, new_len)
 
 class PolyphaseResampler:
-    def __init__(self, up, down, dtype=numpy.complex64):
+    def __init__(self, up, down, dtype=numpy.complex64, order=5, rel_bw=0.95):
         g = gcd(up, down)
         self.up = up // g
         self.down = down // g
-        self.filt_multiple = 5
+        self.filt_multiple = order
         filt_size = self.filt_multiple * self.up
-        self.filt_coeffs = scipy.signal.firwin(filt_size, 1.0 / self.down).astype(dtype) * self.up
+        self.filt_coeffs = scipy.signal.firwin(filt_size, rel_bw / self.down).astype(dtype) * self.up
         self.state_len = self.filt_multiple + self.down // up
         self.state = numpy.zeros(self.state_len, dtype)
         self.adjust = 0 # starting index in upsampled array relative to first sample of new data
