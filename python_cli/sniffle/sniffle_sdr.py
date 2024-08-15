@@ -21,7 +21,7 @@ from .decoder_state import SniffleDecoderState
 from .packet_decoder import PacketMessage, DPacketMessage, AdvertMessage
 from .errors import SniffleHWPacketError, UsageError
 from .sniffle_hw import TrivialLogger
-from .sdr_utils import decimate, BurstDetector, fsk_decode, find_sync32, unpack_syms, calc_rssi, resample
+from .sdr_utils import decimate, unpack_syms, calc_rssi, resample, fm_demod2, ExactSyncDetector
 from .whitening_ble import le_dewhiten
 from .crc_ble import rbit24, crc_ble_reverse
 from .pcap import rf_to_ble_chan, ble_to_rf_chan
@@ -53,6 +53,66 @@ class _SDRPacket:
         return PacketMessage.from_fields(ts32, len(self.body), 0, self.rssi, self.chan, self.phy, self.body,
                                          self.crc_rev, self.crc_err, decoder_state, False)
 
+class ChannelProcessor:
+    def __init__(self, chan, fs, coded_phy=False, gain=0):
+        self.chan = chan
+        self.fs = fs
+        self.sample_counter = 0
+        self.sync_detector = ExactSyncDetector(b'\xd6\xbe\x89\x8e')
+        self.gain = gain
+        self.t_start = 0
+        self.phy = PhyMode.PHY_1M
+
+    def set_t_start(self, t_start):
+        self.t_start = t_start
+
+    def set_aa_crci(self, aa=0x8E89BED6, crci=BLE_ADV_CRCI):
+        self.sync_detector = ExactSyncDetector(pack('<I', aa))
+        self.crci_rev = rbit24(crci)
+
+    # To continuously feed samples
+    # TODO: handle frames and sync words crossing chunk boundaries
+    def feed(self, samples, start_sample=None):
+        samples_demod = fm_demod2(samples) > 0
+        syncs = self.sync_detector.feed(samples_demod)
+        pkts_raw = self.ble_pkt_extract(samples_demod, syncs, self.chan)
+        pkts = []
+        for i, p in enumerate(pkts_raw):
+            pkt_duration = (len(p) + 4) * 8 * 2 # 2 SPS, pkt doesn't include sync word
+            pkt_samples = samples[syncs[i]:syncs[i] + pkt_duration]
+            rssi = int(calc_rssi(pkt_samples) - self.gain)
+            t_sync = self.t_start + (self.sample_counter + syncs[i]) / self.fs
+            pkt = self.process_pkt(self.chan, t_sync, p, rssi)
+            pkts.append(pkt)
+        self.sample_counter += len(samples)
+        return pkts
+
+    # To process a range of samples without knowledge of previous samples
+    def feed_range(self, samples, start_sample, phy=PhyMode.PHY_1M):
+        pass # TODO
+
+    @staticmethod
+    def ble_pkt_extract(samples_demod, peaks, chan, samps_per_sym=2):
+        # TODO: coded phy support
+        pkts = []
+        MAX_PKT = 264 # 4 byte AA, 2 byte header, 255 byte body, 3 byte CRC
+        for p in peaks:
+            syms = samples_demod[p:p+(8*MAX_PKT*samps_per_sym):samps_per_sym]
+            raw = unpack_syms(syms, 32)
+            if len(raw) > 2:
+                hdr = le_dewhiten(raw[:2], chan)
+                pkt_len = 5 + hdr[1]
+                pkts.append(le_dewhiten(raw[:pkt_len], chan))
+        return pkts
+
+    def process_pkt(self, chan, t_sync, pkt, rssi):
+        body = pkt[:-3]
+        crc_bytes = pkt[-3:]
+        crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
+        crc_calc = crc_ble_reverse(self.crci_rev, body)
+        crc_err = (crc_calc != crc_rev)
+        return _SDRPacket(t_sync, rssi, chan, self.phy, body, crc_rev, crc_err)
+
 class SniffleSDR:
     chunk_size = 4000000
 
@@ -76,15 +136,19 @@ class SniffleSDR:
             down = 32
             self.fs = fs_source * up / down
             self.resampler = PolyphaseResampler(up, down)
+        elif fs_source % 2e6 != 0:
+            raise ValueError("Unsupported sample rate")
         else:
             self.fs = fs_source
             self.resampler = None
 
+        # TODO: notify channel processors of source gain
+        # TODO: consider attenuation from resampler in per-channel gain
+        self.chan_processors = [ChannelProcessor(i, 2E6) for i in range(40)]
+
         self.gain = 10
         self.chan = 37
-        self.aa = BLE_ADV_AA
         self.phy = PhyMode.PHY_1M
-        self.crci_rev = rbit24(BLE_ADV_CRCI)
         self.rssi_min = -128
         self.mac = None
         self.validate_crc = True
@@ -97,9 +161,9 @@ class SniffleSDR:
         if not (PhyMode.PHY_1M <= phy <= PhyMode.PHY_CODED_S2):
             raise ValueError("PHY must be 0 (1M), 1 (2M), 2 (coded S=8), or 3 (coded S=2)")
         self.chan = chan
-        self.aa = aa
         self.phy = phy
-        self.crci_rev = rbit24(crci)
+        for p in self.chan_processors:
+            p.set_aa_crci(aa, crci)
 
     # Specify minimum RSSI for received advertisements
     def cmd_rssi(self, rssi=-128):
@@ -119,24 +183,24 @@ class SniffleSDR:
 
     def _recv_worker(self):
         self.source_start()
-        self.t_start = time()
+        t_start = time() # TODO: handle file source start time?
+        for p in self.chan_processors:
+            p.set_t_start(t_start)
 
         if self.use_channelizer:
             num_channels = int((self.fs / 2e6) + 0.5)
             fs_decim = self.fs / num_channels
-            chan_err = fs_decim - 2E6
             chan_max = (num_channels - 1) // 2
             channelizer = PolyphaseChannelizer(num_channels)
 
             channels = [None] * num_channels
-            channels_cfo = [0.0] * num_channels
             for rf_rel in range(-chan_max, chan_max + 1):
                 idx = channelizer.chan_idx(rf_rel)
                 rf_abs = ble_to_rf_chan(self.chan) + rf_rel
                 if 0 <= rf_abs < 40:
                     channels[idx] = rf_to_ble_chan(rf_abs)
-                    channels_cfo[idx] = -rf_rel * chan_err
         else:
+            # TODO: use resampler instead to bring it down to exactly 2 MSPS
             # /8 decimation (4x2)
             INIT_DECIM = 4
             FILT_DECIM = 2
@@ -144,11 +208,6 @@ class SniffleSDR:
             filt_ic = None
             channels = [self.chan]
             channels_cfo = [0]
-
-        # exclude preamble, 4 bytes AA, 2 bytes header, 3 bytes CRC = minimum 72 (9*8) symbols @ 2 msym/s
-        samps_per_sym_2M = fs_decim / 2e6
-        min_burst = samps_per_sym_2M * 9 * 8
-        burst_dets = [BurstDetector(pad=int(fs_decim * 1e-6), min_len=min_burst) for i in range(len(channels))]
 
         executor = ThreadPoolExecutor(max_workers=cpu_count())
 
@@ -163,6 +222,7 @@ class SniffleSDR:
             if self.use_channelizer:
                 channelized = channelizer.process(buffers[0])
             else:
+                # TODO: stream should just be resampled to 2 MSPS so no other decimation is needed
                 filtered, filt_ic = decimate(buffers[0][::INIT_DECIM], FILT_DECIM, 1.6e6 * INIT_DECIM / self.fs, filt_ic)
                 channelized = reshape(filtered, (1, len(filtered)))
 
@@ -170,8 +230,7 @@ class SniffleSDR:
             for i, c in enumerate(channels):
                 if c is None or c < 37:
                     continue
-                futures.append(executor.submit(self.process_channel, c, channelized[i],
-                                               burst_dets[i], fs_decim, channels_cfo[i]))
+                futures.append(executor.submit(self.chan_processors[c].feed, channelized[i]))
 
             # put the packets in chronological order
             pkts = []
@@ -180,6 +239,13 @@ class SniffleSDR:
             pkts.sort(key=lambda p: p.ts)
             for p in pkts:
                 pkt = p.to_packet_message(self.decoder_state)
+
+                # Check RSSI and CRC
+                if pkt.rssi < self.rssi_min:
+                    continue
+                if self.validate_crc and pkt.crc_err:
+                    continue
+
                 try:
                     dpkt = DPacketMessage.decode(pkt, self.decoder_state)
                 except BaseException as e:
@@ -195,66 +261,6 @@ class SniffleSDR:
                 self.pktq.put(dpkt)
 
         self.source_stop()
-
-    def process_channel(self, chan, samples, burst_det, fs, cfo):
-        bursts = burst_det.feed(samples)
-        pkts = []
-
-        for start_idx, burst in bursts:
-            t_burst = self.t_start + start_idx / fs
-            pkt = self.process_burst(chan, t_burst, burst, fs, cfo)
-            if pkt:
-                pkts.append(pkt)
-
-        return pkts
-
-    def process_burst(self, chan, t_burst, burst, fs, cfo=0, phy=PhyMode.PHY_1M):
-        if phy == PhyMode.PHY_1M:
-            symbol_rate = 1e6
-            min_burst_duration = 72e-6
-        if phy == PhyMode.PHY_2M:
-            symbol_rate = 2e6
-            min_burst_duration = 36e-6
-        else: # coded
-            symbol_rate = 1e6
-            min_burst_duration = 150e-6
-
-        min_burst_len = int(fs * min_burst_duration)
-        if len(burst) < min_burst_len:
-            return None
-
-        if fs < 4e6:
-            # Resample every burst to 4 MSPS (a multiple of symbol rate) for improved decode
-            fs_resamp = 4e6
-            fs_resamp, burst_resamp = resample(burst, fs, fs_resamp)
-        else:
-            fs_resamp = fs
-            burst_resamp = burst
-
-        samp_offset, syms = fsk_decode(burst_resamp, fs_resamp, symbol_rate, True, cfo=cfo)
-        # TODO: handle coded PHY
-        sym_offset = find_sync32(syms, self.aa)
-        if sym_offset == None:
-            return None
-        rssi = int(calc_rssi(burst) - self.gain)
-        if rssi < self.rssi_min:
-            return None
-        t_sync = t_burst + samp_offset / fs_resamp + sym_offset / symbol_rate
-        data = unpack_syms(syms, sym_offset)
-        data_dw = le_dewhiten(data[4:], chan)
-        if len(data_dw) < 2 or len(data_dw) < 5 + data_dw[1]:
-            return None
-        body = data_dw[:data_dw[1] + 2]
-        crc_bytes = data_dw[data_dw[1] + 2 : data_dw[1] + 5]
-
-        crc_rev = crc_bytes[0] | (crc_bytes[1] << 8) | (crc_bytes[2] << 16)
-
-        crc_calc = crc_ble_reverse(self.crci_rev, body)
-        crc_err = (crc_calc != crc_rev)
-        if self.validate_crc and crc_err:
-            return None
-
-        return _SDRPacket(t_sync, rssi, chan, self.phy, body, crc_rev, crc_err)
 
     def recv_and_decode(self):
         if not self.worker_started:
