@@ -6,6 +6,7 @@ import numpy
 import scipy.signal
 from struct import pack
 from re import finditer
+from math import gcd
 
 DEFAULT_BURST_THRESH = 0.002
 DEFAULT_BURST_PAD = 10
@@ -280,15 +281,16 @@ def resample(samples, fs_orig, fs_targ):
 
 class PolyphaseResampler:
     def __init__(self, up, down, dtype=numpy.complex64):
-        self.up = up
-        self.down = down
+        g = gcd(up, down)
+        self.up = up // g
+        self.down = down // g
         self.filt_multiple = 5
-        filt_size = self.filt_multiple * up
-        self.filt_coeffs = scipy.signal.firwin(filt_size, 1.0 / down).astype(dtype) * up
-        self.state_len = self.filt_multiple + down // up
+        filt_size = self.filt_multiple * self.up
+        self.filt_coeffs = scipy.signal.firwin(filt_size, 1.0 / self.down).astype(dtype) * self.up
+        self.state_len = self.filt_multiple + self.down // up
         self.state = numpy.zeros(self.state_len, dtype)
         self.adjust = 0 # starting index in upsampled array relative to first sample of new data
-        self.pad_lut = [self.compute_pad(i) for i in range(1 - down, down)]
+        self.pad_lut = [self.compute_pad(i) for i in range(1 - self.down, self.down)]
 
     def feed(self, samples):
         pad_samples = self.pad_lut[self.adjust + self.down - 1]
