@@ -82,7 +82,7 @@ class PolyphaseChannelizer:
             raise ValueError("Channel out-of-bounds")
 
 def complex_chirp(f0, f1, T, fs):
-    w = numpy.linspace(f0/fs, f1/fs, T*fs)
+    w = numpy.linspace(f0/fs, f1/fs, int(T*fs))
     p = 2 * numpy.pi * numpy.cumsum(w)
     return numpy.exp(1j * p)
 

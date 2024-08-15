@@ -278,36 +278,3 @@ def resample(samples, fs_orig, fs_targ):
     new_len = int((duration * fs_targ) + 0.5)
     fs_new = new_len / duration
     return fs_new, scipy.signal.resample(samples, new_len)
-
-class PolyphaseResampler:
-    def __init__(self, up, down, dtype=numpy.complex64, order=5, rel_bw=0.95):
-        g = gcd(up, down)
-        self.up = up // g
-        self.down = down // g
-        self.filt_multiple = order
-        filt_size = self.filt_multiple * self.up
-        if self.up < self.down:
-            filt_bw = rel_bw / self.down
-        else:
-            filt_bw = rel_bw / self.up
-        self.filt_coeffs = scipy.signal.firwin(filt_size, filt_bw).astype(dtype) * self.up
-        self.state_len = self.filt_multiple + self.down // up
-        self.state = numpy.zeros(self.state_len, dtype)
-        self.adjust = 0 # starting index in upsampled array relative to first sample of new data
-        self.pad_lut = [self.compute_pad(i) for i in range(1 - self.down, self.down)]
-
-    def feed(self, samples):
-        pad_samples = self.pad_lut[self.adjust + self.down - 1]
-        samples2 = numpy.concatenate([numpy.zeros(pad_samples, self.state.dtype), self.state, samples])
-        resamp = scipy.signal.upfirdn(self.filt_coeffs, samples2, self.up, self.down)
-        self.state = samples2[-self.state_len:]
-        start_idx = ((pad_samples + self.state_len) * self.up + self.adjust + self.down - 1) // self.down
-        end_idx = (len(samples2) * self.up + self.down - 1) // self.down
-        self.adjust = end_idx * self.down - len(samples2) * self.up
-        return resamp[start_idx:end_idx]
-
-    def compute_pad(self, adjust):
-        for i in range(self.down):
-            if ((i + self.state_len) * self.up + adjust) % self.down == 0:
-                return i
-        assert(False)
