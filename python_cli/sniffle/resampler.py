@@ -48,10 +48,12 @@ def plot_resamp(up, down):
     from channelizer import complex_chirp
     y0 = complex_chirp(f0, f1, n/fs, fs)
 
-    resampler = PolyphaseResampler(up, down, numpy.complex128, 5, 0.95)
+    order = 5
+    resampler = PolyphaseResampler(up, down, numpy.complex128, order, 0.95)
+    phase_shift = order / 2 * up / down # in samples at resampled rate
     fs2 = fs * up / down
     n2 = n * up // down
-    x1 = numpy.linspace(0, (n2-1)/fs2, n2)
+    x1 = numpy.linspace(-phase_shift/fs2, (n2-1-phase_shift)/fs2, n2)
     y1 = numpy.empty(n2, dtype=numpy.complex128)
 
     # Feed awkward sized chunks to make sure it outputs correct number of samples
