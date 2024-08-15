@@ -285,11 +285,23 @@ class PolyphaseResampler:
         self.filt_multiple = 5
         filt_size = self.filt_multiple * up
         self.filt_coeffs = scipy.signal.firwin(filt_size, 1.0 / down).astype(dtype) * up
-        self.state = numpy.zeros(self.filt_multiple - 1, dtype)
-        self.trim_idx = int(((self.filt_multiple - 1) * up / down) + 0.999999)
+        self.state_len = self.filt_multiple + down // up
+        self.state = numpy.zeros(self.state_len, dtype)
+        self.adjust = 0 # starting index in upsampled array relative to first sample of new data
+        self.pad_lut = [self.compute_pad(i) for i in range(1 - down, down)]
 
     def feed(self, samples):
-        samples2 = numpy.concatenate([self.state, samples])
+        pad_samples = self.pad_lut[self.adjust + self.down - 1]
+        samples2 = numpy.concatenate([numpy.zeros(pad_samples, self.state.dtype), self.state, samples])
         resamp = scipy.signal.upfirdn(self.filt_coeffs, samples2, self.up, self.down)
-        self.state = samples2[-self.filt_multiple + 1:]
-        return resamp[self.trim_idx:self.trim_idx + len(samples) * self.up // self.down]
+        self.state = samples2[-self.state_len:]
+        start_idx = ((pad_samples + self.state_len) * self.up + self.adjust + self.down - 1) // self.down
+        end_idx = (len(samples2) * self.up + self.down - 1) // self.down
+        self.adjust = end_idx * self.down - len(samples2) * self.up
+        return resamp[start_idx:end_idx]
+
+    def compute_pad(self, adjust):
+        for i in range(self.down):
+            if ((i + self.state_len) * self.up + adjust) % self.down == 0:
+                return i
+        assert(False)
