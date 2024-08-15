@@ -286,7 +286,11 @@ class PolyphaseResampler:
         self.down = down // g
         self.filt_multiple = order
         filt_size = self.filt_multiple * self.up
-        self.filt_coeffs = scipy.signal.firwin(filt_size, rel_bw / self.down).astype(dtype) * self.up
+        if self.up < self.down:
+            filt_bw = rel_bw / self.down
+        else:
+            filt_bw = rel_bw / self.up
+        self.filt_coeffs = scipy.signal.firwin(filt_size, filt_bw).astype(dtype) * self.up
         self.state_len = self.filt_multiple + self.down // up
         self.state = numpy.zeros(self.state_len, dtype)
         self.adjust = 0 # starting index in upsampled array relative to first sample of new data
