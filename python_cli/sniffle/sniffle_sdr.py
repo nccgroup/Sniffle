@@ -8,7 +8,7 @@ from time import time
 from random import randint, randbytes
 from traceback import format_exception
 from queue import Queue
-from threading import Thread
+from threading import Thread, Semaphore
 from concurrent.futures import ThreadPoolExecutor
 from os import cpu_count
 
@@ -26,6 +26,7 @@ from .whitening_ble import le_dewhiten
 from .crc_ble import rbit24, crc_ble_reverse
 from .pcap import rf_to_ble_chan, ble_to_rf_chan
 from .channelizer import PolyphaseChannelizer
+from .resampler import PolyphaseResampler
 
 def freq_from_chan(chan):
     rf = ble_to_rf_chan(chan)
@@ -52,14 +53,31 @@ class _SDRPacket:
                                          self.crc_rev, self.crc_err, decoder_state, False)
 
 class SniffleSDR:
-    def __init__(self, logger=None):
+    chunk_size = 4000000
+
+    def __init__(self, fs_source, logger=None):
         self.pktq = Queue()
         self.decoder_state = SniffleDecoderState()
         self.logger = logger if logger else TrivialLogger()
         self.worker = None
-        self.worker_running = False
+        self.worker_started = False
+        self.worker_stopped = False
         self.use_channelizer = False
-        self.source_ready = True
+        self.reader = None
+        self.reader_started = False
+        self.reader_stopped = False
+
+        self.read_sem = Semaphore(1) # ready to read
+        self.data_sem = Semaphore(0) # new data in self.data_buf
+        self.data_buf = [zeros(self.chunk_size, dtype=complex64)]
+        if fs_source == 122.88e6 or fs_source == 61.44e6:
+            up = 25
+            down = 32
+            self.fs = fs_source * up / down
+            self.resampler = PolyphaseResampler(up, down)
+        else:
+            self.fs = fs_source
+            self.resampler = None
 
         self.gain = 10
         self.chan = 37
@@ -99,7 +117,6 @@ class SniffleSDR:
         self.validate_crc = validate
 
     def _recv_worker(self):
-        self.worker_running = True
         self.source_start()
         self.t_start = time()
 
@@ -134,12 +151,11 @@ class SniffleSDR:
 
         executor = ThreadPoolExecutor(max_workers=cpu_count())
 
-        CHUNK_SZ = 1 << 22
-        buffers = [zeros(CHUNK_SZ, complex64)]
+        buffers = [zeros(self.chunk_size, complex64)]
 
-        while self.worker_running:
-            if not self.source_read(buffers):
-                self.source_ready = False
+        while not self.worker_stopped:
+            if not self.read(buffers):
+                self.worker_stopped = True
                 break
 
             if self.use_channelizer:
@@ -177,7 +193,6 @@ class SniffleSDR:
                 self.pktq.put(dpkt)
 
         self.source_stop()
-        self.worker_running = False
 
     def process_channel(self, chan, samples, burst_det, fs, cfo):
         bursts = burst_det.feed(samples)
@@ -240,7 +255,8 @@ class SniffleSDR:
         return _SDRPacket(t_sync, rssi, chan, self.phy, body, crc_rev, crc_err)
 
     def recv_and_decode(self):
-        if not self.worker_running and self.source_ready:
+        if not self.worker_started:
+            self.worker_started = True
             self.worker = Thread(target=self._recv_worker)
             self.worker.start()
 
@@ -250,8 +266,9 @@ class SniffleSDR:
         pass
 
     def cancel_recv(self):
-        if self.worker_running:
-            self.worker_running = False
+        if self.worker_started:
+            self.worker_stopped = True
+            self.data_sem.release()
             self.worker.join()
             self.pktq.put(None)
 
@@ -303,6 +320,38 @@ class SniffleSDR:
         # configure CRC validation
         self.cmd_crc_valid(validate_crc)
 
+    def _read_worker(self):
+        if self.resampler:
+            tmp_buf = [zeros(self.chunk_size * self.resampler.down // self.resampler.up, dtype=complex64)]
+        else:
+            tmp_buf = self.data_buf
+
+        while not self.reader_stopped:
+            self.read_sem.acquire()
+            if not self.source_read(tmp_buf):
+                break
+            if self.resampler:
+                self.data_buf[0] = self.resampler.feed(tmp_buf[0])
+            self.data_sem.release()
+
+    def read(self, buffers):
+        if self.reader_stopped:
+            return False
+        if not self.reader_started:
+            self.reader_started = True
+            self.reader = Thread(target=self._read_worker)
+            self.reader.start()
+
+        self.data_sem.acquire()
+        if self.worker_stopped:
+            return False
+        if len(self.data_buf[0]) == len(buffers[0]):
+            buffers[0][:] = self.data_buf[0]
+        else:
+            buffers[0] = self.data_buf[0].copy()
+        self.read_sem.release()
+        return True
+
     def source_start(self):
         pass
 
@@ -314,7 +363,6 @@ class SniffleSDR:
 
 class SniffleSoapySDR(SniffleSDR):
     def __init__(self, driver='rfnm', mode='single', logger=None):
-        super().__init__(logger)
         self.sdr = None
         self.sdr_chan = 0
 
@@ -342,10 +390,12 @@ class SniffleSoapySDR(SniffleSDR):
                 rate_idx = 1
 
             self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[rate_idx])
-            self.fs = rates[rate_idx]
+            fs_source = rates[rate_idx]
             self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(self.chan))
         else:
             raise ValueError("Unknown driver")
+
+        super().__init__(fs_source, logger)
 
     def source_start(self):
         self.stream = self.sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.sdr_chan])
@@ -369,9 +419,8 @@ class SniffleSoapySDR(SniffleSDR):
 
 class SniffleFileSDR(SniffleSDR):
     def __init__(self, file_name, fs=122.88e6, chan=17, logger=None):
-        super().__init__(logger)
+        super().__init__(fs, logger)
         self.file = open(file_name, 'rb')
-        self.fs = fs
         self.chan = chan
         self.use_channelizer = True
 
