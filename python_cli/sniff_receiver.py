@@ -12,7 +12,7 @@ from sniffle.sniffle_hw import (make_sniffle_hw, PacketMessage, DebugMessage, St
                                 MeasurementMessage, SnifferMode, PhyMode)
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
                                     ScanRspMessage, DataMessage, str_mac)
-from sniffle.errors import UsageError
+from sniffle.errors import UsageError, SourceDone
 from sniffle.advdata.decoder import decode_adv_data
 
 # global variable to access hardware
@@ -138,6 +138,8 @@ def main():
         try:
             msg = hw.recv_and_decode()
             print_message(msg, args.quiet, args.decode)
+        except SourceDone:
+            break
         except KeyboardInterrupt:
             hw.cancel_recv()
             sys.stderr.write("\r")

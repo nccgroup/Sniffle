@@ -27,6 +27,7 @@ from .crc_ble import rbit24, crc_ble_reverse
 from .pcap import rf_to_ble_chan, ble_to_rf_chan
 from .channelizer import PolyphaseChannelizer
 from .resampler import PolyphaseResampler
+from .errors import SourceDone
 
 def freq_from_chan(chan):
     rf = ble_to_rf_chan(chan)
@@ -156,6 +157,7 @@ class SniffleSDR:
         while not self.worker_stopped:
             if not self.read(buffers):
                 self.worker_stopped = True
+                self.pktq.put(None) # unblock caller of recv_and_decode
                 break
 
             if self.use_channelizer:
@@ -259,6 +261,8 @@ class SniffleSDR:
             self.worker_started = True
             self.worker = Thread(target=self._recv_worker)
             self.worker.start()
+        elif self.worker_stopped and self.pktq.empty():
+            raise SourceDone
 
         return self.pktq.get()
 
@@ -329,6 +333,7 @@ class SniffleSDR:
         while not self.reader_stopped:
             self.read_sem.acquire()
             if not self.source_read(tmp_buf):
+                self.reader_stopped = True
                 break
             if self.resampler:
                 self.data_buf[0] = self.resampler.feed(tmp_buf[0])

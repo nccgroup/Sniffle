@@ -10,3 +10,7 @@ class SniffleHWPacketError(ValueError):
 # raised when Sniffle APIs or utilities are invoked incorrectly
 class UsageError(Exception):
     pass
+
+# Rasised when sniffer has no more data to provide
+class SourceDone(Exception):
+    pass
