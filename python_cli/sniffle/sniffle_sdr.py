@@ -142,16 +142,15 @@ class SniffleSDR:
             self.fs = fs_source
             self.resampler = None
 
-        # TODO: notify channel processors of source gain
-        # TODO: consider attenuation from resampler in per-channel gain
-        self.chan_processors = [ChannelProcessor(i, 2E6) for i in range(40)]
-
         self.gain = 10
         self.chan = 37
         self.phy = PhyMode.PHY_1M
         self.rssi_min = -128
         self.mac = None
         self.validate_crc = True
+
+        # TODO: consider attenuation from resampler in per-channel gain
+        self.chan_processors = [ChannelProcessor(i, 2E6, gain=self.gain) for i in range(40)]
 
     # Passively listen on specified channel and PHY for PDUs with specified access address
     # Expect PDU CRCs to use the specified initial CRC
