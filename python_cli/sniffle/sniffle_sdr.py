@@ -18,7 +18,7 @@ from numpy import zeros, complex64, frombuffer, reshape
 
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .decoder_state import SniffleDecoderState
-from .packet_decoder import PacketMessage, DPacketMessage, AdvertMessage
+from .packet_decoder import PacketMessage, DPacketMessage, AdvertMessage, DataMessage
 from .errors import SniffleHWPacketError, UsageError
 from .sniffle_hw import TrivialLogger
 from .sdr_utils import decimate, unpack_syms, calc_rssi, resample, fm_demod2, ExactSyncDetector
@@ -262,8 +262,11 @@ class SniffleSDR:
                     #self.logger.warning("Packet: %s", pkt)
                     dpkt = pkt
 
-                if isinstance(dpkt, AdvertMessage) and dpkt.AdvA != None:
+                if not isinstance(dpkt, DataMessage):
                     # TODO: IRK-based MAC filtering
+                    # TODO: Handle ADV_EXT_IND with AuxPtr and no MAC
+                    if not hasattr(dpkt, 'AdvA'):
+                        continue
                     if self.mac and dpkt.AdvA != self.mac:
                         continue
 
