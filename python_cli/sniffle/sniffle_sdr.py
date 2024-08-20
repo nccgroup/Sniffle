@@ -57,8 +57,9 @@ class ChannelProcessor:
     def __init__(self, chan, fs, coded_phy=False, gain=0):
         self.chan = chan
         self.fs = fs
+        self.samps_per_sym = int(fs / 1e6)
         self.sample_counter = 0
-        self.sync_detector = ExactSyncDetector(b'\xd6\xbe\x89\x8e')
+        self.sync_detector = ExactSyncDetector(b'\xd6\xbe\x89\x8e', samps_per_sym=self.samps_per_sym)
         self.gain = gain
         self.t_start = 0
         self.phy = PhyMode.PHY_1M
@@ -67,7 +68,7 @@ class ChannelProcessor:
         self.t_start = t_start
 
     def set_aa_crci(self, aa=0x8E89BED6, crci=BLE_ADV_CRCI):
-        self.sync_detector = ExactSyncDetector(pack('<I', aa))
+        self.sync_detector = ExactSyncDetector(pack('<I', aa), samps_per_sym=self.samps_per_sym)
         self.crci_rev = rbit24(crci)
 
     # To continuously feed samples
@@ -75,7 +76,7 @@ class ChannelProcessor:
     def feed(self, samples, start_sample=None):
         samples_demod = fm_demod2(samples) > 0
         syncs = self.sync_detector.feed(samples_demod)
-        pkts_raw = self.ble_pkt_extract(samples_demod, syncs, self.chan)
+        pkts_raw = self.ble_pkt_extract(samples_demod, syncs, self.chan, self.samps_per_sym)
         pkts = []
         for i, p in enumerate(pkts_raw):
             pkt_duration = (len(p) + 4) * 8 * 2 # 2 SPS, pkt doesn't include sync word
