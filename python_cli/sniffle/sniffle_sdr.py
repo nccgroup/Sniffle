@@ -403,7 +403,6 @@ class SniffleSoapySDR(SniffleSDR):
             rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
             antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
             self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
-            self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", gain)
             self.sdr.setDCOffsetMode(SOAPY_SDR_RX, self.sdr_chan, True)
 
             if mode == 'full':
@@ -417,9 +416,11 @@ class SniffleSoapySDR(SniffleSDR):
                 self.chan = 8 # 2420 MHz
                 rate_idx = 1
             else: # mode == 'single'
-                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 2E6)
+                self.sdr.setBandwidth(SOAPY_SDR_RX, self.sdr_chan, 1E6)
                 rate_idx = 1
+                gain = 20
 
+            self.sdr.setGain(SOAPY_SDR_RX, self.sdr_chan, "RF", gain)
             self.sdr.setSampleRate(SOAPY_SDR_RX, self.sdr_chan, rates[rate_idx])
             fs_source = rates[rate_idx]
             self.sdr.setFrequency(SOAPY_SDR_RX, self.sdr_chan, freq_from_chan(chan))
