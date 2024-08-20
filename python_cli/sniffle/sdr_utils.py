@@ -221,7 +221,7 @@ class ExactSyncDetector(SyncDetector):
 
         indices.sort()
         if self.deduplicate:
-            last_index = -self.samps_per_sym
+            last_index = -2 * self.samps_per_sym
             indices2 = []
             for i in indices:
                 if i - last_index < self.samps_per_sym: continue

@@ -80,7 +80,8 @@ class ChannelProcessor:
         pkts = []
         for i, p in enumerate(pkts_raw):
             pkt_duration = (len(p) + 4) * 8 * 2 # 2 SPS, pkt doesn't include sync word
-            pkt_samples = samples[syncs[i]:syncs[i] + pkt_duration]
+            s0 = syncs[i] if syncs[i] >= 0 else 0
+            pkt_samples = samples[s0:syncs[i] + pkt_duration]
             rssi = int(calc_rssi(pkt_samples) - self.gain)
             t_sync = self.t_start + (self.sample_counter + syncs[i]) / self.fs
             pkt = self.process_pkt(self.chan, t_sync, p, rssi)
