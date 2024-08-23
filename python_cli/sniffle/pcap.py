@@ -37,6 +37,30 @@ from .packet_decoder import (PacketMessage, DPacketMessage, DataMessage,
 from .constants import BLE_ADV_AA
 from .decoder_state import SniffleDecoderState
 
+def rf_to_ble_chan(chan):
+    if chan == 0:
+        return 37
+    elif chan == 12:
+        return 38
+    elif chan == 39:
+        return 39
+    elif chan <= 11:
+        return chan - 1
+    else:
+        return chan - 2
+
+def ble_to_rf_chan(chan):
+    if chan == 37:
+        return 0
+    elif chan == 38:
+        return 12
+    elif chan == 39:
+        return 39
+    elif chan <= 10:
+        return chan + 1
+    else:
+        return chan + 2
+
 class PcapBleWriter:
     """
     PCAP BLE Link-layer with PHDR.
@@ -126,19 +150,6 @@ class PcapBleWriter:
         payload_data = pack('<I', aa) + ci_b + packet + crc_bytes
         return payload_header + payload_data
 
-    @staticmethod
-    def _ble_to_rf_chan(chan):
-        if chan == 37:
-            return 0
-        elif chan == 38:
-            return 12
-        elif chan == 39:
-            return 39
-        elif chan <= 10:
-            return chan + 1
-        else:
-            return chan + 2
-
     def write_packet(self, ts_usec, aa, chan, rssi, packet,
             phy=0, pdu_type=0, aux_type=0, crc_rev=0, crc_err=False):
         """
@@ -148,7 +159,7 @@ class PcapBleWriter:
         """
         ts_s = ts_usec // 1000000
         ts_u = int(ts_usec - ts_s*1000000)
-        payload = self.payload(aa, packet, self._ble_to_rf_chan(chan), rssi,
+        payload = self.payload(aa, packet, ble_to_rf_chan(chan), rssi,
                                phy, pdu_type, aux_type, crc_rev, crc_err)
         self.write_packet_header(ts_s, ts_u, len(payload))
         self.output.write(payload)
@@ -203,19 +214,6 @@ class PcapBleReader:
         if read_header != expected_header:
             raise ValueError("Unexpected PCAP header")
 
-    @staticmethod
-    def _rf_to_ble_chan(chan):
-        if chan == 0:
-            return 37
-        elif chan == 12:
-            return 38
-        elif chan == 39:
-            return 39
-        elif chan <= 11:
-            return chan - 1
-        else:
-            return chan - 2
-
     def read_packet(self):
         # Read and parse packet header
         hdr = self.input.read(16)
@@ -247,7 +245,7 @@ class PcapBleReader:
         assert len(body) == body[1] + 2
 
         ts32 = (ts_sec*1000000 + ts_usec) & 0x3FFFFFFF
-        chan = self._rf_to_ble_chan(rf_chan)
+        chan = rf_to_ble_chan(rf_chan)
         slave_send = True if pdu_type == 3 else False
 
         pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, phy, body,

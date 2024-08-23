@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_7_40_00_77
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_7_41_00_17
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 

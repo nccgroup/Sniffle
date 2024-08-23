@@ -10,6 +10,7 @@ from sniffle.sniffle_hw import make_sniffle_hw, PhyMode, SnifferMode, PacketMess
 from sniffle.packet_decoder import *
 from sniffle.pcap import PcapBleWriter
 from sniffle.advdata.decoder import decode_adv_data
+from sniffle.errors import SourceDone
 
 # global variables
 hw = None
@@ -82,7 +83,10 @@ def main():
     print("Starting scanner. Press CTRL-C to stop scanning and show results.")
 
     while not done_scan:
-        msg = hw.recv_and_decode()
+        try:
+            msg = hw.recv_and_decode()
+        except SourceDone:
+            break
         if isinstance(msg, DebugMessage):
             print(msg)
         elif isinstance(msg, PacketMessage):

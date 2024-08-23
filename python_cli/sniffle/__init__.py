@@ -11,5 +11,8 @@ __all__ = [
     "sniffle_hw",
     "sdr_utils",
     "whitening_ble",
-    "sniffle_sdr"
+    "sniffle_sdr",
+    "coding_ble",
+    "channelizer",
+    "resampler"
 ]

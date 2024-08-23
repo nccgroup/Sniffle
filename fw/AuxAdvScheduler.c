@@ -1,6 +1,6 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2019, NCC Group plc
+ * Copyright (c) 2019-2024, NCC Group plc
  * Released as open source under GPLv3
  */
 
@@ -56,11 +56,7 @@ static bool insert_event_sorted(const struct AuxSchedInfo *event,
             end_b = event->radio_time + event->duration;
 
             // offset calculation to simplify handling of wraparound
-            if (start_b - start_a >= 0x80000000) // b before a, wraparond
-                offset = start_b;
-            else if (start_a - start_b >= 0x80000000)
-                offset = start_a;
-            else if (start_a > start_b)
+            if (start_b - start_a >= 0x80000000) // b before a
                 offset = start_b;
             else
                 offset = start_a;
@@ -117,7 +113,7 @@ static bool insert_event_sorted(const struct AuxSchedInfo *event,
         if (*num_events == max_events)
             return false;
 
-        if (elist[i].radio_time > event->radio_time)
+        if (elist[i].radio_time - event->radio_time < 0x80000000)
         {
             // we found a spot to insert
             uint32_t num_to_move = *num_events - i;
@@ -170,7 +166,7 @@ static void sched_clear_past(uint32_t cur_radio_time)
     {
         struct AuxSchedInfo *e = aux_events + i;
         uint32_t etime = e->radio_time + e->duration;
-        if (etime < cur_radio_time) {
+        if (etime - cur_radio_time >= 0x80000000) {
             sched_list_pop(aux_events, &num_aux_events, i);
             i--; // deal with list shift
         }
