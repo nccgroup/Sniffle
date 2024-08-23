@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
+# OpenDroneID mods (c) by B. Kerler
 # Copyright (c) 2018-2024, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys
+import time
 from binascii import unhexlify
-from sniffle.constants import BLE_ADV_AA
+from OpenDroneID.decoder import decode
 from sniffle.pcap import PcapBleWriter
 from sniffle.sniffle_hw import (make_sniffle_hw, PacketMessage, DebugMessage, StateMessage,
                                 MeasurementMessage, SnifferMode, PhyMode)
@@ -24,6 +26,7 @@ pcwriter = None
 def main():
     aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baudrate")
     aparse.add_argument("-c", "--advchan", default=40, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
     aparse.add_argument("-p", "--pause", action="store_true",
@@ -55,7 +58,40 @@ def main():
     aparse.add_argument("-d", "--decode", action="store_true",
             help="Decode advertising data")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
+    aparse.add_argument("-z", "--zmq", action="store_true", help="Enable zmq")
+    aparse.add_argument("--zmqport", default="4224", help="Define zmq port")
+    aparse.add_argument("--zmqhost", default="127.0.0.1", help="Define zmq host")
     args = aparse.parse_args()
+
+    if args.zmq:
+        import zmq
+
+        url = f"tcp://{args.zmqhost}:{args.zmqport}"
+
+        context = zmq.Context()
+        socket = context.socket(zmq.XPUB)
+        socket.setsockopt(zmq.XPUB_VERBOSE, True)
+        socket.bind(url)
+
+        def zmq_thread(socket):
+            try:
+                while True:
+                    event = socket.recv()
+                    # Event is one byte 0=unsub or 1=sub, followed by topic
+                    if event[0] == 1:
+                        log("new subscriber for", event[1:])
+                    elif event[0] == 0:
+                        log("unsubscribed", event[1:])
+            except zmq.error.ContextTerminated:
+                pass
+
+        def log(*msg):
+            s = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            print("%s:" % s, *msg, end="\n", file=sys.stderr)
+
+        from threading import Thread
+        zthread = Thread(target=zmq_thread, args=[socket], daemon=True, name='zmq')
+        zthread.start()
 
     # Sanity check argument combinations
     targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
@@ -137,10 +173,24 @@ def main():
     while True:
         try:
             msg = hw.recv_and_decode()
-            print_message(msg, args.quiet, args.decode)
+            if msg.pdutype == 'AUX_ADV_IND' and msg.aa==0x8e89bed6:
+                data = bytearray(msg.adv_data)
+                if data[1]==0x16 and int.from_bytes(data[2:4],'little')==0xFFFA and data[4]==0x0D:
+                    # Open Drone ID
+                    print("Open Drone ID\n-------------------------\n")
+                    json_data = decode(data)
+                    if args.zmq:
+                        socket.send_string(json_data)
+                    print(json_data)
+                    print()
+                    sys.stdout.flush()
+            else:
+                print_message(msg, args.quiet, args.decode)
         except SourceDone:
             break
         except KeyboardInterrupt:
+            if args.zmq:
+                socket.close()
             hw.cancel_recv()
             sys.stderr.write("\r")
             break
