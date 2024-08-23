@@ -1299,6 +1299,7 @@ static void handleConnFinished()
 {
     stateTransition(sniffDoneState);
     accessAddress = BLE_ADV_AA;
+    AuxAdvScheduler_reset();
     if (snifferState != PAUSED && advHopEnabled)
         advHopSeekMode();
 }
@@ -1356,6 +1357,7 @@ void setChanAAPHYCRCI(uint8_t chan, uint32_t aa, PHY_Mode phy, uint32_t crcInit)
     stateTransition(STATIC);
     accessAddress = aa;
     advHopEnabled = false;
+    AuxAdvScheduler_reset();
     RadioWrapper_stop();
 }
 
@@ -1390,8 +1392,7 @@ void pauseAfterSniffDone(bool do_pause)
 void setAuxAdvEnabled(bool enable)
 {
     auxAdvEnabled = enable;
-    if (!enable)
-        AuxAdvScheduler_reset();
+    AuxAdvScheduler_reset();
 }
 
 // this command is useful to get the radio time after a series of config
