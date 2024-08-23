@@ -39,15 +39,6 @@ if (system.getRTOS() === "tirtos7") {
 /* ======== Components ======== */
 var Components = system.deviceData.board.components;
 
-/* ======== Timer ======== */
-var Timer = scripting.addModule("/ti/drivers/Timer");
-var timer0 = Timer.addInstance();
-timer0.timerType = "32 Bits";
-timer0.$name = "CONFIG_TIMER_0";
-var timer1 = Timer.addInstance();
-timer1.timerType = "32 Bits";
-timer1.$name = "CONFIG_TIMER_1";
-
 /* ======== RF ======== */
 var RF = scripting.addModule("/ti/drivers/RF");
 

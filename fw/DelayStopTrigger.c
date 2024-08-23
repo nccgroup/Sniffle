@@ -1,41 +1,38 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2019-2022, NCC Group plc
+ * Copyright (c) 2019-2024, NCC Group plc
  * Released as open source under GPLv3
  */
 
 #include <stdbool.h>
 
 // TI includes
-#include <ti/drivers/Timer.h>
+#include <ti/drivers/dpl/ClockP.h>
 #include <ti/drivers/rf/RF.h>
 
 // Board Header file
 #include "ti_drivers_config.h"
+#include "ti_sysbios_config.h"
 
 // My includes
 #include <DelayStopTrigger.h>
 #include <RadioWrapper.h>
 
-static Timer_Handle tim = NULL;
+static ClockP_Handle clk = NULL;
 
 static volatile bool trig_pending = false;
 static uint32_t target_ticks = 0;
 
-static void delay_tick(Timer_Handle handle, int_fast16_t status);
+static void delay_tick(uintptr_t);
 
 void DelayStopTrigger_init()
 {
-    Timer_Params tparm;
-    Timer_Params_init(&tparm);
-    tparm.period = 100; // reasonable order of magnitude
-    tparm.periodUnits = Timer_PERIOD_US;
-    tparm.timerMode = Timer_ONESHOT_CALLBACK;
-    tparm.timerCallback = delay_tick;
+    ClockP_Params cparm;
+    ClockP_Params_init(&cparm);
 
-    tim = Timer_open(CONFIG_TIMER_1, &tparm);
+    clk = ClockP_create(delay_tick, 0, &cparm);
     // shouldn't happen
-    if (tim == NULL)
+    if (clk == NULL)
         while(1);
 }
 
@@ -44,7 +41,7 @@ void DelayStopTrigger_trig(uint32_t delay_us)
     if (delay_us == 0)
     {
         if (trig_pending) {
-            Timer_stop(tim);
+            ClockP_stop(clk);
             trig_pending = false;
         }
         RadioWrapper_stop();
@@ -54,15 +51,15 @@ void DelayStopTrigger_trig(uint32_t delay_us)
         if (trig_pending && (target_ticks - new_target_ticks > 0x80000000))
             return;
 
-        Timer_stop(tim);
-        Timer_setPeriod(tim, Timer_PERIOD_US, delay_us);
+        ClockP_stop(clk);
+        ClockP_setTimeout(clk, delay_us / Clock_tickPeriod_D);
         trig_pending = true;
         target_ticks = new_target_ticks;
-        Timer_start(tim);
+        ClockP_start(clk);
     }
 }
 
-static void delay_tick(Timer_Handle handle, int_fast16_t status)
+static void delay_tick(uintptr_t)
 {
     trig_pending = false;
     RadioWrapper_stop();

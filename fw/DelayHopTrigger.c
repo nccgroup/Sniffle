@@ -1,41 +1,38 @@
 /*
  * Written by Sultan Qasim Khan
- * Copyright (c) 2018-2022, NCC Group plc
+ * Copyright (c) 2018-2024, NCC Group plc
  * Released as open source under GPLv3
  */
 
 #include <stdbool.h>
 
 // TI includes
-#include <ti/drivers/Timer.h>
+#include <ti/drivers/dpl/ClockP.h>
 #include <ti/drivers/rf/RF.h>
 
 // Board Header file
 #include "ti_drivers_config.h"
+#include "ti_sysbios_config.h"
 
 // My includes
 #include <DelayHopTrigger.h>
 #include <RadioWrapper.h>
 
-static Timer_Handle tim = NULL;
+static ClockP_Handle clk = NULL;
 
 static volatile bool trig_pending = false;
 static uint32_t target_ticks = 0;
 
-static void delay_tick(Timer_Handle handle, int_fast16_t status);
+static void delay_tick(uintptr_t);
 
 void DelayHopTrigger_init()
 {
-    Timer_Params tparm;
-    Timer_Params_init(&tparm);
-    tparm.period = 100; // reasonable order of magnitude
-    tparm.periodUnits = Timer_PERIOD_US;
-    tparm.timerMode = Timer_ONESHOT_CALLBACK;
-    tparm.timerCallback = delay_tick;
+    ClockP_Params cparm;
+    ClockP_Params_init(&cparm);
 
-    tim = Timer_open(CONFIG_TIMER_0, &tparm);
+    clk = ClockP_create(delay_tick, 0, &cparm);
     // shouldn't happen
-    if (tim == NULL)
+    if (clk == NULL)
         while(1);
 }
 
@@ -45,10 +42,10 @@ void DelayHopTrigger_trig(uint32_t delay_us)
     {
         RadioWrapper_trigAdv3();
     } else {
-        Timer_setPeriod(tim, Timer_PERIOD_US, delay_us);
+        ClockP_setTimeout(clk, delay_us / Clock_tickPeriod_D);
         trig_pending = true;
         target_ticks = RF_getCurrentTime() + delay_us*4;
-        Timer_start(tim);
+        ClockP_start(clk);
     }
 }
 
@@ -59,13 +56,13 @@ void DelayHopTrigger_postpone(uint32_t delay_us)
     if (!trig_pending)
         return;
 
-    Timer_stop(tim);
+    ClockP_stop(clk);
     new_delay_ticks = target_ticks - RF_getCurrentTime() + delay_us*4;
-    Timer_setPeriod(tim, Timer_PERIOD_US, new_delay_ticks >> 2);
-    Timer_start(tim);
+    ClockP_setTimeout(clk, (new_delay_ticks >> 2) / Clock_tickPeriod_D);
+    ClockP_start(clk);
 }
 
-static void delay_tick(Timer_Handle handle, int_fast16_t status)
+static void delay_tick(uintptr_t)
 {
     trig_pending = false;
     RadioWrapper_trigAdv3();
