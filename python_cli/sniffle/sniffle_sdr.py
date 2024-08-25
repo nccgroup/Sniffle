@@ -5,8 +5,6 @@
 from struct import pack, unpack
 from binascii import Error as BAError
 from time import time
-from random import randint, randbytes
-from traceback import format_exception
 from queue import Queue
 from threading import Thread, Semaphore
 from concurrent.futures import ThreadPoolExecutor

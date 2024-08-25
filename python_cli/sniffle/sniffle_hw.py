@@ -8,7 +8,7 @@ from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from time import time
-from random import randint, randbytes
+from random import randint, randrange
 from serial.tools.list_ports import comports
 from traceback import format_exception
 from .measurements import MeasurementMessage, VersionMeasurement
@@ -406,7 +406,7 @@ class SniffleHW:
     def mark_and_flush(self):
         # use marker to zero time, flush every packet before marker
         # also tolerate errors from incomplete lines in UART buffer
-        marker_data = randbytes(4)
+        marker_data = pack('<I', randrange(0x100000000))
         self.cmd_marker(marker_data)
         recvd_mark = False
         while not recvd_mark:
