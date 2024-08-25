@@ -31,8 +31,9 @@ Sniffle has a number of useful features, including:
     * TI CC2651P3 Launchpad Board: <https://www.ti.com/tool/LP-CC2651P3>
     * TI CC1354P10 Launchpad Board: <https://www.ti.com/tool/LP-EM-CC1354P10>
     * SONOFF CC2652P USB Dongle Plus: <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
+    * EC Catsniffer V3 CC1352 & RP2040 <https://github.com/ElectronicCats/CatSniffer>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
-* TI SimpleLink Low Power F2 SDK 7.41.00.17: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.41.00.17>
+* TI SimpleLink Low Power F2 SDK 7.40.00.77: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.40.00.77>
 * TI DSLite Programmer Software: see below
 * Python 3.9+ with PySerial installed
 
@@ -59,15 +60,15 @@ expect this path, so I suggest just going with the default here. The same
 applies for the TI SysConfig tool.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_7_41_00_17`
+your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_7_40_00_77`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
-The only paths that need to be set here to build Sniffle are for GCC, XDC,
-cmake and SysConfig. We don't need the CCS compiler. See the diff below as
-an example, and adapt for wherever you installed things.
+The only paths that need to be set here to build Sniffle are for GCC, XDC, and
+SysConfig. We don't need the CCS compiler. See the diff below as an example,
+and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index d3900b5b6..e7108c3df 100644
+index d3900b5b6..d5f765b92 100644
 --- a/imports.mak
 +++ b/imports.mak
 @@ -18,14 +18,14 @@
@@ -85,7 +86,7 @@ index d3900b5b6..e7108c3df 100644
  
  TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1230/ccs/tools/compiler/ti-cgt-armllvm_3.2.0.LTS-0
 -GCC_ARMCOMPILER        ?= /home/username/arm-none-eabi-gcc/9.2019.q4.major-0
-+GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi
++GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-13.2.Rel1-x86_64-arm-none-eabi
  IAR_ARMCOMPILER        ?= /home/username/iar9.40.2
  
  # Uncomment this to enable the TFM build
@@ -158,6 +159,33 @@ UART interface with the 2M PHY. If you really want to use the full 2M baud rate
 on your newer CP2102N equipped Sonoff (or other brand) dongle, you can flash the
 full baud rate firmware and modify `sniffle_hw.py` to not lower the baud rate for
 CP2102 devices.
+
+## Firmware Installation (Catsniffer V3)
+Electronic Cats provides a Catnip Uploader tool for loading firmware. For detailed information, refer to the [repository](https://github.com/ElectronicCats/CatSniffer-Tools/tree/main).
+Download the tool and follow these commands:
+```bash
+[ec@sniffle]$ git clone https://github.com/ElectronicCats/CatSniffer-Tools.git
+[ec@sniffle]$ cd CatSniffer-Tools/catnip_uploader
+[ec@sniffle]$ pip install -r requirements.txt
+# First download the available firmware
+[ec@sniffle]$ python3 catnip_uploader.py releases 
+[INFO] Fetching assets from https://api.github.com/repos/ElectronicCats/CatSniffer-Firmware/releases/latest
+[INFO] Release: board-v3.x-v1.1.0
+[INFO] Fetching assets from https://api.github.com/repos/nccgroup/Sniffle/releases/latest
+[INFO] Release: v1.10.0
+[INFO] Found local release: releases_board-v3.x-v1.1.0
+[SUCCESS] Local release is up to date: board-v3.x-v1.1.0
+[SUCCESS] Available releases:
+0: sniffer_fw_CC1352P_7_v1.10.hex
+1: airtag_scanner_CC1352P_7_v1.0.hex
+2: nccgroup_v1.10.0_sniffle_cc1352p7_1M.hex
+3: airtag_spoofer_CC1352P_7_v1.0.hex
+4: sniffle_CC1352P_7_v1.7.hex
+[ec@sniffle]$ python3 catnip_uploader.py load 2 COMPORT
+```
+You need to change the *COMPORT* to the appropriate path for your board.
+Using the command `python3 catnip_uploader.py load 2 COMPORT`, you will load the `2: nccgroup_v1.10.0_sniffle_cc1352p7_1M.hex` firmware.
+**To load the firmware Catsniffer V3 requires SerialPassthroughwithboot**.
 
 ## Sniffer Usage
 
