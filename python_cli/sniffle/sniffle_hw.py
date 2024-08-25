@@ -300,6 +300,11 @@ class SniffleHW:
     def cmd_crc_valid(self, validate=True):
         self._send_cmd([0x26, 1 if validate else 0])
 
+    def cmd_tx_power(self, power=5):
+        if power < -20 or power > 5:
+            raise ValueError("TX power out of bounds")
+        self._send_cmd([0x27, power & 0xFF])
+
     def _recv_msg(self, desync=False):
         got_msg = False
         while not (got_msg or self.recv_cancelled):
@@ -437,7 +442,8 @@ class SniffleHW:
                       interval_preload=[],
                       phy_preload=PhyMode.PHY_2M,
                       pause_done=False,
-                      validate_crc=True):
+                      validate_crc=True,
+                      txPower=5):
         if not mode in SnifferMode:
             raise ValueError("Invalid mode requested")
 
@@ -478,6 +484,9 @@ class SniffleHW:
 
         # configure CRC validation
         self.cmd_crc_valid(validate_crc)
+
+        # congigure TX power
+        self.cmd_tx_power(txPower)
 
         # preload encrypted connection parameter changes
         self.cmd_interval_preload(interval_preload)

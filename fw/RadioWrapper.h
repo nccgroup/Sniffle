@@ -112,6 +112,9 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     bool advRandom, const void *advData, uint8_t advLen, ADV_EXT_Mode mode,
     PHY_Mode primaryPhy, PHY_Mode secondaryPhy, uint32_t secondaryChan, uint16_t adi);
 
+// Set transmit power (in dBm), supported range -20 to +5
+void RadioWrapper_setTxPower(int8_t power);
+
 // Stop ongoing radio operations
 void RadioWrapper_stop();
 

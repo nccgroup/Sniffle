@@ -15,6 +15,7 @@
 
 #include <CommandTask.h>
 #include <RadioTask.h>
+#include <RadioWrapper.h>
 #include <PacketTask.h>
 #include <messenger.h>
 #include <TXQueue.h>
@@ -208,6 +209,10 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
         case COMMAND_CRC_VALID:
             if (ret != 3) continue;
             setCrcValidation(msgBuf[2] ? true : false);
+            break;
+        case COMMAND_TX_POWER:
+            if (ret != 3) continue;
+            RadioWrapper_setTxPower((int8_t)msgBuf[2]);
             break;
         default:
             break;

@@ -43,6 +43,9 @@ def main():
     # advertise roughly every 200 ms
     hw.cmd_adv_interval(200)
 
+    # transmit power of +5 dBm
+    hw.cmd_tx_power(5)
+
     # reset preloaded encrypted connection interval changes
     hw.cmd_interval_preload()
 
