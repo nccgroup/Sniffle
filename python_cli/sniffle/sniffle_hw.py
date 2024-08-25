@@ -37,6 +37,13 @@ class TrivialLogger:
     critical = _log
     exception = _log
 
+def find_catsniffer_v3_serport():
+    catsniffer_ports = [i[0] for i in comports() if (i.vid == 11914 and i.pid == 192 and i.manufacturer.lower() == "arduino")]
+    if len(catsniffer_ports) > 0:
+        return catsniffer_ports[0]
+    else:
+        return None
+
 def find_xds110_serport():
     xds_ports = [i[0] for i in comports() if (i.vid == 0x0451 and i.pid == 0xBEF3)]
     if len(xds_ports) > 0:
@@ -100,7 +107,9 @@ class SniffleHW:
             if serport is None:
                 serport = find_sonoff_serport()
                 if serport is None:
-                    raise IOError("Sniffle device not found")
+                    serport = find_catsniffer_v3_serport()
+                    if serport is None:
+                        raise IOError("Sniffle device not found")
                 else:
                     baud = 921600
         elif is_cp2102(serport):
