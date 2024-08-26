@@ -196,6 +196,19 @@ Using the command `python3 catnip_uploader.py load 2 COMPORT`, you will load
 the `2: nccgroup_v1.10.0_sniffle_cc1352p7_1M.hex` firmware.
 **To load the firmware Catsniffer V3 requires SerialPassthroughwithboot**.
 
+**WARNING:** Do not flash the wrong build variant using the bootloader, or you
+risk bricking the device and locking yourself out of the bootloader. If you
+use the `catnip_uploader.py` script to fetch and install the firmware, it will
+only present compatible firmware. However, if you choose to compile and install
+the firmware manually, be sure you use the correct build variant. For CatSniffer
+v3 devices, use the `sniffle_cc1352p7_1M.hex` file (`CC1352P74_1M` build variant).
+CatSniffer v1.x/v2.x devices use a different chip variant (CC1352P1) that needs a
+different firmware build (`CC1352P1F3_1M` variant, `sniffle_cc1352p1_cc2652p1_1M.hex`
+image). Sniffle has not been tested on CatSniffer v1.x/v2.x devices but they will
+probably work as long as you flash the appropriate build variant. If you flash the
+wrong variant and lock yourself out of the bootloader, it may be possible to recover
+the device using JTAG/SWD.
+
 ## Sniffer Usage
 
 ```
