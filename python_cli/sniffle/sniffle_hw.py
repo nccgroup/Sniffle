@@ -11,6 +11,7 @@ from time import time
 from random import randint, randrange
 from serial.tools.list_ports import comports
 from traceback import format_exception
+from os.path import realpath
 from .measurements import MeasurementMessage, VersionMeasurement
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .sniffer_state import StateMessage, SnifferState
@@ -70,6 +71,7 @@ def find_sonoff_serport():
 
 # SiLabs CP2102 (used in older Sonoff dongles and others) has 921600 baud limit
 def is_cp2102(serport):
+    serport = realpath(serport)
     for i in comports():
         if i.device == serport:
             if i.vid != 0x10C4:
