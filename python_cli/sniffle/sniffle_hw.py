@@ -437,7 +437,7 @@ class SniffleHW:
 
     # Generate a random static address and set it
     def random_addr(self):
-        addr = [randint(0, 255) for i in range(6)]
+        addr = [randrange(0x100) for i in range(6)]
         addr[5] |= 0xC0 # make it static
         self.cmd_setaddr(bytes(addr))
 
@@ -513,10 +513,10 @@ class SniffleHW:
         llData = []
 
         # access address
-        llData.extend([randint(0, 255) for i in range(4)])
+        llData.extend([randrange(0x100) for i in range(4)])
 
         # initial CRC
-        llData.extend([randint(0, 255) for i in range(3)])
+        llData.extend([randrange(0x100) for i in range(3)])
 
         # WinSize, WinOffset, Interval, Latency, Timeout
         llData.append(3)
