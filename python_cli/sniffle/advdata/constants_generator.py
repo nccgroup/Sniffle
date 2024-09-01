@@ -7,10 +7,6 @@
 import os
 import urllib.request
 
-company_identifiers = {}
-ad_types = {}
-service_uuids16 = {}
-
 # Overly simplistic YAML parser for Bluetooth Assigned Numbers
 # I made this to avoid adding a dependency
 # This is not a general purpose parser
@@ -81,7 +77,10 @@ def main():
 
     print("Fetching service UUIDs")
     service_uuids_yaml = fetch_assigned_numbers("uuids/service_uuids.yaml")
-    service_uuids16 = {}
+    # Custom service UUIDs not assigned by Bluetooth SIG can be defined here
+    service_uuids16 = {
+        0xFFFA: 'ASTM Remote ID'
+    }
     for u in decode_yaml(service_uuids_yaml)["uuids"]:
         service_uuids16[u["uuid"]] = u["name"]
 
