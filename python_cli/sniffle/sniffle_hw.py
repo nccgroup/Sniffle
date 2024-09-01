@@ -439,7 +439,9 @@ class SniffleHW:
     def random_addr(self):
         addr = [randrange(0x100) for i in range(6)]
         addr[5] |= 0xC0 # make it static
-        self.cmd_setaddr(bytes(addr))
+        addr = bytes(addr)
+        self.cmd_setaddr(addr)
+        return addr
 
     def setup_sniffer(self,
                       mode=SnifferMode.CONN_FOLLOW,
