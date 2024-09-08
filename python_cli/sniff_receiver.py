@@ -106,7 +106,7 @@ def main():
         raise UsageError("Don't specify an advertising channel if you want advertising channel hopping!")
 
     global hw
-    hw = make_sniffle_hw(args.serport)
+    hw = make_sniffle_hw(serport=args.serport, baudrate=args.baudrate)
 
     # if a channel was explicitly specified, don't hop
     hop3 = True if targ_specs else False

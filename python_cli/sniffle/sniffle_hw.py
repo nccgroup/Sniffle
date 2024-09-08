@@ -71,7 +71,7 @@ def is_cp2102(serport):
                 return True
     return False
 
-def make_sniffle_hw(serport=None, logger=None, timeout=None):
+def make_sniffle_hw(serport=None, baudrate=921600, logger=None, timeout=None):
     if serport is None:
         return SniffleHW(serport, logger, timeout)
     elif serport.startswith('rfnm'):
