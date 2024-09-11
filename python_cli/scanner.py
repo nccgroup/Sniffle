@@ -91,6 +91,9 @@ def main():
         elif isinstance(msg, PacketMessage):
             handle_packet(msg)
 
+    # Stop active scanning
+    hw.setup_sniffer()
+
     print("\n\nScan Results:")
     for a in sorted(advertisers.keys(), key=lambda k: advertisers[k].rssi_avg, reverse=True):
         print("="*80)
