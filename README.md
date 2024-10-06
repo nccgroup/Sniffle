@@ -18,6 +18,7 @@ Sniffle has a number of useful features, including:
 * Easy to extend host-side software written in Python
 * PCAP export compatible with the Ubertooth
 * Wireshark compatible plugin
+* ZMQ Subscribing server
 
 ## Prerequisites
 
@@ -295,7 +296,7 @@ Launchpad boards, the reset button is located beside the micro USB port.
 ## Scanner Usage
 
 ```
-usage: scanner.py [-h] [-s SERPORT] [-c {37,38,39}] [-r RSSI] [-l]
+usage: scanner.py [-h] [-s SERPORT] [-b BAUDRATE] [-c {37,38,39}] [-r RSSI] [-l]
 
 Scanner utility for Sniffle BLE5 sniffer
 
@@ -303,12 +304,17 @@ optional arguments:
   -h, --help            show this help message and exit
   -s SERPORT, --serport SERPORT
                         Sniffer serial port name
+  -b BAUDRATE, --baudrate BAUDRATE
+                        Sniffer baudrate (2000000 or 921600) 
   -c {37,38,39}, --advchan {37,38,39}
                         Advertising channel to listen on
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -l, --longrange       Use long range (coded) PHY for primary advertising
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
+  -z, --ZMQ             Enable ZMQ server
+  --zmqport             ZMQ Server Port (default:4222)
+  --zmqhost             ZMQ Server IP (default:127.0.0.1)
 ```
 
 The scanner command line arguments work the same as the sniffer. The purpose of

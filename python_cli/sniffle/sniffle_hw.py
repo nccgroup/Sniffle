@@ -97,7 +97,7 @@ class SniffleHW:
         if baudrate is None:
             baud = 2000000
         else:
-            baud = baudrate
+            baud = int(baudrate)
         if serport is None:
             serport = find_xds110_serport()
             if serport is None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import json
 # Written by Sultan Qasim Khan
 # Copyright (c) 2019-2024, NCC Group plc
 # Released as open source under GPLv3
@@ -105,6 +105,10 @@ class PacketMessage:
                 type(self).__name__, self.ts, self.aa, self.rssi, self.chan, self.phy,
                 self.event, repr(self.body))
 
+    def to_json(self):
+        return {"ts": self.ts, "aa": self.aa, "rssi": self.rssi, "chan": self.chan,
+                "phy": self.phy, "event": self.event, "body": self.body.hex()}
+
     def str_header(self):
         phy_names = ["1M", "2M", "Coded (S=8)", "Coded (S=2)"]
         if self.crc_err:
@@ -183,8 +187,19 @@ class AdvertMessage(DPacketMessage):
         atstr += "Ad Length: %i" % self.ad_length
         return atstr
 
+    def json_adtype(self):
+        res = self.to_json()
+        res["ChSel"]=self.ChSel
+        res["TxAdd"]=self.TxAdd
+        res["RxAdd"]=self.RxAdd
+        res["AdLength"]=self.ad_length
+        return res
+
     def _str_decode(self):
         return self.str_adtype()
+
+    def to_dict(self):
+        return self.json_adtype()
 
     @staticmethod
     def decode(pkt: PacketMessage, dstate=None):
@@ -245,11 +260,23 @@ class DataMessage(DPacketMessage):
         dtstr += "Data Length: %i" % self.data_length
         return dtstr
 
+    def json_datatype(self):
+        return {"LLID": self.pdutype,
+                "Dir": ("S->M" if self.data_dir else "M->S"),
+                "NESN": self.NESN,
+                "SN": self.SN,
+                "MD": self.MD,
+                "Data Length": self.data_length}
+
+
     def str_header(self):
         return super().str_header() + "  Event: %d" % self.event
 
     def _str_decode(self):
         return self.str_datatype()
+
+    def to_dict(self):
+        return self.json_datatype()
 
     @staticmethod
     def decode(pkt: PacketMessage, dstate=None):
@@ -267,6 +294,34 @@ class LlDataMessage(DataMessage):
 class LlDataContMessage(DataMessage):
     pdutype = "LL DATA CONT"
 
+control_opcodes = [
+    "LL_CONNECTION_UPDATE_IND",
+    "LL_CHANNEL_MAP_IND",
+    "LL_TERMINATE_IND",
+    "LL_ENC_REQ",
+    "LL_ENC_RSP",
+    "LL_START_ENC_REQ",
+    "LL_START_ENC_RSP",
+    "LL_UNKNOWN_RSP",
+    "LL_FEATURE_REQ",
+    "LL_FEATURE_RSP",
+    "LL_PAUSE_ENC_REQ",
+    "LL_PAUSE_ENC_RSP",
+    "LL_VERSION_IND",
+    "LL_REJECT_IND",
+    "LL_SLAVE_FEATURE_REQ",
+    "LL_CONNECTION_PARAM_REQ",
+    "LL_CONNECTION_PARAM_RSP",
+    "LL_REJECT_EXT_IND",
+    "LL_PING_REQ",
+    "LL_PING_RSP",
+    "LL_LENGTH_REQ",
+    "LL_LENGTH_RSP",
+    "LL_PHY_REQ",
+    "LL_PHY_RSP",
+    "LL_PHY_UPDATE_IND",
+    "LL_MIN_USED_CHANNELS_IND"
+]
 class LlControlMessage(DataMessage):
     pdutype = "LL CONTROL"
 
@@ -275,43 +330,25 @@ class LlControlMessage(DataMessage):
         self.opcode = self.body[2]
 
     def str_opcode(self):
-        control_opcodes = [
-                "LL_CONNECTION_UPDATE_IND",
-                "LL_CHANNEL_MAP_IND",
-                "LL_TERMINATE_IND",
-                "LL_ENC_REQ",
-                "LL_ENC_RSP",
-                "LL_START_ENC_REQ",
-                "LL_START_ENC_RSP",
-                "LL_UNKNOWN_RSP",
-                "LL_FEATURE_REQ",
-                "LL_FEATURE_RSP",
-                "LL_PAUSE_ENC_REQ",
-                "LL_PAUSE_ENC_RSP",
-                "LL_VERSION_IND",
-                "LL_REJECT_IND",
-                "LL_SLAVE_FEATURE_REQ",
-                "LL_CONNECTION_PARAM_REQ",
-                "LL_CONNECTION_PARAM_RSP",
-                "LL_REJECT_EXT_IND",
-                "LL_PING_REQ",
-                "LL_PING_RSP",
-                "LL_LENGTH_REQ",
-                "LL_LENGTH_RSP",
-                "LL_PHY_REQ",
-                "LL_PHY_RSP",
-                "LL_PHY_UPDATE_IND",
-                "LL_MIN_USED_CHANNELS_IND"
-                ]
         if self.opcode < len(control_opcodes):
             return "Opcode: %s" % control_opcodes[self.opcode]
         else:
             return "Opcode: RFU (0x%02X)" % self.opcode
 
+    def json_opcode(self):
+        if self.opcode < len(control_opcodes):
+            return {"Opcode": control_opcodes[self.opcode] }
+        else:
+            return {"Opcode RFU":self.opcode}
+
     def _str_decode(self):
         return "\n".join([
             self.str_datatype(),
             self.str_opcode()])
+
+    def to_dict(self):
+        return {self.pdutype:{"DataType":self.json_datatype(),
+                "Opcode":self.json_opcode()}}
 
 class AdvaMessage(AdvertMessage):
     def __init__(self, pkt: PacketMessage):
@@ -326,6 +363,11 @@ class AdvaMessage(AdvertMessage):
         return "\n".join([
             self.str_adtype(),
             self.str_adva()])
+
+    def to_dict(self):
+        return {self.pdutype:{"Pkt":self.json_adtype(),
+                "AdvA":str_mac2(self.AdvA, self.TxAdd),
+                "AdvData":self.adv_data.hex()}}
 
 class AdvIndMessage(AdvaMessage):
     pdutype = "ADV_IND"
@@ -351,10 +393,16 @@ class AdvDirectIndMessage(AdvertMessage):
     def str_ata(self):
         return "AdvA: %s TargetA: %s" % (str_mac2(self.AdvA, self.TxAdd), str_mac2(self.TargetA, self.RxAdd))
 
+    def json_ata(self):
+        return {"AdvA": str_mac2(self.AdvA, self.TxAdd), "TargetA": str_mac2(self.TargetA, self.RxAdd), "AdvData":self.adv_data.hex()}
+
     def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_ata()])
+
+    def to_dict(self):
+        return {self.pdutype:{"Pkt":self.json_adtype(),"ata":self.json_ata(),"AdvData":self.adv_data.hex()}}
 
 class ScanReqMessage(AdvertMessage):
     pdutype = "SCAN_REQ"
@@ -367,10 +415,16 @@ class ScanReqMessage(AdvertMessage):
     def str_asa(self):
         return "ScanA: %s AdvA: %s" % (str_mac2(self.ScanA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd))
 
+    def json_asa(self):
+        return {"ScanA":str_mac2(self.ScanA, self.TxAdd),"AdvA": str_mac2(self.AdvA, self.RxAdd)}
+
     def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_asa()])
+
+    def to_dict(self):
+        return {self.pdutype:{"Pkt":self.json_adtype(),"asa":self.str_asa()}}
 
 class AuxScanReqMessage(ScanReqMessage):
     pdutype = "AUX_SCAN_REQ"
@@ -395,10 +449,25 @@ class ConnectIndMessage(AdvertMessage):
         return "InitA: %s AdvA: %s AA: 0x%08X CRCInit: 0x%06X" % (
                 str_mac2(self.InitA, self.TxAdd), str_mac2(self.AdvA, self.RxAdd), self.aa_conn, self.CRCInit)
 
+    def json_aia(self):
+        return {"InitA":str_mac2(self.InitA, self.TxAdd),
+                "AdvA":str_mac2(self.AdvA, self.RxAdd),
+                "AA": self.aa_conn,
+                "CRCInit": self.CRCInit}
+
     def str_conn_params(self):
         return "WinSize: %d WinOffset: %d Interval: %d Latency: %d Timeout: %d Hop: %d SCA: %d" % (
                 self.WinSize, self.WinOffset, self.Interval, self.Latency, self.Timeout,
                 self.Hop, self.SCA)
+
+    def json_conn_params(self):
+        return {"WinSize": self.WinSize,
+                "WinOffset": self.WinOffset,
+                "Interval": self.Interval,
+                "Latency": self.Latency,
+                "Timeout": self.Timeout,
+                "Hop": self.Hop,
+                "SCA": self.SCA}
 
     def str_chm(self):
         if self.ChM == b'\xFF\xFF\xFF\xFF\x1F':
@@ -413,6 +482,19 @@ class ConnectIndMessage(AdvertMessage):
         chanstr = "%02X %02X %02X %02X %02X" % tuple(self.ChM)
         return "Channel Map: %s (%s)" % (chanstr, descstr)
 
+    def json_chm(self):
+        if self.ChM == b'\xFF\xFF\xFF\xFF\x1F':
+            descstr = "all channels"
+        else:
+            has_chan = lambda chm, i: (chm[i // 8] & (1 << (i & 7))) != 0
+            excludes = []
+            for i in range(37):
+                if not has_chan(self.ChM, i):
+                    excludes.append(i)
+            descstr = "excludes " + ", ".join([str(i) for i in excludes])
+        chanstr = "%02X %02X %02X %02X %02X" % tuple(self.ChM)
+        return {"Channel Map": {"channel":chanstr,"desc":descstr}}
+
     def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
@@ -420,9 +502,16 @@ class ConnectIndMessage(AdvertMessage):
             self.str_conn_params(),
             self.str_chm()])
 
+    def to_dict(self):
+        return {self.pdutype:{"Pkt":self.json_adtype(),"aia":self.json_aia(),
+                "conn_params":self.json_conn_params(),"chm":self.json_chm()}}
+
 class AuxConnectReqMessage(ConnectIndMessage):
     pdutype = "AUX_CONNECT_REQ"
 
+
+phy_names = ["1M", "2M", "Coded", "Invalid3", "Invalid4",
+             "Invalid5", "Invalid6", "Invalid7"]
 class AuxPtr:
     def __init__(self, ptr):
         self.chan = ptr[0] & 0x3F
@@ -432,10 +521,12 @@ class AuxPtr:
         self.offsetUsec = auxOffset * offsetMult
 
     def __str__(self):
-        phy_names = ["1M", "2M", "Coded", "Invalid3", "Invalid4",
-                "Invalid5", "Invalid6", "Invalid7"]
         return "AuxPtr Chan: %d PHY: %s Delay: %d us" % (
             self.chan, phy_names[self.phy], self.offsetUsec)
+
+    def to_dict(self):
+        return {"chan":self.chan, "PHY":phy_names[self.phy],
+                "Delay_us":self.offsetUsec}
 
 class AdvDataInfo:
     def __init__(self, adi):
@@ -449,6 +540,9 @@ class AdvDataInfo:
         if isinstance(other, AdvDataInfo):
             return self.did == other.did and self.sid == other.sid
         return False
+
+    def to_dict(self):
+        return {"did":self.did, "sid":self.sid}
 
 class AdvExtIndMessage(AdvertMessage):
     pdutype = "ADV_EXT_IND"
@@ -533,10 +627,38 @@ class AdvExtIndMessage(AdvertMessage):
         else:
             return dmsg
 
+    def json_aext(self):
+        ret = {}
+
+        amodes = ["Non-connectable, non-scannable",
+                "Connectable", "Scannable", "RFU"]
+        ret["AdvMode"]=amodes[self.AdvMode]
+        if self.AdvA:
+            ret["AdvA"]= str_mac2(self.AdvA, self.TxAdd)
+        if self.TargetA:
+            ret["TargetA"]= str_mac2(self.TargetA, self.RxAdd)
+        if self.CTEInfo:
+            ret["CTEInfo"]= self.CTEInfo
+        if self.AdvDataInfo:
+            ret["AdvDataInfo"]=self.AdvDataInfo.to_dict()
+        if self.SyncInfo:
+            # TODO decode this nicely
+            ret["SyncInfo"]=self.SyncInfo.hex()
+        if self.TxPower:
+            ret["TxPower"]=self.TxPower
+        if self.ACAD:
+            ret["ACAD"]=self.ACAD.hex()
+        if self.AuxPtr:
+            ret["AuxPtr"]=self.AuxPtr.to_dict()
+        return ret
+
     def _str_decode(self):
         return "\n".join([
             self.str_adtype(),
             self.str_aext()])
+
+    def to_dict(self):
+        return {self.pdutype: {"Pkt":self.json_adtype(), "aext": self.json_aext(), "AdvData":self.adv_data.hex()}}
 
 def get_adi(pkt: PacketMessage):
     dpkt = AdvExtIndMessage(pkt)

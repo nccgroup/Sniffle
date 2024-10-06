@@ -6,14 +6,14 @@
 # Released as open source under GPLv3
 
 import argparse, sys
+import json
 import time
 from binascii import unhexlify
-from OpenDroneID.decoder import decode
 from sniffle.pcap import PcapBleWriter
 from sniffle.sniffle_hw import (make_sniffle_hw, PacketMessage, DebugMessage, StateMessage,
                                 MeasurementMessage, SnifferMode, PhyMode)
 from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndMessage,
-                                    ScanRspMessage, DataMessage, str_mac)
+                                    ScanRspMessage, DataMessage, str_mac, AdvIndMessage)
 from sniffle.errors import UsageError, SourceDone
 from sniffle.advdata.decoder import decode_adv_data
 
@@ -59,7 +59,7 @@ def main():
             help="Decode advertising data")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     aparse.add_argument("-z", "--zmq", action="store_true", help="Enable zmq")
-    aparse.add_argument("--zmqport", default="4224", help="Define zmq port")
+    aparse.add_argument("--zmqport", default="4222", help="Define zmq port")
     aparse.add_argument("--zmqhost", default="127.0.0.1", help="Define zmq host")
     args = aparse.parse_args()
 
@@ -173,17 +173,10 @@ def main():
     while True:
         try:
             msg = hw.recv_and_decode()
-            if msg.pdutype == 'AUX_ADV_IND' and msg.aa==0x8e89bed6:
-                data = bytearray(msg.adv_data)
-                if data[1]==0x16 and int.from_bytes(data[2:4],'little')==0xFFFA and data[4]==0x0D:
-                    # Open Drone ID
-                    print("Open Drone ID\n-------------------------\n")
-                    json_data = decode(data)
-                    if args.zmq:
-                        socket.send_string(json_data)
-                    print(json_data)
-                    print()
-                    sys.stdout.flush()
+            if args.zmq:
+                smsg = msg.to_dict()
+                smsg = json.dumps(smsg)
+                socket.send_string(smsg)
             else:
                 print_message(msg, args.quiet, args.decode)
         except SourceDone:

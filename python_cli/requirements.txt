@@ -1,6 +1,4 @@
 pyserial
 zmq
-pytz
-scipy
-numpy
+
 
