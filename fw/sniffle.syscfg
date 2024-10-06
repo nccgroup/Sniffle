@@ -39,6 +39,10 @@ if (system.getRTOS() === "tirtos7") {
 /* ======== Components ======== */
 var Components = system.deviceData.board.components;
 
+/* ======== Power ======== */
+var power = scripting.addModule("/ti/drivers/Power");
+power.policyFunction = "PowerCC26XX_doWFI";
+
 /* ======== RF ======== */
 var RF = scripting.addModule("/ti/drivers/RF");
 

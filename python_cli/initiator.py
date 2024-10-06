@@ -83,6 +83,9 @@ def main():
     # initiator needs a MAC address
     hw.random_addr()
 
+    # transmit power of +5 dBm
+    hw.cmd_tx_power(5)
+
     # reset preloaded encrypted connection interval changes
     hw.cmd_interval_preload()
 

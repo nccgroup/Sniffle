@@ -8,9 +8,10 @@ from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
 from time import time
-from random import randint, randbytes
+from random import randint, randrange
 from serial.tools.list_ports import comports
 from traceback import format_exception
+from os.path import realpath
 from .measurements import MeasurementMessage, VersionMeasurement
 from .constants import BLE_ADV_AA, BLE_ADV_CRCI, SnifferMode, PhyMode
 from .sniffer_state import StateMessage, SnifferState
@@ -36,6 +37,13 @@ class TrivialLogger:
     error = _log
     critical = _log
     exception = _log
+
+def find_catsniffer_v3_serport():
+    catsniffer_ports = [i[0] for i in comports() if (i.vid == 11914 and i.pid == 192 and i.manufacturer.lower() == "arduino")]
+    if len(catsniffer_ports) > 0:
+        return catsniffer_ports[0]
+    else:
+        return None
 
 def find_xds110_serport():
     xds_ports = [i[0] for i in comports() if (i.vid == 0x0451 and i.pid == 0xBEF3)]
@@ -63,6 +71,7 @@ def find_sonoff_serport():
 
 # SiLabs CP2102 (used in older Sonoff dongles and others) has 921600 baud limit
 def is_cp2102(serport):
+    serport = realpath(serport)
     for i in comports():
         if i.device == serport:
             if i.vid != 0x10C4:
@@ -103,7 +112,9 @@ class SniffleHW:
             if serport is None:
                 serport = find_sonoff_serport()
                 if serport is None:
-                    raise IOError("Sniffle device not found")
+                    serport = find_catsniffer_v3_serport()
+                    if serport is None:
+                        raise IOError("Sniffle device not found")
                 elif baudrate is None:
                     baud = 921600
         elif is_cp2102(serport):
@@ -304,6 +315,11 @@ class SniffleHW:
     def cmd_crc_valid(self, validate=True):
         self._send_cmd([0x26, 1 if validate else 0])
 
+    def cmd_tx_power(self, power=5):
+        if power < -20 or power > 5:
+            raise ValueError("TX power out of bounds")
+        self._send_cmd([0x27, power & 0xFF])
+
     def _recv_msg(self, desync=False):
         got_msg = False
         while not (got_msg or self.recv_cancelled):
@@ -405,7 +421,7 @@ class SniffleHW:
     def mark_and_flush(self):
         # use marker to zero time, flush every packet before marker
         # also tolerate errors from incomplete lines in UART buffer
-        marker_data = randbytes(4)
+        marker_data = pack('<I', randrange(0x100000000))
         self.cmd_marker(marker_data)
         recvd_mark = False
         while not recvd_mark:
@@ -425,9 +441,11 @@ class SniffleHW:
 
     # Generate a random static address and set it
     def random_addr(self):
-        addr = [randint(0, 255) for i in range(6)]
+        addr = [randrange(0x100) for i in range(6)]
         addr[5] |= 0xC0 # make it static
-        self.cmd_setaddr(bytes(addr))
+        addr = bytes(addr)
+        self.cmd_setaddr(addr)
+        return addr
 
     def setup_sniffer(self,
                       mode=SnifferMode.CONN_FOLLOW,
@@ -441,7 +459,8 @@ class SniffleHW:
                       interval_preload=[],
                       phy_preload=PhyMode.PHY_2M,
                       pause_done=False,
-                      validate_crc=True):
+                      validate_crc=True,
+                      txPower=5):
         if not mode in SnifferMode:
             raise ValueError("Invalid mode requested")
 
@@ -483,6 +502,9 @@ class SniffleHW:
         # configure CRC validation
         self.cmd_crc_valid(validate_crc)
 
+        # congigure TX power
+        self.cmd_tx_power(txPower)
+
         # preload encrypted connection parameter changes
         self.cmd_interval_preload(interval_preload)
         self.cmd_phy_preload(phy_preload)
@@ -497,10 +519,10 @@ class SniffleHW:
         llData = []
 
         # access address
-        llData.extend([randint(0, 255) for i in range(4)])
+        llData.extend([randrange(0x100) for i in range(4)])
 
         # initial CRC
-        llData.extend([randint(0, 255) for i in range(3)])
+        llData.extend([randrange(0x100) for i in range(3)])
 
         # WinSize, WinOffset, Interval, Latency, Timeout
         llData.append(3)

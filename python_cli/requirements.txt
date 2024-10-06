@@ -1,4 +1,7 @@
 pyserial
 zmq
+numpy
+scipy
+
 
 

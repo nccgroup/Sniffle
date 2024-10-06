@@ -83,14 +83,14 @@ class PacketMessage:
         else:
             self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
 
-    @classmethod
-    def from_body(cls, body, is_data=False, slave_send=False, is_aux_adv=False):
+    @staticmethod
+    def from_body(body, is_data=False, slave_send=False, is_aux_adv=False):
         fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
                 0 if is_data or is_aux_adv else 37)
-        return cls(fake_hdr + body, SniffleDecoderState(is_data))
+        return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
 
-    @classmethod
-    def from_fields(cls, ts, _len, event, rssi, chan, phy, body, crc_rev, crc_err,
+    @staticmethod
+    def from_fields(ts, _len, event, rssi, chan, phy, body, crc_rev, crc_err,
                     dstate, slave_send=False):
         if slave_send:
             _len |= 0x8000
@@ -98,7 +98,7 @@ class PacketMessage:
             _len |= 0x4000
         chan |= phy << 6
         fake_hdr = pack("<LHHbB", ts, _len, event, rssi, chan)
-        return cls(fake_hdr + body, dstate, crc_rev=crc_rev)
+        return PacketMessage(fake_hdr + body, dstate, crc_rev=crc_rev)
 
     def __repr__(self):
         return "%s(ts=%.6f, aa=%08X, rssi=%d, chan=%d, phy=%d, event=%d, body=%s)" % (
@@ -156,9 +156,9 @@ class DPacketMessage(PacketMessage):
     def __str__(self):
         return "\n".join([self.str_header(), self.str_decode(), self.hexdump()])
 
-    @classmethod
-    def from_body(cls, body, is_data=False, slave_send=False):
-        return cls.decode(super().from_body(body, is_data, slave_send))
+    @staticmethod
+    def from_body(body, is_data=False, slave_send=False):
+        return DPacketMessage.decode(PacketMessage.from_body(body, is_data, slave_send))
 
     @staticmethod
     def decode(pkt: PacketMessage, dstate=None):

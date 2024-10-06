@@ -150,8 +150,8 @@ uint8_t g_pkt_dir = 0;
 
 // Maximum time (in microseconds) for DelayHopTrigger to trigger a hop, then
 // for the radio to tune to the next advertising channel, and start listening.
-// I've measured this latency vary between 280-310 us.
-#define HOP_TUNE_LISTEN_LATENCY 310
+// I've measured this latency vary between 240-300 us.
+#define HOP_TUNE_LISTEN_LATENCY 300
 
 // target offset before anchor point to start listing on next data channel
 // 0.5 ms @ 4 Mhz

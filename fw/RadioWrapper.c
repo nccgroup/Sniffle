@@ -1002,6 +1002,23 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     return adv2.status == BLE_DONE_CONNECT ? 0 : -1;
 }
 
+void RadioWrapper_setTxPower(int8_t power)
+{
+    RF_TxPowerTable_Value value = txPowerTable[TX_POWER_TABLE_SIZE - 1].value;
+    int i;
+
+    for (i = 0; i < TX_POWER_TABLE_SIZE; i++)
+    {
+        if (txPowerTable[i].power >= power)
+        {
+            value = txPowerTable[i].value;
+            break;
+        }
+    }
+
+    RF_setTxPower(bleRfHandle, value);
+}
+
 void RadioWrapper_stop()
 {
     // Gracefully stop any radio operations
