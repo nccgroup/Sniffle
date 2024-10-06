@@ -11,6 +11,7 @@ from sniffle.sniffle_hw import SniffleHW
 # global variable to access hardware
 hw = None
 
+
 def main():
     aparse = argparse.ArgumentParser(description="Advertiser test script for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
@@ -69,6 +70,7 @@ def main():
         msg = hw.recv_and_decode()
         if msg is not None:
             print(msg, end='\n\n')
+
 
 if __name__ == "__main__":
     main()

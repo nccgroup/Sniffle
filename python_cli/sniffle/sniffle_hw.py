@@ -7,7 +7,7 @@ from serial import Serial, SerialTimeoutException
 from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
-from time import time
+from time import time, sleep
 from random import randint, randrange
 from serial.tools.list_ports import comports
 from traceback import format_exception
@@ -418,10 +418,14 @@ class SniffleHW:
         marker_data = pack('<I', randrange(0x100000000))
         self.cmd_marker(marker_data)
         recvd_mark = False
+        timeout = 0
         while not recvd_mark:
             msg = self.recv_and_decode(True)
             if isinstance(msg, MarkerMessage) and msg.marker_data == marker_data:
                 recvd_mark = True
+            timeout+=1
+            if timeout > 1000:
+                break
 
     def probe_fw_version(self):
         self.cmd_version()
