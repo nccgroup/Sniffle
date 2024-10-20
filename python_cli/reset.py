@@ -11,9 +11,10 @@ from sniffle.sniffle_hw import SniffleHW
 def main():
     aparse = argparse.ArgumentParser(description="Firmware reset utility for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baudrate")
     args = aparse.parse_args()
 
-    hw = SniffleHW(args.serport)
+    hw = SniffleHW(args.serport, baudrate=args.baudrate)
 
     # 5 resets seems to work more reliably than fewer
     print("Sending reset commands...")

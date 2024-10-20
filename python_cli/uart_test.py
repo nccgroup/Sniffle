@@ -10,9 +10,10 @@ from sniffle.sniffle_hw import SniffleHW, MarkerMessage
 def main():
     aparse = argparse.ArgumentParser(description="UART echo test for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baudrate")
     args = aparse.parse_args()
 
-    hw = SniffleHW(args.serport, timeout=0.1)
+    hw = SniffleHW(serport=args.serport, baudrate=args.baudrate, timeout=0.1)
 
     # listen in a way that will receive nothing
     hw.cmd_chan_aa_phy(0, 0xFFFFFFFF, 0)

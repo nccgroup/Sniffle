@@ -7,7 +7,7 @@ from serial import Serial, SerialTimeoutException
 from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
-from time import time
+from time import time, sleep
 from random import randint, randrange
 from serial.tools.list_ports import comports
 from traceback import format_exception
@@ -80,7 +80,7 @@ def is_cp2102(serport):
                 return True
     return False
 
-def make_sniffle_hw(serport=None, logger=None, timeout=None):
+def make_sniffle_hw(serport=None, baudrate=921600, logger=None, timeout=None):
     if serport is None:
         return SniffleHW(serport, logger, timeout)
     elif serport.startswith('rfnm'):
@@ -96,14 +96,17 @@ def make_sniffle_hw(serport=None, logger=None, timeout=None):
         fname = serport[5:]
         return SniffleFileSDR(fname, logger=logger)
     else:
-        return SniffleHW(serport, logger, timeout)
+        return SniffleHW(serport, baudrate, logger, timeout)
 
 class SniffleHW:
     max_interval_preload_pairs = 4
     api_level = 0
 
-    def __init__(self, serport=None, logger=None, timeout=None):
-        baud = 2000000
+    def __init__(self, serport=None, baudrate=None, logger=None, timeout=None):
+        if baudrate is None:
+            baud = 2000000
+        else:
+            baud = int(baudrate)
         if serport is None:
             serport = find_xds110_serport()
             if serport is None:
@@ -112,10 +115,11 @@ class SniffleHW:
                     serport = find_catsniffer_v3_serport()
                     if serport is None:
                         raise IOError("Sniffle device not found")
-                else:
+                elif baudrate is None:
                     baud = 921600
         elif is_cp2102(serport):
-            baud = 921600
+            if baudrate is None:
+                baud = 921600
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
@@ -420,10 +424,14 @@ class SniffleHW:
         marker_data = pack('<I', randrange(0x100000000))
         self.cmd_marker(marker_data)
         recvd_mark = False
+        timeout = 0
         while not recvd_mark:
             msg = self.recv_and_decode(True)
             if isinstance(msg, MarkerMessage) and msg.marker_data == marker_data:
                 recvd_mark = True
+            timeout+=1
+            if timeout > 1000:
+                break
 
     def probe_fw_version(self):
         self.cmd_version()

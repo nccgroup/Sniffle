@@ -1,0 +1,4 @@
+pyserial
+zmq
+numpy
+scipy

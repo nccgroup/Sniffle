@@ -38,7 +38,7 @@ import signal
 import traceback
 from serial.tools.list_ports import comports
 from sniffle.constants import BLE_ADV_AA
-from sniffle.sniffle_hw import make_sniffle_hw, PacketMessage, SnifferMode, PhyMode
+from sniffle.sniffle_hw import make_sniffle_hw, PacketMessage, SnifferMode, PhyMode, SniffleHW
 from sniffle.packet_decoder import (DataMessage, AdvaMessage, AdvDirectIndMessage,
                             ScanRspMessage, AdvExtIndMessage, str_mac)
 from sniffle.pcap import PcapBleWriter
@@ -188,6 +188,7 @@ class SniffleExtcapPlugin():
                                help="Ignore encrypted PHY mode changes")
         argParser.add_argument("--crcerr", action="store_true",
                                help="Capture packets with CRC errors")
+        argParser.add_argument("--baudrate", default=None, help="Sniffer serial port baudrate")
 
         self.args = argParser.parse_args(args=args)
 

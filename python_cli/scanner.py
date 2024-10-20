@@ -18,10 +18,12 @@ pcwriter = None
 advertisers = {}
 done_scan = False
 
+
 def sigint_handler(sig, frame):
     global done_scan
     done_scan = True
     hw.cancel_recv()
+
 
 class Advertiser:
     def __init__(self):
@@ -42,32 +44,34 @@ class Advertiser:
                 self.rssi_min = rssi
             elif rssi > self.rssi_max:
                 self.rssi_max = rssi
-            self.rssi_avg = (self.rssi_avg*self.hits + rssi) / (self.hits + 1)
+            self.rssi_avg = (self.rssi_avg * self.hits + rssi) / (self.hits + 1)
         self.hits += 1
+
 
 def main():
     aparse = argparse.ArgumentParser(description="Scanner utility for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baudrate")
     aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
-            help="Advertising channel to listen on")
+                        help="Advertising channel to listen on")
     aparse.add_argument("-r", "--rssi", default=-128, type=int,
-            help="Filter packets by minimum RSSI")
+                        help="Filter packets by minimum RSSI")
     aparse.add_argument("-l", "--longrange", action="store_true",
-            help="Use long range (coded) PHY for primary advertising")
+                        help="Use long range (coded) PHY for primary advertising")
     aparse.add_argument("-d", "--decode", action="store_true",
-            help="Decode advertising data")
+                        help="Decode advertising data")
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
     global hw
-    hw = make_sniffle_hw(args.serport)
+    hw = make_sniffle_hw(serport=args.serport, baudrate=args.baudrate)
 
     hw.setup_sniffer(
-            mode=SnifferMode.ACTIVE_SCAN,
-            chan=args.advchan,
-            ext_adv=True,
-            coded_phy=args.longrange,
-            rssi_min=args.rssi)
+        mode=SnifferMode.ACTIVE_SCAN,
+        chan=args.advchan,
+        ext_adv=True,
+        coded_phy=args.longrange,
+        rssi_min=args.rssi)
 
     # zero timestamps and flush old packets
     hw.mark_and_flush()
@@ -96,10 +100,10 @@ def main():
 
     print("\n\nScan Results:")
     for a in sorted(advertisers.keys(), key=lambda k: advertisers[k].rssi_avg, reverse=True):
-        print("="*80)
+        print("=" * 80)
         print("AdvA: %s Avg/Min/Max RSSI: %.1f/%i/%i Hits: %i" % (
-                a, advertisers[a].rssi_avg, advertisers[a].rssi_min, advertisers[a].rssi_max,
-                advertisers[a].hits))
+            a, advertisers[a].rssi_avg, advertisers[a].rssi_min, advertisers[a].rssi_max,
+            advertisers[a].hits))
         if advertisers[a].adv:
             print("\nAdvertisement:")
             print(advertisers[a].adv.str_header())
@@ -120,7 +124,8 @@ def main():
             print(advertisers[a].scan_rsp.hexdump())
         else:
             print("\nScan Response: None")
-        print("="*80, end="\n\n")
+        print("=" * 80, end="\n\n")
+
 
 def handle_packet(dpkt):
     # Ignore non-advertisements (shouldn't get any)
@@ -150,6 +155,7 @@ def handle_packet(dpkt):
             advertisers[adva].scan_rsp = dpkt
         else:
             advertisers[adva].adv = dpkt
+
 
 if __name__ == "__main__":
     main()
