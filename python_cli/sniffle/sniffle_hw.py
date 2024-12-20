@@ -187,7 +187,7 @@ class SniffleHW:
     def cmd_marker(self, data=b''):
         self._send_cmd([0x18, *data])
 
-    # Provide a PDU to transmit, when in master or peripheral modes
+    # Provide a PDU to transmit, when in central or peripheral modes
     def cmd_transmit(self, llid, pdu, event=0):
         if not (0 <= llid <= 3):
             raise ValueError("Out of bounds LLID")
@@ -198,7 +198,7 @@ class SniffleHW:
         self._send_cmd([0x19, event & 0xFF, event >> 8, llid, len(pdu), *pdu])
 
     # Initiate a connection by transmitting a CONNECT_IND PDU to the specified peer,
-    # then transitioning to a connected master state
+    # then transitioning to a connected central state
     def cmd_connect(self, peerAddr, llData, is_random=True):
         if len(peerAddr) != 6:
             raise ValueError("Invalid peer address")
@@ -244,7 +244,7 @@ class SniffleHW:
                 self._send_cmd([0x14])
 
     # Should the sniffer immediately hop to the next channel in the connection hop sequence
-    # when master and peripheral stop talking in the current connection event, rather than waiting
+    # when central and peripheral stop talking in the current connection event, rather than waiting
     # till the hop interval ends. Useful when hop interval is unknown in an encrypted connection.
     def cmd_instahop(self, enable=True):
         if enable:

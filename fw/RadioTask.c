@@ -475,14 +475,14 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             int status = 0;
             TXQueue_take(&txq);
             txq2 = txq; // copy the queue since TX will update current entry pointer
-            firstPacket = false; // no need for anchor offset calcs, since we're master
+            firstPacket = false; // no need for anchor offset calcs, since we're central
             g_pkt_dir = 1;
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
 
             if (rconf.winOffsetCertain)
             {
-                status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                status = RadioWrapper_central(rconf.phy, chan, accessAddress,
                         crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
 
             } else {
@@ -495,7 +495,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
                 for (WinOffset = 0; WinOffset <= MaxOffset && snifferState == CENTRAL; WinOffset++)
                 {
-                    status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                    status = RadioWrapper_central(rconf.phy, chan, accessAddress,
                             crcInit, nextHopTime + WinOffset*5000, indicatePacket,
                             &txq, curHopTime + WinOffset*5000, &numSent);
                     if (status == 0)
@@ -902,7 +902,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
 
     /* clock synchronization
      * first packet on each channel is anchor point
-     * this is only used in DATA and PERIPHERAL states, ie. first packet is always from master
+     * this is only used in DATA and PERIPHERAL states, ie. first packet is always from central
      */
     if (firstPacket && !transmit)
     {
@@ -986,7 +986,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             // we'll figure out the correct map and update accordingly
 
             // Note:
-            // We can't reliably measure the map when we're a master because
+            // We can't reliably measure the map when we're a central because
             // peripheral latency may be non-zero
             next_rconf = *last_rconf;
             next_rconf.chanMap = 0x1FFFFFFFFFULL;

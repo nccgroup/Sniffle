@@ -441,7 +441,7 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
  * Returns:
  *  Status code (errno.h), 0 on success
  */
-int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+int RadioWrapper_central(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
@@ -467,7 +467,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Central.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
     RF_cmdBle5Central.pParams->maxRxPktLen = 0xFF;
 
-    // for the initiator -> master transition, we should reset seqStat there
+    // for the initiator -> central transition, we should reset seqStat there
     // we won't mess with seqStat here, just use the previous state
 
     RF_cmdBle5Central.pParams->rxConfig.bAutoFlushIgnored = 1;
@@ -492,7 +492,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Central.pParams->endTrigger.triggerType = TRIG_ABSTIME;
     RF_cmdBle5Central.pParams->endTime = timeout;
 
-    /* Enter master mode, and stay till we're done */
+    /* Enter central mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Central, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 

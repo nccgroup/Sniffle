@@ -329,7 +329,7 @@ integers. Interval is an integer representing multiples of 1.25 ms (as defined
 in LL\_CONNECTION\_UPDATE\_IND). DeltaInstant is the number of connection events
 between when the connection update packet is transmitted and when the new
 parameters are applied. DeltaInstant must be greater than or equal to 6, as per
-the Bluetooth specification's requirements for master devices. If multiple
+the Bluetooth specification's requirements for central devices. If multiple
 encrypted parameter updates are expected, you can provide multiple parameter
 pairs, separated by commas (eg. `6:7,39:8`). If you have a device that issues
 encrypted PHY update PDUs that don't change the PHY, or puts out encrypted LE
@@ -502,9 +502,9 @@ to enable the Sniffle interface.
 While the original 2019 Sniffle firmware was purely a passive listener, later firmware versions
 added various features to actively transmit packets in various ways. Current Sniffle firmware
 supports acting as both a GAP central and peripheral device, including active scanning, legacy
-and extended advertising, initiating connections, and being connected in a master (central) or
-slave (peripheral) role. The `scanner.py` script performs active scanning. The `initiator.py`
-script initiates a connection to a peripheral and then acts as a connected master. The
+and extended advertising, initiating connections, and being connected in a central or
+peripheral role. The `scanner.py` script performs active scanning. The `initiator.py`
+script initiates a connection to a peripheral and then acts as a connected central. The
 `advertiser.py` script performs legacy advertising and accepts connection requests from other
 devices, transitioning to a connected peripheral role.
 
