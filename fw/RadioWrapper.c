@@ -425,7 +425,7 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
     return 0;
 }
 
-/* Transmit/receive in BLE5 Master Mode
+/* Transmit/receive in BLE5 Central Mode
  *
  * Arguments:
  *  phy         PHY mode to use
@@ -445,7 +445,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
-    rfc_bleMasterSlaveOutput_t output = {};
+    rfc_bleCentralPeripheralOutput_t output = {};
 
     if ((!configured) || (chan >= 37))
         return -EINVAL;
@@ -454,51 +454,51 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     ble4_cmd = false;
 
     /* set up the send/receive request */
-    RF_cmdBle5Master.channel = chan;
-    RF_cmdBle5Master.whitening.init = 0x40 + chan;
-    RF_cmdBle5Master.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
-    RF_cmdBle5Master.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
-    RF_cmdBle5Master.pOutput = &output;
-    RF_cmdBle5Master.pParams->pRxQ = &dataQueue;
-    RF_cmdBle5Master.pParams->pTxQ = txQueue;
-    RF_cmdBle5Master.pParams->accessAddress = accessAddr;
-    RF_cmdBle5Master.pParams->crcInit0 = crcInit & 0xFF;
-    RF_cmdBle5Master.pParams->crcInit1 = (crcInit >> 8) & 0xFF;
-    RF_cmdBle5Master.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
-    RF_cmdBle5Master.pParams->maxRxPktLen = 0xFF;
+    RF_cmdBle5Central.channel = chan;
+    RF_cmdBle5Central.whitening.init = 0x40 + chan;
+    RF_cmdBle5Central.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
+    RF_cmdBle5Central.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
+    RF_cmdBle5Central.pOutput = &output;
+    RF_cmdBle5Central.pParams->pRxQ = &dataQueue;
+    RF_cmdBle5Central.pParams->pTxQ = txQueue;
+    RF_cmdBle5Central.pParams->accessAddress = accessAddr;
+    RF_cmdBle5Central.pParams->crcInit0 = crcInit & 0xFF;
+    RF_cmdBle5Central.pParams->crcInit1 = (crcInit >> 8) & 0xFF;
+    RF_cmdBle5Central.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
+    RF_cmdBle5Central.pParams->maxRxPktLen = 0xFF;
 
     // for the initiator -> master transition, we should reset seqStat there
     // we won't mess with seqStat here, just use the previous state
 
-    RF_cmdBle5Master.pParams->rxConfig.bAutoFlushIgnored = 1;
-    RF_cmdBle5Master.pParams->rxConfig.bAutoFlushCrcErr = 1;
-    RF_cmdBle5Master.pParams->rxConfig.bAutoFlushEmpty = 0;
-    RF_cmdBle5Master.pParams->rxConfig.bIncludeLenByte = 1;
-    RF_cmdBle5Master.pParams->rxConfig.bIncludeCrc = 0;
-    RF_cmdBle5Master.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBle5Master.pParams->rxConfig.bAppendStatus = 1;
-    RF_cmdBle5Master.pParams->rxConfig.bAppendTimestamp = 1;
+    RF_cmdBle5Central.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBle5Central.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5Central.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBle5Central.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBle5Central.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBle5Central.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBle5Central.pParams->rxConfig.bAppendStatus = 1;
+    RF_cmdBle5Central.pParams->rxConfig.bAppendTimestamp = 1;
 
     // start immediately if startTime = 0
     if (startTime == 0)
     {
-        RF_cmdBle5Master.startTrigger.triggerType = TRIG_NOW;
+        RF_cmdBle5Central.startTrigger.triggerType = TRIG_NOW;
     } else {
-        RF_cmdBle5Master.startTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Master.startTrigger.pastTrig = 1;
-        RF_cmdBle5Master.startTime = startTime;
+        RF_cmdBle5Central.startTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Central.startTrigger.pastTrig = 1;
+        RF_cmdBle5Central.startTime = startTime;
     }
 
-    RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-    RF_cmdBle5Master.pParams->endTime = timeout;
+    RF_cmdBle5Central.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+    RF_cmdBle5Central.pParams->endTime = timeout;
 
     /* Enter master mode, and stay till we're done */
-    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Central, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
     *numSent = output.nTxEntryDone;
 
-    switch (RF_cmdBle5Master.status)
+    switch (RF_cmdBle5Central.status)
     {
     case BLE_DONE_OK:
     case BLE_DONE_ENDED:
@@ -509,7 +509,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     }
 }
 
-/* Receive/transmit in BLE5 Slave Mode
+/* Receive/transmit in BLE5 Peripheral Mode
  *
  * Arguments:
  *  phy         PHY mode to use
@@ -525,11 +525,11 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
  * Returns:
  *  Status code (errno.h), 0 on success
  */
-int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+int RadioWrapper_peripheral(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
-    rfc_bleMasterSlaveOutput_t output = {};
+    rfc_bleCentralPeripheralOutput_t output = {};
 
     if ((!configured) || (chan >= 37))
         return -EINVAL;
@@ -538,56 +538,56 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     ble4_cmd = false;
 
     /* set up the send/receive request */
-    RF_cmdBle5Slave.channel = chan;
-    RF_cmdBle5Slave.whitening.init = 0x40 + chan;
-    RF_cmdBle5Slave.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
-    RF_cmdBle5Slave.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
-    RF_cmdBle5Slave.pOutput = &output;
-    RF_cmdBle5Slave.pParams->pRxQ = &dataQueue;
-    RF_cmdBle5Slave.pParams->pTxQ = txQueue;
-    RF_cmdBle5Slave.pParams->accessAddress = accessAddr;
-    RF_cmdBle5Slave.pParams->crcInit0 = crcInit & 0xFF;
-    RF_cmdBle5Slave.pParams->crcInit1 = (crcInit >> 8) & 0xFF;
-    RF_cmdBle5Slave.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
-    RF_cmdBle5Slave.pParams->maxRxPktLen = 0xFF;
+    RF_cmdBle5Peripheral.channel = chan;
+    RF_cmdBle5Peripheral.whitening.init = 0x40 + chan;
+    RF_cmdBle5Peripheral.phyMode.mainMode = (phy == PHY_CODED_S2) ? 2 : phy;
+    RF_cmdBle5Peripheral.phyMode.coding = (phy == PHY_CODED_S2) ? 1 : 0;
+    RF_cmdBle5Peripheral.pOutput = &output;
+    RF_cmdBle5Peripheral.pParams->pRxQ = &dataQueue;
+    RF_cmdBle5Peripheral.pParams->pTxQ = txQueue;
+    RF_cmdBle5Peripheral.pParams->accessAddress = accessAddr;
+    RF_cmdBle5Peripheral.pParams->crcInit0 = crcInit & 0xFF;
+    RF_cmdBle5Peripheral.pParams->crcInit1 = (crcInit >> 8) & 0xFF;
+    RF_cmdBle5Peripheral.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
+    RF_cmdBle5Peripheral.pParams->maxRxPktLen = 0xFF;
 
-    // for the advertiser -> slave transition, we should reset seqStat there
+    // for the advertiser -> peripheral transition, we should reset seqStat there
     // we won't mess with seqStat here, just use the previous state
 
-    RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushIgnored = 1;
-    RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushCrcErr = 1;
-    RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushEmpty = 0;
-    RF_cmdBle5Slave.pParams->rxConfig.bIncludeLenByte = 1;
-    RF_cmdBle5Slave.pParams->rxConfig.bIncludeCrc = 0;
-    RF_cmdBle5Slave.pParams->rxConfig.bAppendRssi = 1;
-    RF_cmdBle5Slave.pParams->rxConfig.bAppendStatus = 1;
-    RF_cmdBle5Slave.pParams->rxConfig.bAppendTimestamp = 1;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bAutoFlushIgnored = 1;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bAutoFlushCrcErr = 1;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bAutoFlushEmpty = 0;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bIncludeLenByte = 1;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bIncludeCrc = 0;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bAppendRssi = 1;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bAppendStatus = 1;
+    RF_cmdBle5Peripheral.pParams->rxConfig.bAppendTimestamp = 1;
 
     // start immediately if startTime = 0
     if (startTime == 0)
     {
-        RF_cmdBle5Slave.startTrigger.triggerType = TRIG_NOW;
+        RF_cmdBle5Peripheral.startTrigger.triggerType = TRIG_NOW;
     } else {
-        RF_cmdBle5Slave.startTrigger.triggerType = TRIG_ABSTIME;
-        RF_cmdBle5Slave.startTrigger.pastTrig = 1;
-        RF_cmdBle5Slave.startTime = startTime;
+        RF_cmdBle5Peripheral.startTrigger.triggerType = TRIG_ABSTIME;
+        RF_cmdBle5Peripheral.startTrigger.pastTrig = 1;
+        RF_cmdBle5Peripheral.startTime = startTime;
     }
 
     // endTrigger is for after M->S is received
     // timeoutTrigger is for before M->S is received
     // both triggers need to be set for reliability
-    RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
-    RF_cmdBle5Slave.pParams->endTime = timeout;
-    RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_ABSTIME;
-    RF_cmdBle5Slave.pParams->timeoutTime = timeout;
+    RF_cmdBle5Peripheral.pParams->endTrigger.triggerType = TRIG_ABSTIME;
+    RF_cmdBle5Peripheral.pParams->endTime = timeout;
+    RF_cmdBle5Peripheral.pParams->timeoutTrigger.triggerType = TRIG_ABSTIME;
+    RF_cmdBle5Peripheral.pParams->timeoutTime = timeout;
 
-    /* Enter slave mode, and stay till we're done */
-    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
+    /* Enter peripheral mode, and stay till we're done */
+    RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Peripheral, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
     *numSent = output.nTxEntryDone;
 
-    switch (RF_cmdBle5Slave.status)
+    switch (RF_cmdBle5Peripheral.status)
     {
     case BLE_DONE_OK:
     case BLE_DONE_ENDED:
@@ -600,22 +600,22 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 
 void RadioWrapper_resetSeqStat()
 {
-    RF_cmdBle5Master.pParams->seqStat.lastRxSn = 1;
-    RF_cmdBle5Master.pParams->seqStat.lastTxSn = 1;
-    RF_cmdBle5Master.pParams->seqStat.nextTxSn = 0;
-    RF_cmdBle5Master.pParams->seqStat.bFirstPkt = 1;
-    RF_cmdBle5Master.pParams->seqStat.bAutoEmpty = 0;
-    RF_cmdBle5Master.pParams->seqStat.bLlCtrlTx = 0;
-    RF_cmdBle5Master.pParams->seqStat.bLlCtrlAckRx = 0;
-    RF_cmdBle5Master.pParams->seqStat.bLlCtrlAckPending = 0;
-    RF_cmdBle5Slave.pParams->seqStat.lastRxSn = 1;
-    RF_cmdBle5Slave.pParams->seqStat.lastTxSn = 1;
-    RF_cmdBle5Slave.pParams->seqStat.nextTxSn = 0;
-    RF_cmdBle5Slave.pParams->seqStat.bFirstPkt = 1;
-    RF_cmdBle5Slave.pParams->seqStat.bAutoEmpty = 0;
-    RF_cmdBle5Slave.pParams->seqStat.bLlCtrlTx = 0;
-    RF_cmdBle5Slave.pParams->seqStat.bLlCtrlAckRx = 0;
-    RF_cmdBle5Slave.pParams->seqStat.bLlCtrlAckPending = 0;
+    RF_cmdBle5Central.pParams->seqStat.lastRxSn = 1;
+    RF_cmdBle5Central.pParams->seqStat.lastTxSn = 1;
+    RF_cmdBle5Central.pParams->seqStat.nextTxSn = 0;
+    RF_cmdBle5Central.pParams->seqStat.bFirstPkt = 1;
+    RF_cmdBle5Central.pParams->seqStat.bAutoEmpty = 0;
+    RF_cmdBle5Central.pParams->seqStat.bLlCtrlTx = 0;
+    RF_cmdBle5Central.pParams->seqStat.bLlCtrlAckRx = 0;
+    RF_cmdBle5Central.pParams->seqStat.bLlCtrlAckPending = 0;
+    RF_cmdBle5Peripheral.pParams->seqStat.lastRxSn = 1;
+    RF_cmdBle5Peripheral.pParams->seqStat.lastTxSn = 1;
+    RF_cmdBle5Peripheral.pParams->seqStat.nextTxSn = 0;
+    RF_cmdBle5Peripheral.pParams->seqStat.bFirstPkt = 1;
+    RF_cmdBle5Peripheral.pParams->seqStat.bAutoEmpty = 0;
+    RF_cmdBle5Peripheral.pParams->seqStat.bLlCtrlTx = 0;
+    RF_cmdBle5Peripheral.pParams->seqStat.bLlCtrlAckRx = 0;
+    RF_cmdBle5Peripheral.pParams->seqStat.bLlCtrlAckPending = 0;
 }
 
 /* Initiate a connection to the specified peer address

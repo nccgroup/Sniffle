@@ -506,7 +506,7 @@ and extended advertising, initiating connections, and being connected in a maste
 slave (peripheral) role. The `scanner.py` script performs active scanning. The `initiator.py`
 script initiates a connection to a peripheral and then acts as a connected master. The
 `advertiser.py` script performs legacy advertising and accepts connection requests from other
-devices, transitioning to a connected slave role.
+devices, transitioning to a connected peripheral role.
 
 The transmit functionality of Sniffle is a little different from a traditional HCI-based Bluetooth
 controller, because it gives you very low level control of the exact PDUs being sent at the link

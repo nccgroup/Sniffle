@@ -187,7 +187,7 @@ class SniffleHW:
     def cmd_marker(self, data=b''):
         self._send_cmd([0x18, *data])
 
-    # Provide a PDU to transmit, when in master or slave modes
+    # Provide a PDU to transmit, when in master or peripheral modes
     def cmd_transmit(self, llid, pdu, event=0):
         if not (0 <= llid <= 3):
             raise ValueError("Out of bounds LLID")
@@ -244,7 +244,7 @@ class SniffleHW:
                 self._send_cmd([0x14])
 
     # Should the sniffer immediately hop to the next channel in the connection hop sequence
-    # when master and slave stop talking in the current connection event, rather than waiting
+    # when master and peripheral stop talking in the current connection event, rather than waiting
     # till the hop interval ends. Useful when hop interval is unknown in an encrypted connection.
     def cmd_instahop(self, enable=True):
         if enable:

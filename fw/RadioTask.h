@@ -94,7 +94,7 @@ struct RadioConfig {
     uint32_t hopIntervalTicks;
     uint32_t connTimeoutTicks;
     uint16_t offset;
-    uint16_t slaveLatency;
+    uint16_t peripheralLatency;
     PHY_Mode phy;
     bool intervalCertain:1;
     bool chanMapCertain:1;
