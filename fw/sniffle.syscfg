@@ -59,9 +59,9 @@ ble5.radioConfigbt5le1m.codeExportConfig.appOverrideMacro = "BLE_APP_OVERRIDES";
 if (system.deviceData.deviceId[6] == "P") {
     ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
         "cmdBle5GenericRx",
-        "cmdBle5Central",
+        "cmdBle5Master",
         "cmdBle5RadioSetupPa",
-        "cmdBle5Peripheral",
+        "cmdBle5Slave",
         "cmdBleAdv",
         "cmdBle5Initiator",
         "cmdBle5Scanner",
@@ -70,9 +70,9 @@ if (system.deviceData.deviceId[6] == "P") {
 } else {
     ble5.radioConfigbt5le1m.codeExportConfig.cmdList_ble = [
         "cmdBle5GenericRx",
-        "cmdBle5Central",
+        "cmdBle5Master",
         "cmdBle5RadioSetup",
-        "cmdBle5Peripheral",
+        "cmdBle5Slave",
         "cmdBleAdv",
         "cmdBle5Initiator",
         "cmdBle5Scanner",
