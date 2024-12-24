@@ -120,7 +120,7 @@ static bool followConnections = true;
 static bool instaHop = true;
 static bool validateCrc = true;
 
-// bit 0 is M->S, bit 1 is S->M
+// bit 0 is C->P, bit 1 is P->C
 static uint8_t moreData;
 
 static bool advHopEnabled = false;
@@ -1076,7 +1076,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         if (datLen != 5) break;
         next_rconf = *last_rconf;
         next_rconf.offset = 0;
-        // we don't handle different M->S and S->M PHYs, assume both match
+        // we don't handle different C->P and P->C PHYs, assume both match
         switch (frame->pData[3] & 0x7)
         {
         case 0x1:

@@ -238,7 +238,7 @@ class DataMessage(DPacketMessage):
 
     def str_datatype(self):
         dtstr = "LLID: %s\n" % self.pdutype
-        dtstr += "Dir: %s " % ("S->M" if self.data_dir else "M->S")
+        dtstr += "Dir: %s " % ("P->C" if self.data_dir else "C->P")
         dtstr += "NESN: %i " % self.NESN
         dtstr += "SN: %i " % self.SN
         dtstr += "MD: %i " % self.MD

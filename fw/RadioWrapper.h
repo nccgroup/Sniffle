@@ -44,7 +44,7 @@ typedef struct
     uint32_t timestamp; // 4 MHz radio ticks
     uint16_t length:14;
     uint16_t crcError:1;
-    uint16_t direction:1; // 0 is M->S, 1 is S->M
+    uint16_t direction:1; // 0 is C->P, 1 is P->C
     uint16_t eventCtr;
     int8_t rssi;
     uint8_t channel:6;

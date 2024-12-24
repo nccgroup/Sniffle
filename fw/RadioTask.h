@@ -101,7 +101,7 @@ struct RadioConfig {
     bool winOffsetCertain:1;
 };
 
-// 0 for M->S, 1 for S->M
+// 0 for C->P, 1 for P->C
 extern uint8_t g_pkt_dir;
 
 extern uint32_t connEventCount;

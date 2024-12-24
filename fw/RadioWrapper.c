@@ -573,8 +573,8 @@ int RadioWrapper_peripheral(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Slave.startTime = startTime;
     }
 
-    // endTrigger is for after M->S is received
-    // timeoutTrigger is for before M->S is received
+    // endTrigger is for after C->P is received
+    // timeoutTrigger is for before C->P is received
     // both triggers need to be set for reliability
     RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
     RF_cmdBle5Slave.pParams->endTime = timeout;
