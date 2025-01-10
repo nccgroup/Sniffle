@@ -52,8 +52,8 @@ typedef enum
     DATA,
     PAUSED,
     INITIATING,
-    MASTER,
-    SLAVE,
+    CENTRAL,
+    PERIPHERAL,
     ADVERTISING,
     SCANNING,
     ADVERTISING_EXT
@@ -120,7 +120,7 @@ static bool followConnections = true;
 static bool instaHop = true;
 static bool validateCrc = true;
 
-// bit 0 is M->S, bit 1 is S->M
+// bit 0 is C->P, bit 1 is P->C
 static uint8_t moreData;
 
 static bool advHopEnabled = false;
@@ -229,7 +229,7 @@ static inline uint8_t getCurrChan()
 }
 
 // performs channel hopping "housekeeping"
-static void afterConnEvent(bool slave, bool gotData)
+static void afterConnEvent(bool peripheral, bool gotData)
 {
     // we're done if connection timed out
     uint32_t curRadioTime = RF_getCurrentTime();
@@ -241,7 +241,7 @@ static void afterConnEvent(bool slave, bool gotData)
         return;
     }
 
-    if (!rconf.chanMapCertain && slave)
+    if (!rconf.chanMapCertain && peripheral)
     {
         uint64_t chanBit = 1ULL << getCurrChan();
         if (firstPacket && !(chanMapTestMask & chanBit))
@@ -257,7 +257,7 @@ static void afterConnEvent(bool slave, bool gotData)
         }
     }
 
-    if (slave && instaHop)
+    if (peripheral && instaHop)
     {
         if (firstPacket && rconf.intervalCertain)
         {
@@ -265,7 +265,7 @@ static void afterConnEvent(bool slave, bool gotData)
             // otherwise, it'll mess up timeDelta calculation for next connection event
             lastAnchorTicks += rconf.hopIntervalTicks;
         }
-        // note: timeDelta is valid if !firstPacket and !rconf.winOffsetCertain (and slave and instaHop)
+        // note: timeDelta is valid if !firstPacket and !rconf.winOffsetCertain (and peripheral and instaHop)
         else if (!firstPacket && !rconf.winOffsetCertain)
         {
             if (rconf.intervalCertain) {
@@ -328,8 +328,8 @@ static void afterConnEvent(bool slave, bool gotData)
             chanMapTestMask = 0;
     }
 
-    // slaves need to adjust for master clock drift
-    if (slave && rconf.intervalCertain &&
+    // peripherals need to adjust for central clock drift
+    if (peripheral && rconf.intervalCertain &&
             (connEventCount & (ARR_SZ(anchorOffset) - 1)) == 0)
     {
         uint32_t medAnchorOffset = median(anchorOffset, ARR_SZ(anchorOffset));
@@ -467,35 +467,35 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             nextHopTime = connTime - AO_TARG + rconf.hopIntervalTicks;
             RadioWrapper_resetSeqStat();
 
-            stateTransition(MASTER);
-        } else if (snifferState == MASTER) {
+            stateTransition(CENTRAL);
+        } else if (snifferState == CENTRAL) {
             dataQueue_t txq, txq2;
             uint32_t numSent = 0;
             uint8_t chan = getCurrChan();
             int status = 0;
             TXQueue_take(&txq);
             txq2 = txq; // copy the queue since TX will update current entry pointer
-            firstPacket = false; // no need for anchor offset calcs, since we're master
+            firstPacket = false; // no need for anchor offset calcs, since we're central
             g_pkt_dir = 1;
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
 
             if (rconf.winOffsetCertain)
             {
-                status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                status = RadioWrapper_central(rconf.phy, chan, accessAddress,
                         crcInit, nextHopTime, indicatePacket, &txq, curHopTime, &numSent);
 
             } else {
                 // perform a sweep of WinOffset values without transmitting any non-empty PDUs
-                // to have the slave tell us what the real WinOffset is
+                // to have the peripheral tell us what the real WinOffset is
                 uint16_t WinOffset;
                 uint16_t MaxOffset = rconf.hopIntervalTicks / 5000;
                 txq.pCurrEntry = NULL;
                 txq.pLastEntry = NULL;
 
-                for (WinOffset = 0; WinOffset <= MaxOffset && snifferState == MASTER; WinOffset++)
+                for (WinOffset = 0; WinOffset <= MaxOffset && snifferState == CENTRAL; WinOffset++)
                 {
-                    status = RadioWrapper_master(rconf.phy, chan, accessAddress,
+                    status = RadioWrapper_central(rconf.phy, chan, accessAddress,
                             crcInit, nextHopTime + WinOffset*5000, indicatePacket,
                             &txq, curHopTime + WinOffset*5000, &numSent);
                     if (status == 0)
@@ -508,10 +508,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 }
 
                 if (WinOffset > MaxOffset)
-                    dprintf("Master failed to measure WinOffset");
+                    dprintf("Central failed to measure WinOffset");
             }
 
-            if (snifferState != MASTER)
+            if (snifferState != CENTRAL)
             {
                 // quickly break out due to cancellation
                 TXQueue_flush(numSent);
@@ -528,7 +528,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
                 Task_sleep(rticksRemaining / 40);
 
             afterConnEvent(false, status == 0);
-        } else if (snifferState == SLAVE) {
+        } else if (snifferState == PERIPHERAL) {
             dataQueue_t txq, txq2;
             uint32_t numSent;
             uint32_t timeExtension = rconf.winOffsetCertain ? 0 : rconf.hopIntervalTicks;
@@ -537,10 +537,10 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             txq2 = txq; // copy the queue since TX will update current entry pointer
             firstPacket = true; // for anchor offset calculations
 
-            int status = RadioWrapper_slave(rconf.phy, chan, accessAddress,
+            int status = RadioWrapper_peripheral(rconf.phy, chan, accessAddress,
                     crcInit, nextHopTime + timeExtension, indicatePacket, &txq, 0, &numSent);
 
-            if (snifferState != SLAVE)
+            if (snifferState != PERIPHERAL)
             {
                 // quickly break out due to cancellation
                 TXQueue_flush(numSent);
@@ -629,8 +629,8 @@ bool inDataState(void)
     switch (snifferState)
     {
     case DATA:
-    case MASTER:
-    case SLAVE:
+    case CENTRAL:
+    case PERIPHERAL:
         return true;
     default:
         return false;
@@ -867,7 +867,7 @@ void reactToPDU(const BLE_Frame *frame)
             if (snifferState == ADVERTISING || snifferState == ADVERTISING_EXT)
             {
                 RadioWrapper_resetSeqStat();
-                stateTransition(SLAVE);
+                stateTransition(PERIPHERAL);
                 RadioWrapper_stop();
             } else if (isAuxReq) {
                 gotAuxConnReq = true;
@@ -902,7 +902,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
 
     /* clock synchronization
      * first packet on each channel is anchor point
-     * this is only used in DATA and SLAVE states, ie. first packet is always from master
+     * this is only used in DATA and PERIPHERAL states, ie. first packet is always from central
      */
     if (firstPacket && !transmit)
     {
@@ -978,7 +978,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             next_rconf.phy = preloadedPhy;
             nextInstant = (frame->eventCtr + 7) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
-        } else if (datLen == 12 && snifferState != MASTER && last_rconf->intervalCertain) {
+        } else if (datLen == 12 && snifferState != CENTRAL && last_rconf->intervalCertain) {
             // must be a LL_CHANNEL_MAP_IND due to length
             // 1 byte opcode + 7 byte CtrData + 4 byte MIC
             // usually the switch is 6-10 instants from now
@@ -986,15 +986,15 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
             // we'll figure out the correct map and update accordingly
 
             // Note:
-            // We can't reliably measure the map when we're a master because
-            // slave latency may be non-zero
+            // We can't reliably measure the map when we're a central because
+            // peripheral latency may be non-zero
             next_rconf = *last_rconf;
             next_rconf.chanMap = 0x1FFFFFFFFFULL;
             next_rconf.chanMapCertain = false;
             next_rconf.offset = 0;
             next_rconf.intervalCertain = true; // interval test would conflict
             next_rconf.winOffsetCertain = true; // ditto
-            next_rconf.slaveLatency = 10; // tolerate sparse channel map
+            next_rconf.peripheralLatency = 10; // tolerate sparse channel map
             nextInstant = (frame->eventCtr + 9) & 0xFFFF;
             rconf_enqueue(nextInstant, &next_rconf);
         } else if (datLen == 16) {
@@ -1015,9 +1015,9 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
                 next_rconf.winOffsetCertain = false; // still need to measure this
                 nextInstant = (frame->eventCtr + connParamPairs[plInd*2 + 1]) & 0xFFFF;
                 rconf_enqueue(nextInstant, &next_rconf);
-            } else if (snifferState != MASTER && instaHop) {
-                // slave or sniffer devices can measure new connection interval
-                // usually this means switching to a different connection interval, or slave latency
+            } else if (snifferState != CENTRAL && instaHop) {
+                // peripheral or sniffer devices can measure new connection interval
+                // usually this means switching to a different connection interval, or peripheral latency
                 // usually the switch is 6-10 instants from now
                 // with instahop, setting an inaccurately long interval temporarily is OK
                 // we'll figure out the correct interval and update accordingly
@@ -1045,7 +1045,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         next_rconf.hopIntervalTicks = *(uint16_t *)(frame->pData + 6) * 5000;
         next_rconf.intervalCertain = true;
         next_rconf.winOffsetCertain = true;
-        next_rconf.slaveLatency = *(uint16_t *)(frame->pData + 6);
+        next_rconf.peripheralLatency = *(uint16_t *)(frame->pData + 6);
         next_rconf.connTimeoutTicks = *(uint16_t *)(frame->pData + 10) * 40000;
         nextInstant = *(uint16_t *)(frame->pData + 12);
         rconf_enqueue(nextInstant, &next_rconf);
@@ -1076,7 +1076,7 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         if (datLen != 5) break;
         next_rconf = *last_rconf;
         next_rconf.offset = 0;
-        // we don't handle different M->S and S->M PHYs, assume both match
+        // we don't handle different C->P and P->C PHYs, assume both match
         switch (frame->pData[3] & 0x7)
         {
         case 0x1:
@@ -1284,7 +1284,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
     rconf.intervalCertain = true;
     rconf.winOffsetCertain = true;
     rconf.phy = phy;
-    rconf.slaveLatency = *(uint16_t *)(llData + 12);
+    rconf.peripheralLatency = *(uint16_t *)(llData + 12);
     rconf.connTimeoutTicks = *(uint16_t *)(llData + 14) * 40000; // 4 MHz clock, 10 ms per unit
 
     // spec allows 6 connection events from connection start till connection can be called dead

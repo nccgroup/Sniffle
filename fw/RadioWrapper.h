@@ -44,7 +44,7 @@ typedef struct
     uint32_t timestamp; // 4 MHz radio ticks
     uint16_t length:14;
     uint16_t crcError:1;
-    uint16_t direction:1; // 0 is M->S, 1 is S->M
+    uint16_t direction:1; // 0 is C->P, 1 is P->C
     uint16_t eventCtr;
     int8_t rssi;
     uint8_t channel:6;
@@ -82,17 +82,17 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
         const uint16_t *scanAddr, bool scanRandom, bool validateCrc,
         RadioWrapper_Callback callback);
 
-// Transmit and receive in master mode
-int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+// Transmit and receive in central mode
+int RadioWrapper_central(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent);
 
-// Receive and transmit in slave mode
-int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+// Receive and transmit in peripheral mode
+int RadioWrapper_peripheral(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent);
 
-// Reset sequence numbers for master/slave modes
+// Reset sequence numbers for central/peripheral modes
 void RadioWrapper_resetSeqStat(void);
 
 // Initiate connection with peer

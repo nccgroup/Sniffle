@@ -84,15 +84,15 @@ class PacketMessage:
             self.crc_rev = crc_ble_reverse(dstate.crc_init_rev, body)
 
     @staticmethod
-    def from_body(body, is_data=False, slave_send=False, is_aux_adv=False):
-        fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if slave_send else 0), 0, 0,
+    def from_body(body, is_data=False, peripheral_send=False, is_aux_adv=False):
+        fake_hdr = pack("<LHHbB", 0, len(body) | (0x8000 if peripheral_send else 0), 0, 0,
                 0 if is_data or is_aux_adv else 37)
         return PacketMessage(fake_hdr + body, SniffleDecoderState(is_data))
 
     @staticmethod
     def from_fields(ts, _len, event, rssi, chan, phy, body, crc_rev, crc_err,
-                    dstate, slave_send=False):
-        if slave_send:
+                    dstate, peripheral_send=False):
+        if peripheral_send:
             _len |= 0x8000
         if crc_err:
             _len |= 0x4000
@@ -153,8 +153,8 @@ class DPacketMessage(PacketMessage):
         return "\n".join([self.str_header(), self.str_decode(), self.hexdump()])
 
     @staticmethod
-    def from_body(body, is_data=False, slave_send=False):
-        return DPacketMessage.decode(PacketMessage.from_body(body, is_data, slave_send))
+    def from_body(body, is_data=False, peripheral_send=False):
+        return DPacketMessage.decode(PacketMessage.from_body(body, is_data, peripheral_send))
 
     @staticmethod
     def decode(pkt: PacketMessage, dstate=None):
@@ -238,7 +238,7 @@ class DataMessage(DPacketMessage):
 
     def str_datatype(self):
         dtstr = "LLID: %s\n" % self.pdutype
-        dtstr += "Dir: %s " % ("S->M" if self.data_dir else "M->S")
+        dtstr += "Dir: %s " % ("P->C" if self.data_dir else "C->P")
         dtstr += "NESN: %i " % self.NESN
         dtstr += "SN: %i " % self.SN
         dtstr += "MD: %i " % self.MD
@@ -290,7 +290,7 @@ class LlControlMessage(DataMessage):
                 "LL_PAUSE_ENC_RSP",
                 "LL_VERSION_IND",
                 "LL_REJECT_IND",
-                "LL_SLAVE_FEATURE_REQ",
+                "LL_PERIPHERAL_FEATURE_REQ",
                 "LL_CONNECTION_PARAM_REQ",
                 "LL_CONNECTION_PARAM_RSP",
                 "LL_REJECT_EXT_IND",

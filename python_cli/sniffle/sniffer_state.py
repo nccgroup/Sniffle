@@ -11,8 +11,8 @@ class SnifferState(IntEnum):
     DATA = 3
     PAUSED = 4
     INITIATING = 5
-    MASTER = 6
-    SLAVE = 7
+    CENTRAL = 6
+    PERIPHERAL = 7
     ADVERTISING = 8
     SCANNING = 9
     ADVERTISING_EXT = 10

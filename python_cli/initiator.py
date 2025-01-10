@@ -130,7 +130,7 @@ def print_message(msg):
         print(msg)
     elif isinstance(msg, StateMessage):
         print(msg)
-        if msg.new_state == SnifferState.MASTER:
+        if msg.new_state == SnifferState.CENTRAL:
             hw.decoder_state.cur_aa = _aa
     print()
 

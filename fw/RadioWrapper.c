@@ -425,7 +425,7 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
     return 0;
 }
 
-/* Transmit/receive in BLE5 Master Mode
+/* Transmit/receive in BLE5 Central Mode
  *
  * Arguments:
  *  phy         PHY mode to use
@@ -441,7 +441,7 @@ int RadioWrapper_scanLegacy(uint32_t chan, uint32_t timeout, bool forever,
  * Returns:
  *  Status code (errno.h), 0 on success
  */
-int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+int RadioWrapper_central(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
@@ -467,7 +467,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Master.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
     RF_cmdBle5Master.pParams->maxRxPktLen = 0xFF;
 
-    // for the initiator -> master transition, we should reset seqStat there
+    // for the initiator -> central transition, we should reset seqStat there
     // we won't mess with seqStat here, just use the previous state
 
     RF_cmdBle5Master.pParams->rxConfig.bAutoFlushIgnored = 1;
@@ -492,7 +492,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Master.pParams->endTrigger.triggerType = TRIG_ABSTIME;
     RF_cmdBle5Master.pParams->endTime = timeout;
 
-    /* Enter master mode, and stay till we're done */
+    /* Enter central mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Master, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 
@@ -509,7 +509,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     }
 }
 
-/* Receive/transmit in BLE5 Slave Mode
+/* Receive/transmit in BLE5 Peripheral Mode
  *
  * Arguments:
  *  phy         PHY mode to use
@@ -525,7 +525,7 @@ int RadioWrapper_master(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
  * Returns:
  *  Status code (errno.h), 0 on success
  */
-int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
+int RadioWrapper_peripheral(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     uint32_t crcInit, uint32_t timeout, RadioWrapper_Callback callback,
     dataQueue_t *txQueue, uint32_t startTime, uint32_t *numSent)
 {
@@ -551,7 +551,7 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
     RF_cmdBle5Slave.pParams->crcInit2 = (crcInit >> 16) & 0xFF;
     RF_cmdBle5Slave.pParams->maxRxPktLen = 0xFF;
 
-    // for the advertiser -> slave transition, we should reset seqStat there
+    // for the advertiser -> peripheral transition, we should reset seqStat there
     // we won't mess with seqStat here, just use the previous state
 
     RF_cmdBle5Slave.pParams->rxConfig.bAutoFlushIgnored = 1;
@@ -573,15 +573,15 @@ int RadioWrapper_slave(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
         RF_cmdBle5Slave.startTime = startTime;
     }
 
-    // endTrigger is for after M->S is received
-    // timeoutTrigger is for before M->S is received
+    // endTrigger is for after C->P is received
+    // timeoutTrigger is for before C->P is received
     // both triggers need to be set for reliability
     RF_cmdBle5Slave.pParams->endTrigger.triggerType = TRIG_ABSTIME;
     RF_cmdBle5Slave.pParams->endTime = timeout;
     RF_cmdBle5Slave.pParams->timeoutTrigger.triggerType = TRIG_ABSTIME;
     RF_cmdBle5Slave.pParams->timeoutTime = timeout;
 
-    /* Enter slave mode, and stay till we're done */
+    /* Enter peripheral mode, and stay till we're done */
     RF_runCmd(bleRfHandle, (RF_Op*)&RF_cmdBle5Slave, RF_PriorityNormal,
             &rx_int_callback, IRQ_RX_ENTRY_DONE);
 

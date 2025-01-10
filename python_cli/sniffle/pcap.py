@@ -246,10 +246,10 @@ class PcapBleReader:
 
         ts32 = (ts_sec*1000000 + ts_usec) & 0x3FFFFFFF
         chan = rf_to_ble_chan(rf_chan)
-        slave_send = True if pdu_type == 3 else False
+        peripheral_send = True if pdu_type == 3 else False
 
         pkt = PacketMessage.from_fields(ts32, len(body), 0, rssi, chan, phy, body,
-                                        crc_rev, crc_err, self.decoder_state, slave_send)
+                                        crc_rev, crc_err, self.decoder_state, peripheral_send)
         try:
             return DPacketMessage.decode(pkt, self.decoder_state)
         except BaseException as e:
