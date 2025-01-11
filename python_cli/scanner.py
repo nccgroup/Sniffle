@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020-2024, NCC Group plc
+# Copyright (c) 2020-2025, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys, signal
@@ -48,6 +48,7 @@ class Advertiser:
 def main():
     aparse = argparse.ArgumentParser(description="Scanner utility for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baud rate")
     aparse.add_argument("-c", "--advchan", default=37, choices=[37, 38, 39], type=int,
             help="Advertising channel to listen on")
     aparse.add_argument("-r", "--rssi", default=-128, type=int,
@@ -60,7 +61,7 @@ def main():
     args = aparse.parse_args()
 
     global hw
-    hw = make_sniffle_hw(args.serport)
+    hw = make_sniffle_hw(args.serport, baudrate=args.baudrate)
 
     hw.setup_sniffer(
             mode=SnifferMode.ACTIVE_SCAN,

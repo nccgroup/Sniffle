@@ -80,9 +80,9 @@ def is_cp2102(serport):
                 return True
     return False
 
-def make_sniffle_hw(serport=None, logger=None, timeout=None):
+def make_sniffle_hw(serport=None, logger=None, timeout=None, baudrate=None):
     if serport is None:
-        return SniffleHW(serport, logger, timeout)
+        return SniffleHW(serport, logger, timeout, baudrate)
     elif serport.startswith('rfnm'):
         from .sniffle_sdr import SniffleSoapySDR
         if ':' in serport:
@@ -96,30 +96,28 @@ def make_sniffle_hw(serport=None, logger=None, timeout=None):
         fname = serport[5:]
         return SniffleFileSDR(fname, logger=logger)
     else:
-        return SniffleHW(serport, logger, timeout)
+        return SniffleHW(serport, logger, timeout, baudrate)
 
 class SniffleHW:
     max_interval_preload_pairs = 4
     api_level = 0
 
-    def __init__(self, serport=None, logger=None, timeout=None):
-        baud = 2000000
-        if serport is None:
+    def __init__(self, serport=None, logger=None, timeout=None, baudrate=None):
+        if baudrate is None:
+            baudrate = 2000000
+
+        while serport is None:
             serport = find_xds110_serport()
-            if serport is None:
-                serport = find_sonoff_serport()
-                if serport is None:
-                    serport = find_catsniffer_v3_serport()
-                    if serport is None:
-                        raise IOError("Sniffle device not found")
-                else:
-                    baud = 921600
-        elif is_cp2102(serport):
-            baud = 921600
+            if serport is not None: break
+            serport = find_sonoff_serport()
+            if serport is not None: break
+            serport = find_catsniffer_v3_serport()
+            if serport is not None: break
+            raise IOError("Sniffle device not found")
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
-        self.ser = Serial(serport, baud, timeout=timeout)
+        self.ser = Serial(serport, baudrate, timeout=timeout)
         self.recv_cancelled = False
         self.logger = logger if logger else TrivialLogger()
         self.cmd_marker(b'@') # command sync

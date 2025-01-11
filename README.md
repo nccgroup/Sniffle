@@ -127,38 +127,34 @@ the compiled `sniffle.hex` binary using the UniFlash GUI.
 
 ## Firmware Installation (SONOFF USB Dongle)
 
-To install Sniffle on a SONOFF CC2652P dongle (equipped with a CP2102 USB/UART
-bridge), you need to use a special firmware build that uses a 921600 baud rate
-(labelled `1M`) instead of the default 2 megabit baud rate. You can use
-[JelmerT/cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) to flash the firmware
-using the built-in ROM bootloader with the following command:
+To install Sniffle on a SONOFF CC2652P dongle (equipped with a CP2102N USB/UART
+bridge), use the [JelmerT/cc2538-bsl](https://github.com/JelmerT/cc2538-bsl) utility
+to flash the firmware using the built-in ROM bootloader with the following command:
 
 ```
-python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1_1M.hex
+python3 cc2538-bsl.py -p /dev/ttyUSB0 --bootloader-sonoff-usb -ewv sniffle_cc1352p1_cc2652p1.hex
 ```
 
-As of April 23, 2024, there are a couple bugs in `cc2538-bsl` for which
-pull requests [168](https://github.com/JelmerT/cc2538-bsl/pull/168) and
-[173](https://github.com/JelmerT/cc2538-bsl/pull/173) need to be merged to fix.
-In the interim, while waiting for those pull requests to be merged, you can use
-my fork at <https://github.com/sultanqasim/cc2538-bsl>.
+As of January 10, 2025, there is a bug in `cc2538-bsl` that prevents it from
+resetting the CC2562P chip in the Sonoff dongle after flashing. The fix for this
+is in pull request [173](https://github.com/JelmerT/cc2538-bsl/pull/173), which
+has yet to be merged. In the interim, while waiting for the pull request to be
+merged, you can use my fork at <https://github.com/sultanqasim/cc2538-bsl>.
+
+In 2022, due to COVID-19 pandemic chip shortages, some Sonoff CC2652P dongles were
+built with CP2102 (non-N) USB/UART bridge chips that are capped at 921600 baud. If
+you have one of these, you will need to flash a different firmware image that uses
+a slower baud rate of 921600. This special slower baud rate build is named
+`sniffle_cc1352p1_cc2652p1_1M.hex` (build variant `CC2652P1F_1M`). You will also
+need to invoke Sniffle utilities with the option `-b 921600` to override the
+default baud rate of 2000000.
 
 **WARNING:** Do not flash the wrong build variant using the bootloader, or you
 risk bricking the device and locking yourself out of the bootloader. For Sonoff
-CC2652P devices, use the `sniffle_cc1352p1_cc2652p1_1M.hex` file (`CC2652P1F_1M`
-build variant). If you flash the wrong variant and lock yourself out of the
-bootloader, it may be possible to recover the device using JTAG/SWD.
-
-Newer Sonoff dongles contain a CP2102N instead of the old CP2102. The CP2102N
-supports higher baud rates, including 2M and 3M baud. However, there is no easy
-and cross-platform way to distinguish between the CP2102 and CP2102N in software.
-Thus, the Sniffle host software expects the `1M` (921600 baud) firmware on all
-devices with a CP2102/CP2102N USB/UART bridge. This slower baud rate should be fine
-for nearly all use cases, though in theory it may be possible to saturate the
-UART interface with the 2M PHY. If you really want to use the full 2M baud rate
-on your newer CP2102N equipped Sonoff (or other brand) dongle, you can flash the
-full baud rate firmware and modify `sniffle_hw.py` to not lower the baud rate for
-CP2102 devices.
+CC2652P devices, use the `sniffle_cc1352p1_cc2652p1.hex` file (`CC2652P1F` build
+variant) or the sniffle_cc1352p1_cc2652p1_1M.hex` file (`CC2652P1F_1M` build
+variant) for a 921600 baud rate. If you flash the wrong variant and lock yourself
+out of the bootloader, it may be possible to recover the device using JTAG/SWD.
 
 ## Firmware Installation (Catsniffer V3)
 
@@ -213,9 +209,9 @@ the device using JTAG/SWD.
 
 ```
 [skhan@serpent python_cli]$ ./sniff_receiver.py --help
-usage: sniff_receiver.py [-h] [-s SERPORT] [-c {37,38,39}] [-p] [-r RSSI] [-m MAC] [-i IRK]
-                         [-S STRING] [-a] [-A] [-e] [-H] [-l] [-q] [-Q PRELOAD] [-n] [-C]
-                         [-d] [-o OUTPUT]
+usage: sniff_receiver.py [-h] [-s SERPORT] [-b BAUDRATE] [-c {37,38,39}] [-p] [-r RSSI]
+                         [-m MAC] [-i IRK] [-S STRING] [-a] [-A] [-e] [-H] [-l] [-q]
+                         [-Q PRELOAD] [-n] [-C] [-d] [-o OUTPUT]
 
 Host-side receiver for Sniffle BLE5 sniffer
 
@@ -223,6 +219,8 @@ options:
   -h, --help            show this help message and exit
   -s SERPORT, --serport SERPORT
                         Sniffer serial port name
+  -b BAUDRATE, --baudrate BAUDRATE
+                        Sniffer serial port baud rate
   -c {37,38,39}, --advchan {37,38,39}
                         Advertising channel to listen on
   -p, --pause           Pause sniffer after disconnect
@@ -345,20 +343,24 @@ Launchpad boards, the reset button is located beside the micro USB port.
 ## Scanner Usage
 
 ```
-usage: scanner.py [-h] [-s SERPORT] [-c {37,38,39}] [-r RSSI] [-l]
+usage: scanner.py [-h] [-s SERPORT] [-b BAUDRATE] [-c {37,38,39}] [-r RSSI] [-l] [-d] [-o OUTPUT]
 
 Scanner utility for Sniffle BLE5 sniffer
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -s SERPORT, --serport SERPORT
                         Sniffer serial port name
+  -b BAUDRATE, --baudrate BAUDRATE
+                        Sniffer serial port baud rate
   -c {37,38,39}, --advchan {37,38,39}
                         Advertising channel to listen on
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -l, --longrange       Use long range (coded) PHY for primary advertising
+  -d, --decode          Decode advertising data
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
+
 ```
 
 The scanner command line arguments work the same as the sniffer. The purpose of
@@ -522,16 +524,28 @@ extended advertising.
 
 ## XDS110 UART Latency
 
-At least at the time of writing, the TI XDS110 debugger included in Launchpad boards has some
-undesirable behaviour in its USB to UART bridge, where at high baud rates, there can be severe
-latency, especially with frequent small writes as done by the Sniffle firmware. This issue has
-been present for years, and is still present as of April 2024 with the XDS110 firmware 3.0.0.28
-bundled with UniFlash 8.6.0. The root cause is that in DMA based operation, the XDS110 firmware
-accumulates UART data in a buffer whose size is proportional to baud rate, and waits for this
-buffer to fill before transferring the data. There is logic to flush this buffer if no new data
-has arrived over the last 15 milliseconds, but this flushing logic is never triggered when Sniffle
-is frequently adding small packets from connection events every few milliseconds. As a result of
-this suboptimal behaviour, sniffed data can appear in delayed bursts on the host.
+Since the fixing of TI issue [EXT_EP-11735](https://sir.ext.ti.com/jira/browse/EXT_EP-11735) in
+mid-2024, the XDS110 debugger (included on TI Launchpad boards) handles high baud rates such as
+2M (as used by Sniffle) in a reasonable manner without excessive latency. However, the latest
+XDS110 firmware still uses buffered DMA-driven operation of UART at such baud rates, and as
+such can still introduce latency up to 30 ms. This latency is inconsequential for use as a sniffer,
+but may be detrimental to more active operations such as host-side code acting as a GATT client
+or server, or performing relay attacks. The modification of XDS110 firmware version 3.0.0.28
+desrcribed below for interrupt-based operation can still greatly reduce latency for such
+time-sensitive operations. It should be possible to make a similar modification to the latest
+XDS110 firmware, but I haven't taken the time to reverse engineer it and find the right bits
+to change.
+
+In mid-2024 and earlier, the firmware of the TI XDS110 debugger (included on Launchpad boards)
+had an undesirable behaviour in its USB to UART bridge, where at high baud rates, there can be severe
+latency, especially with frequent small writes as done by the Sniffle firmware. This issue was
+present for years, and was still present in April 2024 with the XDS110 firmware 3.0.0.28
+bundled with UniFlash 8.6.0. The root cause was that in DMA based operation, the XDS110 firmware
+accumulated UART data in a buffer whose size was proportional to baud rate, and waited for this
+buffer to fill before transferring the data. There was logic to flush this buffer if no new data
+arrived over the last 15 milliseconds, but this flushing logic was never triggered when Sniffle
+was frequently adding small packets from connection events every few milliseconds. As a result of
+this suboptimal behaviour, sniffed data could appear in delayed bursts on the host.
 
 The XDS110 firmware also has an alternate mode for UART operation, where every UART receive
 triggers an interrupt that results in data immediately being passed to the host. This
