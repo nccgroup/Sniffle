@@ -343,7 +343,7 @@ Launchpad boards, the reset button is located beside the micro USB port.
 ## Scanner Usage
 
 ```
-usage: scanner.py [-h] [-s SERPORT] [-b BAUDRATE] [-c {37,38,39}] [-r RSSI] [-l] [-d] [-o OUTPUT]
+usage: scanner.py [-h] [-s SERPORT] [-c {37,38,39}] [-r RSSI] [-l]
 
 Scanner utility for Sniffle BLE5 sniffer
 
@@ -357,10 +357,6 @@ options:
                         Advertising channel to listen on
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
   -l, --longrange       Use long range (coded) PHY for primary advertising
-  -d, --decode          Decode advertising data
-  -o OUTPUT, --output OUTPUT
-                        PCAP output file name
-
 ```
 
 The scanner command line arguments work the same as the sniffer. The purpose of
