@@ -11,12 +11,12 @@ from time import time
 from select import select
 from struct import pack, unpack
 
-from pcap import PcapBleWriter
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, \
+from sniffle.pcap import PcapBleWriter
+from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, \
         MeasurementMessage, SnifferState
-from packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, AdvIndMessage, \
+from sniffle.packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, AdvIndMessage, \
         AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, str_mac, LlControlMessage
-from relay_protocol import RelayServer, MessageType
+from sniffle.relay_protocol import RelayServer, MessageType
 
 """
 Relay attack principles:

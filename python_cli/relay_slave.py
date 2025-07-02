@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020, NCC Group plc
+# Copyright (c) 2020-2025, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys
@@ -9,9 +9,9 @@ from time import time
 from select import select
 from struct import pack, unpack
 
-from sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
-from packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
-from relay_protocol import connect_relay, MessageType
+from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
+from sniffle.packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
+from sniffle.relay_protocol import connect_relay, MessageType
 
 # global variable to access hardware
 hw = None
