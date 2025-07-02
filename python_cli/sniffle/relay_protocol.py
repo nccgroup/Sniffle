@@ -8,7 +8,7 @@ class RelayServer:
     def __init__(self, ip='0.0.0.0', port=7352):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(('0.0.0.0', port))
+        self.sock.bind((ip, port))
         self.sock.listen(5)
 
     def accept(self):
