@@ -578,3 +578,69 @@ run the following commands to flash the modified XDS110 debugger firmware:
 ./xdsdfu -m
 ./xdsdfu -f firmware_3.0.0.28_fastuart.bin -r
 ```
+
+## Relaying Link Layer Traffic
+
+Sniffle can be used to perform [link-layer relaying](https://hardwear.io/netherlands-2022/presentation/bluetooth-LE-link-layer-relay-attacks.pdf)
+of Bluetooth LE traffic. When performing relaying, one Sniffle device acts as a
+BLE central (using `relay_master.py`) and a second Sniffle deice acts as a BLE
+peripheral (using `relay_slave.py`). Master and slave are historic terms for BLE
+central and peripheral respectively. The relay master captures advertising and
+scan response data from the genuine peripheral, then passes it to the relay slave.
+The relay slave transmits advertisements and scan responses mimicking the genuine
+peripheral and accepts connections. Upon accepting a connection, the relay slave
+notifies the relay master, which then initiates a connection to the genuine
+peripheral. From this point onwards, all link layer packets are forwarded
+between the relay master and slave.
+
+The relay master script provides functionality to request faster connection
+intervals on one both sides of the relay to reduce latency. If using the XDS110
+as a USB/UART bridge, be aware that the XDS110 firmware introduces additional
+latency to the relay unless you modify it as described above.
+
+Please note that the relay master script creates a network listener that binds
+to all interfaces (0.0.0.0), and the network protocol used to communicate
+between the relaying devices provides no security. Only use these scripts in
+trusted network environments.
+
+Usage of the relay master (central) and slave (peripheral) scripts is shown below.
+At present, extended advertising is not supported by the relay scripts.
+
+```
+usage: relay_master.py [-h] [-s SERPORT] [-c {37,38,39}] [-m MAC] [-i IRK] [-S STRING]
+                       [-P] [-q] [-Q PRELOAD] [-f] [-p] [-F] [-o OUTPUT]
+
+Relay master script for Sniffle BLE5 sniffer
+
+options:
+  -h, --help            show this help message and exit
+  -s, --serport SERPORT
+                        Sniffer serial port name
+  -c, --advchan {37,38,39}
+                        Advertising channel to listen on
+  -m, --mac MAC         Specify target MAC address
+  -i, --irk IRK         Specify target IRK
+  -S, --string STRING   Specify target by advertisement search string
+  -P, --public          Supplied MAC address is public
+  -q, --quiet           Don't show empty packets
+  -Q, --preload PRELOAD
+                        Preload expected encrypted connection parameter changes
+  -f, --fastslave       Relay slave should request a fast connection interval
+  -p, --pause           Wait for key press on master before relaying
+  -F, --fastmaster      Relay master should specify a fast connection interval
+  -o, --output OUTPUT   PCAP output file name
+```
+
+```
+usage: relay_slave.py [-h] [-s SERPORT] [-M MASTERADDR] [-q]
+
+Relay slave script for Sniffle BLE5 sniffer
+
+options:
+  -h, --help            show this help message and exit
+  -s, --serport SERPORT
+                        Sniffer serial port name
+  -M, --masteraddr MASTERADDR
+                        IP address of relay master
+  -q, --quiet           Don't show empty packets
+```
