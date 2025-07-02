@@ -1,5 +1,5 @@
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020, NCC Group plc
+# Copyright (c) 2020-2025, NCC Group plc
 # Released as open source under GPLv3
 
 import socket, struct, enum
@@ -43,9 +43,9 @@ uint8_t msg_body[msg_len]
 
 class MessageType(enum.Enum):
     PACKET = 0      # data packet (bidirectional)
-    ADVERT = 1      # advertisement data (master -> slave)
-    SCAN_RSP = 2    # scan response data (master -> slave)
-    CONN_REQ = 3    # CONNECT_IND (slave->master)
+    ADVERT = 1      # advertisement data (central -> peripheral)
+    SCAN_RSP = 2    # scan response data (central -> peripheral)
+    CONN_REQ = 3    # CONNECT_IND (peripheral -> central)
     PING = 4        # network latency test
     PRELOAD = 5     # preloaded encrypted conn param changes
 

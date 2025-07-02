@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Written by Sultan Qasim Khan
-# Copyright (c) 2020-2024, NCC Group plc
+# Copyright (c) 2020-2025, NCC Group plc
 # Released as open source under GPLv3
 
 import argparse, sys
@@ -21,21 +21,21 @@ from relay_protocol import RelayServer, MessageType
 """
 Relay attack principles:
 
-A and S refer to the real advertiser/peripheral/slave
-I_r and M_r refer to relay_master.py
-A_r and S_r refer to relay_slave.py
-I and M refer to the real initiator/central/master
+C refers to the real central (initiator/master)
+P refers to the real peripheral (advertiseer/slave)
+C_r refers to relay_master.py (relay impersonating central)
+P_r refers to relay_slave.py (relay impersonating peripheral)
 
 Relay master script also has a network listener, relay slave connects to it.
 
-First, the relay master (I_r) gathers the adverisement body and scan response
-from the victim advertiser (A). Next, the advertisement data is passed onto
-the relay slave (A_r) to mimic the victim advertiser. Once the victim
-initiator (I) connects to the relay slave (A_r) mimicking the victim advertiser,
+First, the relay master (C_r) gathers the adverisement body and scan response
+from the victim peripheral (P). Next, the advertisement data is passed onto
+the relay slave (P_r) to mimic the victim peripheral. Once the victim
+central (C) connects to the relay slave (P_r) mimicking the victim peripheral,
 the relay slave will inform the relay master, so that it can start its own
-connection to the real victim advertiser with potentially different parameters.
+connection to the real victim peripheral with potentially different parameters.
 
-I               A_r             I_r             A
+C               P_r             C_r             P
                                 <----------Advert
                                 ScanReq--------->
                                 <---------ScanRsp
@@ -45,7 +45,7 @@ I               A_r             I_r             A
 ScanReq-------->
 <--------ScanRsp
 ConnReq-------->
-(I starts channel hopping with A_r)
+(I starts channel hopping with P_r)
                 ConnReq-------->
                                 (wait for next advert)
                                 <----------Advert
@@ -56,7 +56,7 @@ One limitation is that encrypted LL_CONTROL messages could change hopping
 parameters, but we can't decipher them. It may be possible to make an educated
 guess of what the control messages are though based on past behaviour.
 
-M               S_r             M_r             S
+C               P_r             C_r             P
 Encrypted------>
 <----------Empty
                 Encrypted----->
@@ -210,7 +210,7 @@ def main():
     # wait for transition to master state
     while True:
         msg = hw.recv_and_decode()
-        if isinstance(msg, StateMessage) and msg.new_state == SnifferState.MASTER:
+        if isinstance(msg, StateMessage) and msg.new_state == SnifferState.CENTRAL:
             hw.decoder_state.cur_aa = conn_req.aa_conn
             break
     print("Connected to target.", end='\n\n')
