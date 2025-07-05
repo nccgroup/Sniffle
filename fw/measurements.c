@@ -94,7 +94,7 @@ void reportVersion()
 
     buf[0] = MEASTYPE_VERSION;
     buf[1] = 1; // major version
-    buf[2] = 10; // minor version
+    buf[2] = 11; // minor version
     buf[3] = 0; // revision
     buf[4] = 0; // API level
 
