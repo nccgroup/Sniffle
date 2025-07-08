@@ -124,6 +124,7 @@ CFLAGS += -I. \
     -fdata-sections \
     -gstrict-dwarf \
     -Wall \
+    -Wno-dangling-pointer \
     "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include/newlib-nano" \
     "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include"
 
