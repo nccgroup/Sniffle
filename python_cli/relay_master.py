@@ -12,11 +12,12 @@ from select import select
 from struct import pack, unpack
 
 from sniffle.pcap import PcapBleWriter
-from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, \
-        MeasurementMessage, SnifferState
-from sniffle.packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, AdvIndMessage, \
-        AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, str_mac, LlControlMessage
-from sniffle.relay_protocol import RelayServer, MessageType
+from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, \
+        StateMessage, MeasurementMessage, SnifferState
+from sniffle.packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, \
+        AdvIndMessage, AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, \
+        str_mac, LlControlMessage, AdvertMessage
+from sniffle.relay_protocol import RelayServer, MessageType, ErrorCode
 
 """
 Relay attack principles:
@@ -153,6 +154,10 @@ def main():
 
     # obtain the target's advertisement and scan response, share it with relay slave
     adv, scan_rsp = scan_target(mac_bytes)
+    if not adv or not scan_rsp:
+        print("Error: Advertisement type must be ADV_IND. Aborting.")
+        conn.send_err(ErrorCode.INVALID_ADV)
+        return
     conn.send_msg(MessageType.ADVERT, adv.body)
     conn.send_msg(MessageType.SCAN_RSP, scan_rsp.body)
 
@@ -351,7 +356,7 @@ def scan_target(mac):
         if not isinstance(msg, PacketMessage):
             continue
         dpkt = DPacketMessage.decode(msg)
-        if isinstance(dpkt, AdvIndMessage) or isinstance(dpkt, AdvDirectIndMessage):
+        if isinstance(dpkt, AdvIndMessage):
             if advPkt is None:
                 print("Found advertisement.")
             advPkt = dpkt
@@ -359,6 +364,9 @@ def scan_target(mac):
             if scanRspPkt is None:
                 print("Found scan response.")
             scanRspPkt = dpkt
+        elif isinstance(dpkt, AdvertMessage):
+            print("Received incompatible advertisement of type %s." % dpkt.pdutype)
+            return None, None
 
     print("Target Advertisement:")
     print(advPkt)

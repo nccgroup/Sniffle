@@ -48,6 +48,10 @@ class MessageType(enum.Enum):
     CONN_REQ = 3    # CONNECT_IND (peripheral -> central)
     PING = 4        # network latency test
     PRELOAD = 5     # preloaded encrypted conn param changes
+    ERROR = 6       # message sent if something went wrong
+
+class ErrorCode(enum.Enum):
+    INVALID_ADV = 0 # unsupported advertisement type
 
 class RelaySocketWrapper:
     def __init__(self, sock, peer_addr):
@@ -61,9 +65,12 @@ class RelaySocketWrapper:
         body = recvall(self.sock, mlen)
         return MessageType(mtype), body
 
-    def send_msg(self, mtype, body):
+    def send_msg(self, mtype: MessageType, body):
         hdr = struct.pack("<HH", mtype.value, len(body))
         self.sock.sendall(hdr + body)
+
+    def send_err(self, err_code: ErrorCode):
+        self.send_msg(MessageType.ERROR, bytes([err_code.value]))
 
 def connect_relay(peer_ip, port=7352):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
