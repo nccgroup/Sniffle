@@ -1,4 +1,4 @@
-SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_7_41_00_17
+SIMPLELINK_SDK_INSTALL_DIR ?= $(HOME)/ti/simplelink_cc13xx_cc26xx_sdk_8_30_01_01
 
 include $(SIMPLELINK_SDK_INSTALL_DIR)/imports.mak
 
@@ -124,6 +124,7 @@ CFLAGS += -I. \
     -fdata-sections \
     -gstrict-dwarf \
     -Wall \
+    -Wno-dangling-pointer \
     "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include/newlib-nano" \
     "-I$(GCC_ARMCOMPILER)/arm-none-eabi/include"
 
