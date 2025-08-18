@@ -104,16 +104,23 @@ class SniffleHW:
 
     def __init__(self, serport=None, logger=None, timeout=None, baudrate=None):
         if baudrate is None:
-            baudrate = 2000000
-
+            baud = 2000000
+        else:
+            baud = int(baudrate)
         while serport is None:
             serport = find_xds110_serport()
             if serport is not None: break
             serport = find_sonoff_serport()
             if serport is not None: break
             serport = find_catsniffer_v3_serport()
-            if serport is not None: break
+            if serport is not None: 
+                baud = 921600
+                break
             raise IOError("Sniffle device not found")
+       if is_cp2102(serport):
+            if baudrate is None:
+                baud = 921600
+
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()

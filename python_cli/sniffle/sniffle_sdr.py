@@ -394,7 +394,7 @@ class SniffleSoapySDR(SniffleSDR):
         multi_chan = False
         gain = 10
         chan = 37
-
+       
         if driver == 'rfnm':
             self.sdr = None
             results = SoapyDevice.enumerate()

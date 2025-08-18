@@ -3716,4 +3716,5 @@ service_uuids16 = {
     0x1857: 'Electronic Shelf Label',
     0x1858: 'Gaming Audio',
     0x1859: 'Mesh Proxy Solicitation',
+    0xFFFA: 'ASTM Remote ID'
 }
