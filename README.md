@@ -34,7 +34,7 @@ Sniffle has a number of useful features, including:
     * SONOFF CC2652P USB Dongle Plus: <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
     * EC Catsniffer V3 CC1352 & RP2040 <https://github.com/ElectronicCats/CatSniffer>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
-* TI SimpleLink Low Power F2 SDK 7.41.00.17: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/7.41.00.17>
+* TI SimpleLink Low Power F2 SDK 8.30.01.01: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/8.30.01.01>
 * TI DSLite Programmer Software: see below
 * Python 3.9+ with PySerial installed
 
@@ -61,7 +61,7 @@ expect this path, so I suggest just going with the default here. The same
 applies for the TI SysConfig tool.
 
 Once the SDK has been extracted, you will need to edit one makefile to match
-your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_7_41_00_17`
+your build environment. Within `~/ti/simplelink_cc13xx_cc26xx_sdk_8_30_01_01`
 (or wherever the SDK was installed) there is a makefile named `imports.mak`.
 The only paths that need to be set here to build Sniffle are for GCC, XDC,
 cmake and SysConfig. We don't need the CCS compiler. See the diff below as
@@ -69,7 +69,7 @@ an example, and adapt for wherever you installed things.
 
 ```
 diff --git a/imports.mak b/imports.mak
-index d3900b5b6..e7108c3df 100644
+index b2cf5bf59..389d1a7c3 100644
 --- a/imports.mak
 +++ b/imports.mak
 @@ -18,14 +18,14 @@
@@ -77,20 +77,57 @@ index d3900b5b6..e7108c3df 100644
  #
  
 -XDC_INSTALL_DIR        ?= /home/username/ti/xdctools_3_62_01_15_core
--SYSCONFIG_TOOL         ?= /home/username/ti/ccs1230/ccs/utils/sysconfig_1.18.1/sysconfig_cli.sh
+-SYSCONFIG_TOOL         ?= /home/username/ti/ccs1270/ccs/utils/sysconfig_1.21.1/sysconfig_cli.sh
 +XDC_INSTALL_DIR        ?= $(HOME)/ti/xdctools_3_62_01_15_core
-+SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.18.1/sysconfig_cli.sh
++SYSCONFIG_TOOL         ?= $(HOME)/ti/sysconfig_1.21.1/sysconfig_cli.sh
  
 -CMAKE                  ?= /home/username/cmake-3.21.3/bin/cmake
 +CMAKE                  ?= cmake
  PYTHON                 ?= python3
  
- TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1230/ccs/tools/compiler/ti-cgt-armllvm_3.2.0.LTS-0
--GCC_ARMCOMPILER        ?= /home/username/arm-none-eabi-gcc/9.2019.q4.major-0
-+GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi
- IAR_ARMCOMPILER        ?= /home/username/iar9.40.2
+ TICLANG_ARMCOMPILER    ?= /home/username/ti/ccs1270/ccs/tools/compiler/ti-cgt-armllvm_3.2.2.LTS-0
+-GCC_ARMCOMPILER        ?= /home/username/arm-none-eabi-gcc/12.3.Rel1-0
++GCC_ARMCOMPILER        ?= $(HOME)/arm_tools/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi
+ IAR_ARMCOMPILER        ?= /home/username/iar9.50.2
  
  # Uncomment this to enable the TFM build
+```
+
+As of SDK version 8.30.01.01, to compile with recent versions of GCC (and binutils),
+a small modification to the SDK is needed to avoid linking errors
+"Unknown destination type (ARM/Thumb)" and "dangerous relocation: unsupported relocation".
+
+```
+diff --git a/kernel/tirtos7/packages/ti/sysbios/family/arm/m3/Hwi_asm_gcc.s b/kernel/tirtos7/packages/ti/sysbios/family/arm/m3/Hwi_asm_gcc.s
+index 187cfd744..4cbf0d384 100644
+--- a/kernel/tirtos7/packages/ti/sysbios/family/arm/m3/Hwi_asm_gcc.s
++++ b/kernel/tirtos7/packages/ti/sysbios/family/arm/m3/Hwi_asm_gcc.s
+@@ -236,6 +236,7 @@ lab$1:
+ @ user code has set the PRIMASK and not cleared it, or when single
+ @ stepping with interrupts disabled.
+ 
++.type ti_sysbios_family_arm_m3_Hwi_interruptsAreDisabledButShouldNotBe, %function
+ ti_sysbios_family_arm_m3_Hwi_interruptsAreDisabledButShouldNotBe:
+         b   ti_sysbios_family_arm_m3_Hwi_interruptsAreDisabledButShouldNotBe
+ 
+diff --git a/kernel/tirtos7/packages/ti/sysbios/family/arm/v8m/Hwi_asm_gcc.s b/kernel/tirtos7/packages/ti/sysbios/family/arm/v8m/Hwi_asm_gcc.s
+index 717f49c9a..1c83ed725 100644
+--- a/kernel/tirtos7/packages/ti/sysbios/family/arm/v8m/Hwi_asm_gcc.s
++++ b/kernel/tirtos7/packages/ti/sysbios/family/arm/v8m/Hwi_asm_gcc.s
+@@ -226,6 +226,7 @@ lab$1:
+ @ user code has set the PRIMASK and not cleared it, or when single
+ @ stepping with interrupts disabled.
+ 
++.type ti_sysbios_family_arm_v8m_Hwi_interruptsAreDisabledButShouldNotBe, %function
+ ti_sysbios_family_arm_v8m_Hwi_interruptsAreDisabledButShouldNotBe:
+         b   ti_sysbios_family_arm_v8m_Hwi_interruptsAreDisabledButShouldNotBe
+```
+
+After making this modification, you will need to recompile the SDK.
+
+```
+cd ~/ti/simplelink_cc13xx_cc26xx_sdk_8_30_01_01
+make build-gcc -j5
 ```
 
 ### Obtaining DSLite
@@ -580,4 +617,70 @@ run the following commands to flash the modified XDS110 debugger firmware:
 ```
 ./xdsdfu -m
 ./xdsdfu -f firmware_3.0.0.28_fastuart.bin -r
+```
+
+## Relaying Link Layer Traffic
+
+Sniffle can be used to perform [link-layer relaying](https://hardwear.io/netherlands-2022/presentation/bluetooth-LE-link-layer-relay-attacks.pdf)
+of Bluetooth LE traffic. When performing relaying, one Sniffle device acts as a
+BLE central (using `relay_master.py`) and a second Sniffle deice acts as a BLE
+peripheral (using `relay_slave.py`). Master and slave are historic terms for BLE
+central and peripheral respectively. The relay master captures advertising and
+scan response data from the genuine peripheral, then passes it to the relay slave.
+The relay slave transmits advertisements and scan responses mimicking the genuine
+peripheral and accepts connections. Upon accepting a connection, the relay slave
+notifies the relay master, which then initiates a connection to the genuine
+peripheral. From this point onwards, all link layer packets are forwarded
+between the relay master and slave.
+
+The relay master script provides functionality to request faster connection
+intervals on one both sides of the relay to reduce latency. If using the XDS110
+as a USB/UART bridge, be aware that the XDS110 firmware introduces additional
+latency to the relay unless you modify it as described above.
+
+Please note that the relay master script creates a network listener that binds
+to all interfaces (0.0.0.0), and the network protocol used to communicate
+between the relaying devices provides no security. Only use these scripts in
+trusted network environments.
+
+Usage of the relay master (central) and slave (peripheral) scripts is shown below.
+At present, extended advertising is not supported by the relay scripts.
+
+```
+usage: relay_master.py [-h] [-s SERPORT] [-c {37,38,39}] [-m MAC] [-i IRK] [-S STRING]
+                       [-P] [-q] [-Q PRELOAD] [-f] [-p] [-F] [-o OUTPUT]
+
+Relay master script for Sniffle BLE5 sniffer
+
+options:
+  -h, --help            show this help message and exit
+  -s, --serport SERPORT
+                        Sniffer serial port name
+  -c, --advchan {37,38,39}
+                        Advertising channel to listen on
+  -m, --mac MAC         Specify target MAC address
+  -i, --irk IRK         Specify target IRK
+  -S, --string STRING   Specify target by advertisement search string
+  -P, --public          Supplied MAC address is public
+  -q, --quiet           Don't show empty packets
+  -Q, --preload PRELOAD
+                        Preload expected encrypted connection parameter changes
+  -f, --fastslave       Relay slave should request a fast connection interval
+  -p, --pause           Wait for key press on master before relaying
+  -F, --fastmaster      Relay master should specify a fast connection interval
+  -o, --output OUTPUT   PCAP output file name
+```
+
+```
+usage: relay_slave.py [-h] [-s SERPORT] [-M MASTERADDR] [-q]
+
+Relay slave script for Sniffle BLE5 sniffer
+
+options:
+  -h, --help            show this help message and exit
+  -s, --serport SERPORT
+                        Sniffer serial port name
+  -M, --masteraddr MASTERADDR
+                        IP address of relay master
+  -q, --quiet           Don't show empty packets
 ```

@@ -15,6 +15,7 @@ syscfg_c.rov.xs
 ti_utils_build_compiler.opt
 ti_utils_build_linker.cmd.exp
 ti_utils_build_linker.cmd.genlibs
+ti_utils_build_linker.cmd.genmap
 ti_utils_runtime_Makefile
 ti_utils_runtime_model.gv
 ti_sysbios_config.c
