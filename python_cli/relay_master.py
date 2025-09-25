@@ -2,9 +2,10 @@
 
 # Written by Sultan Qasim Khan
 # Copyright (c) 2020-2025, NCC Group plc
+# Copyright (c) 2025, Tetrel Security Inc.
 # Released as open source under GPLv3
 
-import argparse, sys
+import argparse, sys, signal
 from binascii import unhexlify
 from queue import Queue
 from time import time
@@ -75,6 +76,12 @@ hw = None
 # global variable for pcap writer
 pcwriter = None
 
+def sigint_handler(sig, frame):
+    hw.cancel_recv()
+    hw.cmd_chan_aa_phy() # stop scanning or connection
+    hw.cmd_rssi(0)
+    sys.exit(0)
+
 def main():
     aparse = argparse.ArgumentParser(description="Relay master script for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
@@ -105,6 +112,9 @@ def main():
     # put the hardware in a normal state (passive scanning) and configure it with an impossibly
     # high RSSI threshold so that it captures nothing (to avoid filling receive buffers)
     hw.setup_sniffer(mode=SnifferMode.PASSIVE_SCAN, rssi_min=0)
+
+    # trap Ctrl-C
+    signal.signal(signal.SIGINT, sigint_handler)
 
     targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
     if targ_specs < 1:

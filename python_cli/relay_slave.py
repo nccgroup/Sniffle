@@ -2,9 +2,10 @@
 
 # Written by Sultan Qasim Khan
 # Copyright (c) 2020-2025, NCC Group plc
+# Copyright (c) 2025, Tetrel Security Inc.
 # Released as open source under GPLv3
 
-import argparse, sys
+import argparse, sys, signal
 from time import time
 from select import select
 from struct import pack, unpack
@@ -17,6 +18,12 @@ from sniffle.relay_protocol import connect_relay, MessageType
 # global variable to access hardware
 hw = None
 _aa = 0
+
+def sigint_handler(sig, frame):
+    hw.cancel_recv()
+    hw.cmd_chan_aa_phy() # stop advertising or connection
+    hw.cmd_rssi(0)
+    sys.exit(0)
 
 def main():
     aparse = argparse.ArgumentParser(description="Relay slave script for Sniffle BLE5 sniffer")
@@ -86,6 +93,9 @@ def main():
     hw.cmd_rssi(-128)
     hw.mark_and_flush()
     hw.cmd_advertise(adv_data, scan_rsp_data)
+
+    # trap Ctrl-C
+    signal.signal(signal.SIGINT, sigint_handler)
 
     # wait for someone to connect to us
     conn_pkt = None
