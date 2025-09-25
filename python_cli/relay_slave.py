@@ -9,7 +9,8 @@ from time import time
 from select import select
 from struct import pack, unpack
 
-from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage, MeasurementMessage
+from sniffle.sniffle_hw import (SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, StateMessage,
+                                MeasurementMessage, SnifferMode)
 from sniffle.packet_decoder import DPacketMessage, ConnectIndMessage, LlDataContMessage
 from sniffle.relay_protocol import connect_relay, MessageType
 
@@ -27,6 +28,11 @@ def main():
 
     global hw
     hw = SniffleHW(args.serport)
+
+    # put the hardware in a normal state (passive scanning) and configure it with an impossibly
+    # high RSSI threshold so that it captures nothing (to avoid filling receive buffers)
+    hw.setup_sniffer(mode=SnifferMode.PASSIVE_SCAN, rssi_min=0, pause_done=True)
+
     conn = connect_relay(args.masteraddr)
     print("Connected to master.")
 
@@ -35,14 +41,6 @@ def main():
     if mtype != MessageType.PING or body != b'latency_test':
         raise ValueError("Unexpected message type in latency test")
     conn.send_msg(MessageType.PING, b'latency_test')
-
-    # put the hardware in a normal state
-    hw.cmd_chan_aa_phy(37, BLE_ADV_AA, 0)
-    hw.cmd_pause_done(True)
-    hw.cmd_follow(False)
-    hw.cmd_rssi(-128)
-    hw.cmd_mac()
-    hw.cmd_auxadv(False)
 
     # fetch, decode, and apply preloaded conn params from master (if any)
     mtype, body = conn.recv_msg()
@@ -85,6 +83,7 @@ def main():
     adv_data = advert.body[8:]
     scan_rsp_data = scan_rsp.body[8:]
     hw.cmd_follow(True) # accept connections
+    hw.cmd_rssi(-128)
     hw.mark_and_flush()
     hw.cmd_advertise(adv_data, scan_rsp_data)
 

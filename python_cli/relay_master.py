@@ -13,7 +13,7 @@ from struct import pack, unpack
 
 from sniffle.pcap import PcapBleWriter
 from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, \
-        StateMessage, MeasurementMessage, SnifferState
+        StateMessage, MeasurementMessage, SnifferState, SnifferMode
 from sniffle.packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, \
         AdvIndMessage, AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, \
         str_mac, LlControlMessage, AdvertMessage
@@ -102,6 +102,10 @@ def main():
     global hw
     hw = SniffleHW(args.serport)
 
+    # put the hardware in a normal state (passive scanning) and configure it with an impossibly
+    # high RSSI threshold so that it captures nothing (to avoid filling receive buffers)
+    hw.setup_sniffer(mode=SnifferMode.PASSIVE_SCAN, rssi_min=0)
+
     targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
     if targ_specs < 1:
         print("Must specify target MAC address, IRK, or advertisement string", file=sys.stderr)
@@ -160,6 +164,10 @@ def main():
         return
     conn.send_msg(MessageType.ADVERT, adv.body)
     conn.send_msg(MessageType.SCAN_RSP, scan_rsp.body)
+
+    # put the hardware in a state where it won't capture any packets to avoid filling receive
+    # buffer while waiting for connection from relay slave
+    hw.setup_sniffer(mode=SnifferMode.PASSIVE_SCAN, rssi_min=0)
 
     # Pause until key press if option selected
     if args.pause:
