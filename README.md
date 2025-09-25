@@ -18,6 +18,7 @@ Sniffle has a number of useful features, including:
 * Easy to extend host-side software written in Python
 * PCAP export compatible with the Ubertooth
 * Wireshark compatible plugin
+* ZMQ Publishing server
 
 ## Prerequisites
 
@@ -279,6 +280,8 @@ options:
   -d, --decode          Decode advertising data
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
+  -z, --zmq             Enable ZMQ server
+  --zmqsetting          Set ZMQ server ip and port (Default 127.0.0.1:4222)
 ```
 
 The XDS110 debugger on the Launchpad boards creates two serial ports. On
@@ -389,7 +392,7 @@ options:
   -s SERPORT, --serport SERPORT
                         Sniffer serial port name
   -b BAUDRATE, --baudrate BAUDRATE
-                        Sniffer serial port baud rate
+                        Sniffer baudrate (2000000 or 921600) 
   -c {37,38,39}, --advchan {37,38,39}
                         Advertising channel to listen on
   -r RSSI, --rssi RSSI  Filter packets by minimum RSSI
@@ -397,7 +400,6 @@ options:
   -d, --decode          Decode advertising data
   -o OUTPUT, --output OUTPUT
                         PCAP output file name
-
 ```
 
 The scanner command line arguments work the same as the sniffer. The purpose of
