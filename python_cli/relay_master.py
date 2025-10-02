@@ -2,9 +2,10 @@
 
 # Written by Sultan Qasim Khan
 # Copyright (c) 2020-2025, NCC Group plc
+# Copyright (c) 2025, Tetrel Security Inc.
 # Released as open source under GPLv3
 
-import argparse, sys
+import argparse, sys, signal
 from binascii import unhexlify
 from queue import Queue
 from time import time
@@ -13,7 +14,7 @@ from struct import pack, unpack
 
 from sniffle.pcap import PcapBleWriter
 from sniffle.sniffle_hw import SniffleHW, BLE_ADV_AA, PacketMessage, DebugMessage, \
-        StateMessage, MeasurementMessage, SnifferState
+        StateMessage, MeasurementMessage, SnifferState, SnifferMode
 from sniffle.packet_decoder import DPacketMessage, DataMessage, LlDataContMessage, \
         AdvIndMessage, AdvDirectIndMessage, ScanRspMessage, ConnectIndMessage, \
         str_mac, LlControlMessage, AdvertMessage
@@ -75,6 +76,12 @@ hw = None
 # global variable for pcap writer
 pcwriter = None
 
+def sigint_handler(sig, frame):
+    hw.cancel_recv()
+    hw.cmd_chan_aa_phy() # stop scanning or connection
+    hw.cmd_rssi(0)
+    sys.exit(0)
+
 def main():
     aparse = argparse.ArgumentParser(description="Relay master script for Sniffle BLE5 sniffer")
     aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
@@ -101,6 +108,13 @@ def main():
 
     global hw
     hw = SniffleHW(args.serport)
+
+    # put the hardware in a normal state (passive scanning) and configure it with an impossibly
+    # high RSSI threshold so that it captures nothing (to avoid filling receive buffers)
+    hw.setup_sniffer(mode=SnifferMode.PASSIVE_SCAN, rssi_min=0)
+
+    # trap Ctrl-C
+    signal.signal(signal.SIGINT, sigint_handler)
 
     targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
     if targ_specs < 1:
@@ -160,6 +174,10 @@ def main():
         return
     conn.send_msg(MessageType.ADVERT, adv.body)
     conn.send_msg(MessageType.SCAN_RSP, scan_rsp.body)
+
+    # put the hardware in a state where it won't capture any packets to avoid filling receive
+    # buffer while waiting for connection from relay slave
+    hw.setup_sniffer(mode=SnifferMode.PASSIVE_SCAN, rssi_min=0)
 
     # Pause until key press if option selected
     if args.pause:
