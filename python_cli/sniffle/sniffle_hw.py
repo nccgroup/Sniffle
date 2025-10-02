@@ -117,7 +117,7 @@ class SniffleHW:
                 baud = 921600
                 break
             raise IOError("Sniffle device not found")
-       if is_cp2102(serport):
+        if is_cp2102(serport):
             if baudrate is None:
                 baud = 921600
 
