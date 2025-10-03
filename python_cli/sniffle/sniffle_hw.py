@@ -7,7 +7,7 @@ from serial import Serial, SerialTimeoutException
 from struct import pack, unpack
 from base64 import b64encode, b64decode
 from binascii import Error as BAError
-from time import time
+from time import time, sleep
 from random import randint, randrange
 from serial.tools.list_ports import comports
 from traceback import format_exception
@@ -105,15 +105,22 @@ class SniffleHW:
     def __init__(self, serport=None, logger=None, timeout=None, baudrate=None):
         if baudrate is None:
             baudrate = 2000000
-
+        else:
+            baudrate = int(baudrate)
         while serport is None:
             serport = find_xds110_serport()
             if serport is not None: break
             serport = find_sonoff_serport()
             if serport is not None: break
             serport = find_catsniffer_v3_serport()
-            if serport is not None: break
+            if serport is not None: 
+                baudrate = 921600
+                break
             raise IOError("Sniffle device not found")
+        if is_cp2102(serport):
+            if baudrate is None:
+                baudrate = 921600
+
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
@@ -418,10 +425,14 @@ class SniffleHW:
         marker_data = pack('<I', randrange(0x100000000))
         self.cmd_marker(marker_data)
         recvd_mark = False
+        timeout = 0
         while not recvd_mark:
             msg = self.recv_and_decode(True)
             if isinstance(msg, MarkerMessage) and msg.marker_data == marker_data:
                 recvd_mark = True
+            timeout+=1
+            if timeout > 1000:
+                break
 
     def probe_fw_version(self):
         self.cmd_version()

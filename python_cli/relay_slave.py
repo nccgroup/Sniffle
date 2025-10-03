@@ -16,13 +16,13 @@ from sniffle.packet_decoder import DPacketMessage, ConnectIndMessage, LlDataCont
 from sniffle.relay_protocol import connect_relay, MessageType
 
 # global variable to access hardware
-hw = None
+HW = None
 _aa = 0
 
 def sigint_handler(sig, frame):
-    hw.cancel_recv()
-    hw.cmd_chan_aa_phy() # stop advertising or connection
-    hw.cmd_rssi(0)
+    HW.cancel_recv()
+    HW.cmd_chan_aa_phy() # stop advertising or connection
+    HW.cmd_rssi(0)
     sys.exit(0)
 
 def main():
@@ -33,7 +33,7 @@ def main():
             help="Don't show empty packets")
     args = aparse.parse_args()
 
-    global hw
+    global HW
     hw = SniffleHW(args.serport)
 
     # put the hardware in a normal state (passive scanning) and configure it with an impossibly
@@ -131,15 +131,15 @@ def sock_recv_print_forward(conn):
     body = body[2:]
     llid = body[0] & 3
     pdu = body[2:]
-    hw.cmd_transmit(llid, pdu, event)
+    HW.cmd_transmit(llid, pdu, event)
     pkt = DPacketMessage.from_body(body, True, True)
     pkt.ts_epoch = time()
-    pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
+    pkt.ts = pkt.ts_epoch - HW.decoder_state.first_epoch_time
     pkt.event = event
     print(pkt, end='\n\n')
 
 def ser_recv_print_forward(conn, quiet):
-    msg = hw.recv_and_decode()
+    msg = HW.recv_and_decode()
     print_message(msg, quiet)
 
     # only forward packets

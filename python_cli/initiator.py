@@ -12,7 +12,7 @@ from sniffle.packet_decoder import (AdvaMessage, AdvDirectIndMessage, AdvExtIndM
                                     ScanRspMessage, str_mac)
 
 # global variable to access hardware
-hw = None
+HW = None
 _aa = 0
 
 def main():
@@ -31,7 +31,7 @@ def main():
             help="Supplied MAC address is public")
     args = aparse.parse_args()
 
-    global hw
+    global HW
     hw = SniffleHW(args.serport, baudrate=args.baudrate)
 
     targ_specs = bool(args.mac) + bool(args.irk) + bool(args.string)
@@ -101,23 +101,23 @@ def main():
         print_message(msg)
 
 def get_mac_from_irk(irk):
-    hw.cmd_irk(irk, False)
-    hw.mark_and_flush()
+    HW.cmd_irk(irk, False)
+    HW.mark_and_flush()
     print("Waiting for advertisement with suitable RPA...")
     while True:
-        msg = hw.recv_and_decode()
+        msg = HW.recv_and_decode()
         if isinstance(msg, (AdvaMessage, AdvDirectIndMessage,
                             AdvExtIndMessage)) and msg.AdvA is not None:
             print("Found target MAC: %s" % str_mac(msg.AdvA))
             return msg.AdvA
 
 def get_mac_from_string(s):
-    hw.cmd_mac()
-    hw.cmd_scan()
-    hw.mark_and_flush()
+    HW.cmd_mac()
+    HW.cmd_scan()
+    HW.mark_and_flush()
     print("Waiting for advertisement containing specified string...")
     while True:
-        msg = hw.recv_and_decode()
+        msg = HW.recv_and_decode()
         if isinstance(msg, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
                             AdvExtIndMessage)) and msg.AdvA is not None:
             if s in msg.body:
@@ -132,7 +132,7 @@ def print_message(msg):
     elif isinstance(msg, StateMessage):
         print(msg)
         if msg.new_state == SnifferState.CENTRAL:
-            hw.decoder_state.cur_aa = _aa
+            HW.decoder_state.cur_aa = _aa
     print()
 
 msg_ctr = 0
@@ -143,7 +143,7 @@ def print_packet(dpkt):
     global msg_ctr
     MCMASK = 3
     if (msg_ctr & MCMASK) == MCMASK:
-        hw.cmd_transmit(3, b'\x12') # LL_PING_REQ
+        HW.cmd_transmit(3, b'\x12') # LL_PING_REQ
     msg_ctr += 1
 
     # also test sending LL_CONNECTION_UPDATE_IND
@@ -154,7 +154,7 @@ def print_packet(dpkt):
         # Latency = 0x0003
         # Timeout = 0x0080
         # Instant = 0x0080
-        hw.cmd_transmit(3, b'\x00\x04\x08\x00\x30\x00\x03\x00\x80\x00\x80\x00')
+        HW.cmd_transmit(3, b'\x00\x04\x08\x00\x30\x00\x03\x00\x80\x00\x80\x00')
         print("sent change!")
 
 if __name__ == "__main__":

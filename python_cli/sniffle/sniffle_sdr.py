@@ -394,10 +394,16 @@ class SniffleSoapySDR(SniffleSDR):
         multi_chan = False
         gain = 10
         chan = 37
-
+       
         if driver == 'rfnm':
-            self.sdr = SoapyDevice({'driver': driver})
-
+            self.sdr = None
+            results = SoapyDevice.enumerate()
+            for device in results:
+                if device["driver"] == driver:
+                    self.sdr = SoapyDevice(device)
+                    break
+            if self.sdr is None:
+                assert False, "No SoapySDR found"
             rates = self.sdr.listSampleRates(SOAPY_SDR_RX, self.sdr_chan)
             antennas = self.sdr.listAntennas(SOAPY_SDR_RX, self.sdr_chan)
             self.sdr.setAntenna(SOAPY_SDR_RX, self.sdr_chan, antennas[1])
