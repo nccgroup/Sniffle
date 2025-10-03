@@ -9,7 +9,7 @@ from sniffle.constants import BLE_ADV_AA
 from sniffle.sniffle_hw import SniffleHW
 
 # global variable to access hardware
-hw = None
+HW = None
 
 
 def main():
@@ -18,7 +18,7 @@ def main():
     aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baud rate")
     args = aparse.parse_args()
 
-    global hw
+    global HW
     hw = SniffleHW(args.serport, baudrate=args.baudrate)
 
     # set the advertising channel (and return to ad-sniffing mode)

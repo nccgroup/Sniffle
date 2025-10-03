@@ -71,15 +71,15 @@ Empty--------->
 """
 
 # global variable to access hardware
-hw = None
+HW = None
 
 # global variable for pcap writer
 pcwriter = None
 
 def sigint_handler(sig, frame):
-    hw.cancel_recv()
-    hw.cmd_chan_aa_phy() # stop scanning or connection
-    hw.cmd_rssi(0)
+    HW.cancel_recv()
+    HW.cmd_chan_aa_phy() # stop scanning or connection
+    HW.cmd_rssi(0)
     sys.exit(0)
 
 def main():
@@ -106,7 +106,7 @@ def main():
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
-    global hw
+    global HW
     hw = SniffleHW(args.serport)
 
     # put the hardware in a normal state (passive scanning) and configure it with an impossibly
@@ -280,17 +280,17 @@ def sock_recv_print_forward(conn, quiet, filter_changes=False):
     # construct packet object for display and PCAP
     pkt = DPacketMessage.from_body(body, True)
     pkt.ts_epoch = time()
-    pkt.ts = pkt.ts_epoch - hw.decoder_state.first_epoch_time
-    pkt.aa = hw.decoder_state.cur_aa
+    pkt.ts = pkt.ts_epoch - HW.decoder_state.first_epoch_time
+    pkt.aa = HW.decoder_state.cur_aa
     pkt.event = event
 
     # Passing on PDUs with instants in the past would break the connection
     if not (filter_changes and has_instant(pkt)):
-        hw.cmd_transmit(llid, pdu, event)
+        HW.cmd_transmit(llid, pdu, event)
     print_message(pkt, quiet)
 
 def ser_recv_print_forward(conn, quiet, filter_changes=False):
-    msg = hw.recv_and_decode()
+    msg = HW.recv_and_decode()
 
     if isinstance(msg, PacketMessage):
         msg = DPacketMessage.decode(msg)
@@ -302,7 +302,7 @@ def ser_recv_print_forward(conn, quiet, filter_changes=False):
             conn.send_msg(MessageType.PACKET, pack('<H', msg.event) + msg.body)
         if block_req:
             # LL_REJECT_EXT_IND, unacceptable connection parameters
-            hw.cmd_transmit(3, b'\x11\x0F\x3B')
+            HW.cmd_transmit(3, b'\x11\x0F\x3B')
 
     print_message(msg, quiet)
 
@@ -315,17 +315,17 @@ def print_message(msg, quiet=False):
         print(msg, end='\n\n')
 
 def get_mac_from_irk(irk, chan=37):
-    hw.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
-    hw.cmd_pause_done(True)
-    hw.cmd_follow(False) # capture advertisements only
-    hw.cmd_rssi(-128)
-    hw.cmd_irk(irk, False)
-    hw.cmd_auxadv(False)
-    hw.mark_and_flush()
+    HW.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
+    HW.cmd_pause_done(True)
+    HW.cmd_follow(False) # capture advertisements only
+    HW.cmd_rssi(-128)
+    HW.cmd_irk(irk, False)
+    HW.cmd_auxadv(False)
+    HW.mark_and_flush()
 
     print("Waiting for advertisement with suitable RPA...")
     while True:
-        msg = hw.recv_and_decode()
+        msg = HW.recv_and_decode()
         if not isinstance(msg, PacketMessage):
             continue
         dpkt = DPacketMessage.decode(msg)
@@ -334,19 +334,19 @@ def get_mac_from_irk(irk, chan=37):
             return dpkt.AdvA
 
 def get_mac_from_string(s, chan=37):
-    hw.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
-    hw.cmd_pause_done(True)
-    hw.cmd_follow(False) # capture advertisements only
-    hw.cmd_rssi(-128)
-    hw.cmd_mac()
-    hw.cmd_auxadv(False)
-    hw.random_addr()
-    hw.cmd_scan()
-    hw.mark_and_flush()
+    HW.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
+    HW.cmd_pause_done(True)
+    HW.cmd_follow(False) # capture advertisements only
+    HW.cmd_rssi(-128)
+    HW.cmd_mac()
+    HW.cmd_auxadv(False)
+    HW.random_addr()
+    HW.cmd_scan()
+    HW.mark_and_flush()
 
     print("Waiting for advertisement containing specified string...")
     while True:
-        msg = hw.recv_and_decode()
+        msg = HW.recv_and_decode()
         if not isinstance(msg, PacketMessage):
             continue
         dpkt = DPacketMessage.decode(msg)
@@ -359,18 +359,18 @@ def scan_target(mac):
     advPkt = None
     scanRspPkt = None
 
-    hw.cmd_chan_aa_phy(37, BLE_ADV_AA, 0)
-    hw.cmd_pause_done(True)
-    hw.cmd_follow(False)
-    hw.cmd_rssi(-128)
-    hw.cmd_mac(mac, False)
-    hw.cmd_auxadv(False) # we only support impersonating legacy advertisers for now
-    hw.random_addr()
-    hw.cmd_scan()
-    hw.mark_and_flush()
+    HW.cmd_chan_aa_phy(37, BLE_ADV_AA, 0)
+    HW.cmd_pause_done(True)
+    HW.cmd_follow(False)
+    HW.cmd_rssi(-128)
+    HW.cmd_mac(mac, False)
+    HW.cmd_auxadv(False) # we only support impersonating legacy advertisers for now
+    HW.random_addr()
+    HW.cmd_scan()
+    HW.mark_and_flush()
 
     while (advPkt is None) or (scanRspPkt is None):
-        msg = hw.recv_and_decode()
+        msg = HW.recv_and_decode()
         if not isinstance(msg, PacketMessage):
             continue
         dpkt = DPacketMessage.decode(msg)
@@ -397,22 +397,22 @@ def scan_target(mac):
 
 def connect_target(targ_mac, chan=37, targ_random=True, initiator_mac=None, initiator_random=True,
         interval=24, latency=1, preloads=[]):
-    hw.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
-    hw.cmd_pause_done(True)
-    hw.cmd_follow(False)
-    hw.cmd_rssi(-128)
-    hw.cmd_mac(targ_mac, False)
-    hw.cmd_auxadv(False)
-    hw.cmd_interval_preload(preloads)
-    hw.cmd_phy_preload()
+    HW.cmd_chan_aa_phy(chan, BLE_ADV_AA, 0)
+    HW.cmd_pause_done(True)
+    HW.cmd_follow(False)
+    HW.cmd_rssi(-128)
+    HW.cmd_mac(targ_mac, False)
+    HW.cmd_auxadv(False)
+    HW.cmd_interval_preload(preloads)
+    HW.cmd_phy_preload()
     if initiator_mac is None:
-        hw.random_addr()
+        HW.random_addr()
     else:
-        hw.cmd_setaddr(initiator_mac, initiator_random)
-    hw.mark_and_flush()
+        HW.cmd_setaddr(initiator_mac, initiator_random)
+    HW.mark_and_flush()
 
     # now enter initiator mode
-    return hw.initiate_conn(targ_mac, targ_random, interval, latency)
+    return HW.initiate_conn(targ_mac, targ_random, interval, latency)
 
 def print_packet(pkt, quiet=False):
     is_not_empty = not (isinstance(pkt, LlDataContMessage) and pkt.data_length == 0)

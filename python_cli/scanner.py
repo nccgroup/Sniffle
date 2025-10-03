@@ -13,7 +13,7 @@ from sniffle.advdata.decoder import decode_adv_data
 from sniffle.errors import SourceDone
 
 # global variables
-hw = None
+HW = None
 pcwriter = None
 advertisers = {}
 done_scan = False
@@ -22,7 +22,7 @@ done_scan = False
 def sigint_handler(sig, frame):
     global done_scan
     done_scan = True
-    hw.cancel_recv()
+    HW.cancel_recv()
 
 
 class Advertiser:
@@ -63,7 +63,7 @@ def main():
     aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
     args = aparse.parse_args()
 
-    global hw
+    global HW
     hw = make_sniffle_hw(args.serport, baudrate=args.baudrate)
 
     hw.setup_sniffer(

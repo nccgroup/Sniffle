@@ -18,51 +18,12 @@ from sniffle.errors import UsageError, SourceDone
 from sniffle.advdata.decoder import decode_adv_data
 
 # global variable to access hardware
-hw = None
+HW = None
 
 # global variable for pcap writer
 pcwriter = None
 
-def main():
-    aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
-    aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
-    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baud rate")
-    aparse.add_argument("-c", "--advchan", default=40, choices=[37, 38, 39], type=int,
-            help="Advertising channel to listen on")
-    aparse.add_argument("-p", "--pause", action="store_true",
-            help="Pause sniffer after disconnect")
-    aparse.add_argument("-r", "--rssi", default=-128, type=int,
-            help="Filter packets by minimum RSSI")
-    aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
-    aparse.add_argument("-i", "--irk", default=None, help="Filter packets by advertiser IRK")
-    aparse.add_argument("-S", "--string", default=None,
-            help="Filter for advertisements containing the specified string")
-    aparse.add_argument("-a", "--advonly", action="store_true",
-            help="Passive scanning, don't follow connections")
-    aparse.add_argument("-A", "--scan", action="store_true",
-            help="Active scanning, don't follow connections")
-    aparse.add_argument("-e", "--extadv", action="store_true",
-            help="Capture BT5 extended (auxiliary) advertising")
-    aparse.add_argument("-H", "--hop", action="store_true",
-            help="Hop primary advertising channels in extended mode")
-    aparse.add_argument("-l", "--longrange", action="store_true",
-            help="Use long range (coded) PHY for primary advertising")
-    aparse.add_argument("-q", "--quiet", action="store_true",
-            help="Don't display empty packets")
-    aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
-            "connection parameter changes")
-    aparse.add_argument("-n", "--nophychange", action="store_true",
-            help="Ignore encrypted PHY mode changes")
-    aparse.add_argument("-C", "--crcerr", action="store_true",
-            help="Capture packets with CRC errors")
-    aparse.add_argument("-d", "--decode", action="store_true",
-            help="Decode advertising data")
-    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
-    aparse.add_argument("-z", "--zmq", action="store_true", help="Enable zmq")
-    aparse.add_argument("--zmqsetting", default="127.0.0.1:4222", help="Define zmq server settings")
-    aparse.add_argument("-v", "--verbose", action="store_true", help="Print messages")
-    args = aparse.parse_args()
-
+def main(args):
     if args.zmq:
         import zmq
 
@@ -105,7 +66,7 @@ def main():
     if args.advchan != 40 and args.hop:
         raise UsageError("Don't specify an advertising channel if you want advertising channel hopping!")
 
-    global hw
+    global HW
     hw = make_sniffle_hw(serport=args.serport, baudrate=args.baudrate)
 
     # if a channel was explicitly specified, don't hop
@@ -214,14 +175,52 @@ def print_packet(dpkt, quiet, decode_ad):
         pcwriter.write_packet_message(dpkt)
 
 def get_mac_from_string(s, coded_phy=False):
-    hw.setup_sniffer(SnifferMode.ACTIVE_SCAN, ext_adv=True, coded_phy=coded_phy)
-    hw.mark_and_flush()
+    HW.setup_sniffer(SnifferMode.ACTIVE_SCAN, ext_adv=True, coded_phy=coded_phy)
+    HW.mark_and_flush()
     while True:
-        msg = hw.recv_and_decode()
+        msg = HW.recv_and_decode()
         if isinstance(msg, (AdvaMessage, AdvDirectIndMessage, ScanRspMessage,
                             AdvExtIndMessage)) and msg.AdvA is not None:
             if s in msg.body:
                 return msg.AdvA, not msg.TxAdd
 
 if __name__ == "__main__":
-    main()
+    aparse = argparse.ArgumentParser(description="Host-side receiver for Sniffle BLE5 sniffer")
+    aparse.add_argument("-s", "--serport", default=None, help="Sniffer serial port name")
+    aparse.add_argument("-b", "--baudrate", default=None, help="Sniffer serial port baud rate")
+    aparse.add_argument("-c", "--advchan", default=40, choices=[37, 38, 39], type=int,
+            help="Advertising channel to listen on")
+    aparse.add_argument("-p", "--pause", action="store_true",
+            help="Pause sniffer after disconnect")
+    aparse.add_argument("-r", "--rssi", default=-128, type=int,
+            help="Filter packets by minimum RSSI")
+    aparse.add_argument("-m", "--mac", default=None, help="Filter packets by advertiser MAC")
+    aparse.add_argument("-i", "--irk", default=None, help="Filter packets by advertiser IRK")
+    aparse.add_argument("-S", "--string", default=None,
+            help="Filter for advertisements containing the specified string")
+    aparse.add_argument("-a", "--advonly", action="store_true",
+            help="Passive scanning, don't follow connections")
+    aparse.add_argument("-A", "--scan", action="store_true",
+            help="Active scanning, don't follow connections")
+    aparse.add_argument("-e", "--extadv", action="store_true",
+            help="Capture BT5 extended (auxiliary) advertising")
+    aparse.add_argument("-H", "--hop", action="store_true",
+            help="Hop primary advertising channels in extended mode")
+    aparse.add_argument("-l", "--longrange", action="store_true",
+            help="Use long range (coded) PHY for primary advertising")
+    aparse.add_argument("-q", "--quiet", action="store_true",
+            help="Don't display empty packets")
+    aparse.add_argument("-Q", "--preload", default=None, help="Preload expected encrypted "
+            "connection parameter changes")
+    aparse.add_argument("-n", "--nophychange", action="store_true",
+            help="Ignore encrypted PHY mode changes")
+    aparse.add_argument("-C", "--crcerr", action="store_true",
+            help="Capture packets with CRC errors")
+    aparse.add_argument("-d", "--decode", action="store_true",
+            help="Decode advertising data")
+    aparse.add_argument("-o", "--output", default=None, help="PCAP output file name")
+    aparse.add_argument("-z", "--zmq", action="store_true", help="Enable zmq")
+    aparse.add_argument("--zmqsetting", default="127.0.0.1:4222", help="Define zmq server settings")
+    aparse.add_argument("-v", "--verbose", action="store_true", help="Print messages")
+    args = aparse.parse_args()
+    main(args)
