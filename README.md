@@ -30,12 +30,22 @@ Sniffle has a number of useful features, including:
     * TI CC1352P7 Launchpad Board: <https://www.ti.com/tool/LP-CC1352P7>
     * TI CC2651P3 Launchpad Board: <https://www.ti.com/tool/LP-CC2651P3>
     * TI CC1354P10 Launchpad Board: <https://www.ti.com/tool/LP-EM-CC1354P10>
-    * SONOFF CC2652P USB Dongle Plus: <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
+    * SONOFF CC2652P USB Dongle Plus (see note below): <https://itead.cc/product/sonoff-zigbee-3-0-usb-dongle-plus/>
     * EC Catsniffer V3 CC1352 & RP2040 <https://github.com/ElectronicCats/CatSniffer>
 * ARM GNU Toolchain for AArch32 bare-metal target (arm-none-eabi): <https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads>
 * TI SimpleLink Low Power F2 SDK 8.30.01.01: <https://www.ti.com/tool/download/SIMPLELINK-LOWPOWER-F2-SDK/8.30.01.01>
 * TI DSLite Programmer Software: see below
 * Python 3.9+ with PySerial installed
+
+**A note about Sonoff boards: This board is popular because it is cheap, small, 
+and easy to flash. However, there are [3rd party clones that will NOT work](https://www.amazon.com/dp/B0FQ712KM8). 
+You should only buy [the official Sonoff board](https://www.amazon.com/dp/B09KXTCMSC), 
+ideally from [the official site](https://sonoff.tech/en-us/products/sonoff-zigbee-3-0-usb-dongle-plus-zbdongle-p). 
+The clones look identical but have some differences:
+* The word "Sonoff" is missing from the case
+* Instead of a labeled "BOOT" and "RST" button, they have "K1" and "K2" buttons
+* No DIP switch
+* When using (as you should) the `--bootloader-sonoff-usb` flag, it fails.
 
 **If you don't want to go through the effort of setting up a build
 environment for the firmware, you can just flash prebuilt firmware binaries
@@ -532,6 +542,13 @@ the python interpreter if the installation directory is not included in the PATH
 @echo off
 C:\my_python_install\python.exe "%~dp0sniffle_extcap.py" %*
 ```
+
+The windows wireshark dissector also needs you to copy the whole Sniffle python directory to 
+Wireshark's extcap folder. So do something like this in powershell
+`Copy-Item -Path C:\Sniffle\python_cli\sniffle -Destination C:\Users\YOURNAME\AppData\Roaming\Wireshark\extcap\sniffle -Recurse`
+
+in addition to copying the `sniffle_extcap.py` and `sniffle_extcap.bat` to the `extcap` folder. 
+and _then_ run the `sniffle_extcap.bat` file and ensure it doesn't error. 
 
 Once the plugin has been installed, restart Wireshark or choose *Capture* > *Refresh Interfaces*
 to enable the Sniffle interface.
