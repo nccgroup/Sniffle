@@ -37,7 +37,7 @@ Sniffle has a number of useful features, including:
 * TI DSLite Programmer Software: see below
 * Python 3.9+ with PySerial installed
 
-**A note about Sonoff boards: This board is popular because it is cheap, small, 
+**A note about Sonoff boards**: This board is popular because it is cheap, small, 
 and easy to flash. However, there are [3rd party clones that will NOT work](https://www.amazon.com/dp/B0FQ712KM8). 
 You should only buy [the official Sonoff board](https://www.amazon.com/dp/B09KXTCMSC), 
 ideally from [the official site](https://sonoff.tech/en-us/products/sonoff-zigbee-3-0-usb-dongle-plus-zbdongle-p). 
@@ -545,6 +545,7 @@ C:\my_python_install\python.exe "%~dp0sniffle_extcap.py" %*
 
 The windows wireshark dissector also needs you to copy the whole Sniffle python directory to 
 Wireshark's extcap folder. So do something like this in powershell
+
 `Copy-Item -Path C:\Sniffle\python_cli\sniffle -Destination C:\Users\YOURNAME\AppData\Roaming\Wireshark\extcap\sniffle -Recurse`
 
 in addition to copying the `sniffle_extcap.py` and `sniffle_extcap.bat` to the `extcap` folder. 
