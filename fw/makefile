@@ -86,6 +86,14 @@ ifneq ($(filter $(PLATFORM), $(1M_BAUD_PLATFORMS)),)
     CFLAGS += -DUART_1M_BAUD
 endif
 
+# CatSniffer V3 wires the RX-activity LED to DIO_24, which the stock
+# LP_CC1352P7_1 board definition (shared with the plain CC1352P7 LaunchPad)
+# does not map. Flag only the CatSniffer platform so PacketTask.c drives that
+# pin directly; every other board keeps the board apps/LED instance.
+ifeq ($(PLATFORM), CC1352P74_1M)
+    CFLAGS += -DSNIFFLE_CATSNIFFER_LED_DIO=24
+endif
+
 ifeq ($(HARD_FLOAT),2)
     CFLAGS += -mfloat-abi=hard -mfpu=fpv5-sp-d16 -mcpu=cortex-m33
     LFLAGS += -mfloat-abi=hard -mfpu=fpv5-sp-d16 -mcpu=cortex-m33

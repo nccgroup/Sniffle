@@ -34,5 +34,6 @@ void CommandTask_init(void);
 #define COMMAND_ADV_EXT         0x25
 #define COMMAND_CRC_VALID       0x26
 #define COMMAND_TX_POWER        0x27
+#define COMMAND_HIJACK          0x28
 
 #endif /* COMMANDTASK_H */

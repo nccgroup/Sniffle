@@ -618,6 +618,12 @@ void RadioWrapper_resetSeqStat()
     RF_cmdBle5Slave.pParams->seqStat.bLlCtrlAckPending = 0;
 }
 
+void RadioWrapper_setNextTxSn(uint8_t nextTxSn)
+{
+    RF_cmdBle5Master.pParams->seqStat.nextTxSn = nextTxSn & 1;
+    RF_cmdBle5Slave.pParams->seqStat.nextTxSn = nextTxSn & 1;
+}
+
 /* Initiate a connection to the specified peer address
  *
  * Arguments:

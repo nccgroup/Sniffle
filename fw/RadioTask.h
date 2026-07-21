@@ -47,6 +47,13 @@ void setAddr(bool isRandom, void *addr);
 /* Enter initiating state */
 void initiateConn(bool isRandom, void *peerAddr, void *llData);
 
+/* Hijack: transition from DATA to CENTRAL (mode 0) */
+void enterCentralFromData(void);
+
+/* Hijack: enter CENTRAL with explicit connection parameters (mode 1) */
+void enterCentralDirect(PHY_Mode phy, bool csa2, uint8_t *llData,
+        uint32_t connEvent, uint32_t anchorTicks);
+
 /* Enter legacy advertising state */
 void advertise(ADV_Mode mode, void *advData, uint8_t advLen,
         void *scanRspData, uint8_t scanRspLen);

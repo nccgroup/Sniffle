@@ -95,6 +95,9 @@ int RadioWrapper_peripheral(PHY_Mode phy, uint32_t chan, uint32_t accessAddr,
 // Reset sequence numbers for central/peripheral modes
 void RadioWrapper_resetSeqStat(void);
 
+// Override nextTxSn after resetSeqStat to match what the peripheral expects
+void RadioWrapper_setNextTxSn(uint8_t nextTxSn);
+
 // Initiate connection with peer
 int RadioWrapper_initiate(PHY_Mode phy, uint32_t chan, uint32_t timeout, bool forever,
     RadioWrapper_Callback callback, const uint16_t *initAddr, bool initRandom,

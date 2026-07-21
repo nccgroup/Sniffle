@@ -473,6 +473,171 @@ Actively scan on channel 39 for advertisements with RSSI greater than -50.
 ./scanner.py -c 39 -r -50
 ```
 
+## bluecat Usage
+
+`bluecat` is an offensive BLE toolkit added in this fork, built on the same
+host-side Sniffle library. It drives a flashed Sniffle board (CatSniffer,
+SONOFF, or TI Launchpad) to scan, audit, connect to, hijack, enumerate the GATT
+database of, and fuzz a BLE peripheral, then drops into an interactive REPL.
+Everything runs from a single `bluecat.py` dispatcher with per-task subcommands.
+
+```
+usage: bluecat [-h] command ...
+
+bluecat - BLE recon/hijack/GATT tool (CatSniffer)
+
+positional arguments:
+  command
+    scan      Discover nearby BLE devices (passive scan)
+    audit     Vulnerability-assess BLE devices (no MAC = audit-on-discovery sweep)
+    connect   Connect as central -> GATT enumeration -> interactive REPL
+    hijack    Take over a live connection -> GATT enum -> REPL; no MAC = follow first seen
+    fuzz      Multi-layer BLE fuzzer (values/sweep/opcodes/ll)
+    sniff     Passively follow a live BLE connection and print ATT operations
+```
+
+Run `bluecat <command> -h` for the options of each subcommand.
+
+- `scan` passively lists every advertising device seen on the selected
+  channel(s) during the dwell window, as a table or `--json`.
+- `audit [MAC]` runs a non-destructive vulnerability assessment (open control
+  points, trackability, sensitive/OTA characteristics). With no MAC it audits
+  every connectable advertiser as it is discovered; with a MAC it audits that
+  one device.
+- `connect MAC` initiates an outbound connection as central, enumerates the
+  GATT database, and opens an interactive REPL for reads/writes/subscriptions.
+- `hijack [MAC]` sniffs and then takes over an existing connection. With a MAC
+  it waits for and hijacks a connection to that peripheral; with no MAC it
+  follows the first connection seen.
+- `fuzz [MAC]` fuzzes a peripheral over a connect, hijack, or follow session.
+  Pick a layer with `--mode {values,sweep,opcodes,ll}`. Crash auto-resume only
+  works in connect mode, where bluecat owns the link.
+- `sniff MAC` passively prints every ATT read, write, notification, and
+  indication (handle and value) on a live connection without transmitting.
+  Useful recon before hijacking, to find the control-point handle and command
+  bytes.
+
+Notes:
+
+- A Sniffle board flashed with current firmware is required (see Firmware
+  Installation above). Connection hijacking (used by `hijack`, and by `fuzz` in
+  hijack or follow mode) is part of recent Sniffle firmware, so flash the latest
+  build; older firmware without it can still scan, audit, connect, and sniff.
+- bluecat auto-detects the board, including the CatSniffer's serial port and its
+  921600 baud rate, so you normally pass neither `-s` nor `-b`. (The base Sniffle
+  utilities do not auto-detect that baud, which is why they need `-b 921600`.)
+  Pass `-s PORT` or `-b BAUD` only if auto-detection does not find your board.
+- Cheap peripherals such as ELK-BLEDOM strips use a public address; pass
+  `--public` for those.
+
+Scan all advertising channels for 8 seconds and print a table.
+
+```
+./bluecat.py scan --time 8
+```
+
+Audit every connectable device discovered on channel 37.
+
+```
+./bluecat.py audit -c 37
+```
+
+Connect to a peripheral, enumerate its GATT database, and open the REPL.
+
+```
+./bluecat.py connect AA:BB:CC:DD:EE:FF
+```
+
+Passively watch ATT traffic on a live connection to find the control handle.
+
+```
+./bluecat.py sniff AA:BB:CC:DD:EE:FF
+```
+
+Hijack the next connection to a target and enumerate it (needs hijack-capable firmware).
+
+```
+./bluecat.py hijack AA:BB:CC:DD:EE:FF
+```
+
+### Fuzzing with `bluecat fuzz`
+
+`bluecat fuzz` drives one of four fuzzing strategies over a live link and watches
+the target for crashes and anomalies. It is the most involved subcommand, so it
+is worth covering in detail.
+
+**Session - how the link is obtained.** The same three access modes as the rest
+of bluecat:
+
+- Give a MAC and no `--hijack`: bluecat *connects* to that peripheral as central.
+  This is the only mode with crash-resume (below), because bluecat owns the link
+  and can reconnect on its own.
+- `--hijack MAC`: bluecat sniffs, then *hijacks* an existing connection to that
+  peripheral. Requires hijack-capable firmware (see the Notes above).
+- Omit the MAC: *follow* mode, where bluecat takes over the first connection it
+  sees. Also requires hijack-capable firmware.
+
+**Modes - what actually gets sent (`--mode`, required).**
+
+- `values`: mutate the value written to a single characteristic handle
+  (`--handle`, default `0x0001`). With no `--seed` it writes a fixed battery of
+  edge cases: empty, `0x00`, `0xff`, 20 bytes of `0xff`, 244 bytes of `0xff`
+  (a max-length ATT write), and 64 bytes of `0x41`. With `--seed deadbeef` it
+  also sends the seed itself, one high-bit-flipped variant per byte, the seed
+  padded with 8 null bytes, and the seed shortened by one byte. Point this at a
+  known writable control point - find one first with `sniff` or `connect`.
+- `sweep`: write one payload to every handle in `[--start, --end]` (default
+  `0x0001` to `0x00FF`). The payload is `--seed` if given, otherwise a single
+  `0x00`. This maps the writable attack surface: which handles accept writes,
+  which are hidden, and which crash on write.
+- `opcodes`: send a fixed set of malformed and truncated raw ATT PDUs (unknown
+  opcode, truncated Read/Write requests, over-long Find Info, a zero-MTU
+  exchange, reserved opcodes). Exercises the peripheral's ATT parser. No handle
+  needed.
+- `ll`: send a fixed set of malformed Link-Layer control PDUs (unknown control
+  opcode, zero-length, over-long, an edge-value LL_LENGTH_REQ, an all-zero
+  LL_FEATURE_REQ). Exercises the controller below ATT. No handle needed.
+
+**Detection.** After every payload bluecat checks whether the link is still
+alive. An ATT error response is recorded as an *anomaly*; a dropped link or a
+transport timeout is recorded as a *crash*. In connect mode a crash triggers a
+reconnect and fuzzing continues; in hijack and follow mode there is nothing to
+reconnect to, so fuzzing stops at the first crash.
+
+**Output.** `-o FILE.jsonl` writes one JSON record per test as it runs
+(`{"n", "kind", "sent", "result", "crashed"}`, with `sent` in hex), flushed
+live. A summary `{tested, crashes, anomalies}` prints at the end.
+
+**A typical workflow.**
+
+First find a writable control-point handle by watching the app talk to the
+device, then fuzz that handle's values (seeded with a real command you saw):
+
+```
+./bluecat.py sniff AA:BB:CC:DD:EE:FF
+./bluecat.py fuzz AA:BB:CC:DD:EE:FF --mode values --handle 0x0010 --seed 7e0705 -o fuzz.jsonl
+```
+
+Map the rest of the writable surface with a sweep:
+
+```
+./bluecat.py fuzz AA:BB:CC:DD:EE:FF --mode sweep --start 0x0001 --end 0x00ff
+```
+
+Test the ATT and link-layer parsers with malformed PDUs (no handle needed):
+
+```
+./bluecat.py fuzz AA:BB:CC:DD:EE:FF --mode opcodes
+./bluecat.py fuzz AA:BB:CC:DD:EE:FF --mode ll
+```
+
+To fuzz a device that holds its own connection open (e.g. paired to its app),
+take that connection over instead of dialing your own (needs hijack-capable firmware):
+
+```
+./bluecat.py fuzz AA:BB:CC:DD:EE:FF --hijack --mode opcodes
+```
+
 ## Obtaining the IRK
 
 If you have a rooted Android phone, you can find IRKs (and LTKs) in the Bluedroid

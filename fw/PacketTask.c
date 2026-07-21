@@ -34,7 +34,9 @@
 #define PACKET_TASK_STACK_SIZE 1024
 #define PACKET_TASK_PRIORITY   3
 
+#ifndef SNIFFLE_CATSNIFFER_LED_DIO
 #define RX_ACTIVITY_LED CONFIG_LED_0
+#endif
 
 /***** Type declarations *****/
 
@@ -58,7 +60,9 @@ static void packetTaskFunction(UArg arg0, UArg arg1);
 static bool macFilterCheck(BLE_Frame *frame);
 
 /* LED driver handle */
+#ifndef SNIFFLE_CATSNIFFER_LED_DIO
 static LED_Handle ledHandle;
+#endif
 
 // size must be a power of 2
 #define JANKY_QUEUE_SIZE 8u
@@ -83,6 +87,12 @@ void PacketTask_init(void) {
     }
 
     /* Open LED pins */
+#ifdef SNIFFLE_CATSNIFFER_LED_DIO
+    /* CatSniffer V3 wires the RX-activity LED to a fixed DIO that the stock
+     * LP_CC1352P7_1 board definition does not map, so drive it directly via
+     * the GPIO driver instead of the board apps/LED instance. */
+    GPIO_setConfig(SNIFFLE_CATSNIFFER_LED_DIO, GPIO_CFG_OUT_STD | GPIO_CFG_OUT_LOW);
+#else
     LED_Params ledParams;
     LED_init();
     ledHandle = LED_open(RX_ACTIVITY_LED, &ledParams);
@@ -90,6 +100,7 @@ void PacketTask_init(void) {
     {
         System_abort("Error initializing board 3.3V domain pins\n");
     }
+#endif
 
     packetAvailSem = Semaphore_create(0, NULL, NULL);
 
@@ -197,13 +208,21 @@ static void packetTaskFunction(UArg arg0, UArg arg1)
         Semaphore_pend(packetAvailSem, BIOS_WAIT_FOREVER);
 
         // activate LED
+#ifdef SNIFFLE_CATSNIFFER_LED_DIO
+        GPIO_write(SNIFFLE_CATSNIFFER_LED_DIO, 1);
+#else
         LED_write(ledHandle, 1);
+#endif
 
         // send packet
         sendPacket(s_frames + (atomic_load(&queue_tail) & JANKY_QUEUE_MASK));
 
         // deactivate LED
+#ifdef SNIFFLE_CATSNIFFER_LED_DIO
+        GPIO_write(SNIFFLE_CATSNIFFER_LED_DIO, 0);
+#else
         LED_write(ledHandle, 0);
+#endif
 
         // we can now handle a new packet (wraparound is OK)
         atomic_fetch_add(&queue_tail, 1);

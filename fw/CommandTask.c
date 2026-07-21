@@ -214,6 +214,31 @@ static void commandTaskFunction(UArg arg0, UArg arg1)
             if (ret != 3) continue;
             RadioWrapper_setTxPower((int8_t)msgBuf[2]);
             break;
+        case COMMAND_HIJACK:
+            // Mode 0: [len, 0x28, 0x00] = 3 bytes -- live DATA->CENTRAL hijack
+            // Mode 1: [len, 0x28, 0x01, phy, csa2, llData(22), connEvent(4), anchorTicks(4)]
+            //         = 34 bytes total
+            if (ret < 3) continue;
+            if (msgBuf[2] == 0x00) {
+                // Mode 0: live hijack from DATA state
+                if (ret != 3) continue;
+                enterCentralFromData();
+            } else if (msgBuf[2] == 0x01) {
+                // Mode 1: direct parameter injection
+                // phy(1) + csa2(1) + llData(22) + connEvent(4) + anchorTicks(4) = 32 payload bytes
+                // + 2 header bytes = 34 total
+                if (ret != 34) continue;
+                if (msgBuf[3] > PHY_CODED_S2) continue;  // validate PHY
+                PHY_Mode phy = (PHY_Mode)msgBuf[3];
+                bool csa2 = (msgBuf[4] != 0);
+                uint8_t *llData = msgBuf + 5;
+                uint32_t connEvent = msgBuf[27] | (msgBuf[28] << 8) |
+                                     (msgBuf[29] << 16) | (msgBuf[30] << 24);
+                uint32_t anchorTicks = msgBuf[31] | (msgBuf[32] << 8) |
+                                       (msgBuf[33] << 16) | (msgBuf[34] << 24);
+                enterCentralDirect(phy, csa2, llData, connEvent, anchorTicks);
+            }
+            break;
         default:
             break;
         }

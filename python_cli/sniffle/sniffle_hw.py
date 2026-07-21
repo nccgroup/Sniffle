@@ -39,11 +39,16 @@ class TrivialLogger:
     exception = _log
 
 def find_catsniffer_v3_serport():
-    catsniffer_ports = [i[0] for i in comports() if (i.vid == 11914 and i.pid == 192 and i.manufacturer.lower() == "arduino")]
-    if len(catsniffer_ports) > 0:
-        return catsniffer_ports[0]
-    else:
-        return None
+    # Electronic Cats CatSniffer (RP2040 composite USB): vid 0x1209, product
+    # "Catsniffer". It exposes several CDC interfaces; the lowest-numbered one is
+    # the CC1352 passthrough that Sniffle talks to.
+    ports = [i.device for i in comports()
+             if i.product and "catsniffer" in i.product.lower()]
+    # Legacy Arduino-based CatSniffer variant (vid 0x2E8A / pid 0xC0).
+    ports += [i.device for i in comports()
+              if i.vid == 11914 and i.pid == 192
+              and i.manufacturer and i.manufacturer.lower() == "arduino"]
+    return sorted(set(ports))[0] if ports else None
 
 def find_xds110_serport():
     xds_ports = [i[0] for i in comports() if (i.vid == 0x0451 and i.pid == 0xBEF3)]
@@ -313,6 +318,36 @@ class SniffleHW:
         if power < -20 or power > 5:
             raise ValueError("TX power out of bounds")
         self._send_cmd([0x27, power & 0xFF])
+
+    def cmd_hijack_live(self):
+        """Hijack: transition from DATA state to CENTRAL (mode 0).
+
+        CatSniffer must already be in DATA state following a connection.
+        No parameters required -- all connection state is already synchronized.
+        After this call, listen for a StateMessage confirming CENTRAL state.
+        """
+        self._send_cmd([0x28, 0x00])
+
+    def cmd_hijack_direct(self, phy, csa2, llData, connEvent, anchorTicks):
+        """Hijack: enter CENTRAL with explicit connection parameters (mode 1).
+
+        Args:
+            phy:         PhyMode enum value (PHY_1M=0, PHY_2M=1, etc.)
+            csa2:        True if the connection uses CSA#2 channel selection
+            llData:      22-byte LLData field from the CONNECT_IND PDU
+            connEvent:   Current connection event counter (uint32)
+            anchorTicks: Radio clock value of the most recent anchor point (uint32)
+        """
+        if len(llData) != 22:
+            raise ValueError("llData must be exactly 22 bytes")
+        self._send_cmd([
+            0x28, 0x01,
+            int(phy),
+            1 if csa2 else 0,
+            *llData,
+            *pack('<L', connEvent),
+            *pack('<L', anchorTicks),
+        ])
 
     def _recv_msg(self, desync=False):
         got_msg = False

