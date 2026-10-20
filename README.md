@@ -630,6 +630,11 @@ notifies the relay master, which then initiates a connection to the genuine
 peripheral. From this point onwards, all link layer packets are forwarded
 between the relay master and slave.
 
+When both scripts run on one computer, specify two different Sniffle serial
+ports with `-s`: one for `relay_master.py` and one for `relay_slave.py`. Without
+`-s`, each script selects the first available Sniffle device, so they would
+otherwise try to use the same dongle. A dongle can only serve one relay role.
+
 The relay master script provides functionality to request faster connection
 intervals on one both sides of the relay to reduce latency. If using the XDS110
 as a USB/UART bridge, be aware that the XDS110 firmware introduces additional

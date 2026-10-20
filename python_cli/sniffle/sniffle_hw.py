@@ -117,7 +117,9 @@ class SniffleHW:
 
         self.timeout = timeout
         self.decoder_state = SniffleDecoderState()
-        self.ser = Serial(serport, baudrate, timeout=timeout)
+        # Two processes cannot safely issue commands to or read packets from the
+        # same sniffer. Claim the port before changing its settings.
+        self.ser = Serial(serport, baudrate, timeout=timeout, exclusive=True)
         self.recv_cancelled = False
         self.logger = logger if logger else TrivialLogger()
         self.cmd_marker(b'@') # command sync

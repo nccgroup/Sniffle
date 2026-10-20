@@ -6,6 +6,7 @@
 # Released as open source under GPLv3
 
 import argparse, sys, signal
+from serial import SerialException
 from binascii import unhexlify
 from queue import Queue
 from time import time
@@ -107,7 +108,14 @@ def main():
     args = aparse.parse_args()
 
     global hw
-    hw = SniffleHW(args.serport)
+    try:
+        hw = SniffleHW(args.serport)
+    except SerialException as exc:
+        raise SystemExit(
+            f"Could not open Sniffle device: {exc}\n"
+            "When relaying on one computer, use different -s ports for "
+            "relay_master.py and relay_slave.py."
+        ) from None
 
     # put the hardware in a normal state (passive scanning) and configure it with an impossibly
     # high RSSI threshold so that it captures nothing (to avoid filling receive buffers)
