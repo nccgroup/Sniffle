@@ -66,6 +66,8 @@ ifneq ($(filter $(PLATFORM), $(CC1352P2_PLATFORMS)),)
     CCXML = ccxml/CC1352P1F3.ccxml
     SYSCFG_BOARD = /ti/boards/CC1352P_2_LAUNCHXL
     TI_PLAT_NAME = cc13x2_cc26x2
+    # sniffle.syscfg enables the 2.4 GHz high PA for this board
+    CFLAGS += -DSNIFFLE_HIGH_PA_24G
 endif
 ifneq ($(filter $(PLATFORM), $(CC2652R7_PLATFORMS)),)
     CCXML = ccxml/CC2652R7.ccxml

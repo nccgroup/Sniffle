@@ -71,6 +71,12 @@ int RadioWrapper_init()
             return -ENODEV;
         }
 
+#ifdef SNIFFLE_HIGH_PA_24G
+        // The high-PA radio setup defaults to the +20 dBm PA; keep the
+        // +5 dBm default that the other builds have until the host asks.
+        RadioWrapper_setTxPower(5);
+#endif
+
         if( RFQueue_defineQueue(&dataQueue,
                                 rxDataEntryBuffer,
                                 sizeof(rxDataEntryBuffer),
@@ -1023,8 +1029,16 @@ static bool findTxPower(const RF_TxPowerTable_Entry *table, int size,
 
 void RadioWrapper_setTxPower(int8_t power)
 {
+#ifdef SNIFFLE_HIGH_PA_24G
+    // High-PA build (2.4 GHz +20 dBm PA): the default PA covers -20..+5 dBm,
+    // the high PA +14..+20 dBm.
+    RF_TxPowerTable_Value value = txPowerTable_2400_pa5[0].value;
+    if (!findTxPower(txPowerTable_2400_pa5, TXPOWERTABLE_2400_PA5_SIZE, power, &value))
+        findTxPower(txPowerTable_2400_pa20, TXPOWERTABLE_2400_PA20_SIZE, power, &value);
+#else
     RF_TxPowerTable_Value value = txPowerTable[0].value;
     findTxPower(txPowerTable, TX_POWER_TABLE_SIZE, power, &value);
+#endif
 
     RF_setTxPower(bleRfHandle, value);
 }
