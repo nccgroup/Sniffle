@@ -1002,19 +1002,29 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     return adv2.status == BLE_DONE_CONNECT ? 0 : -1;
 }
 
+// Pick the first entry at or above the requested power, else the highest
+// real entry. Tables end with a termination entry (power 127, value
+// RF_TxPowerTable_INVALID_VALUE); passing that value to RF_setTxPower
+// wedged TX power at its previous level until the next reset.
+static bool findTxPower(const RF_TxPowerTable_Entry *table, int size,
+        int8_t power, RF_TxPowerTable_Value *value)
+{
+    int i;
+    for (i = 0; i < size; i++)
+    {
+        if (table[i].power == RF_TxPowerTable_INVALID_DBM)
+            break;
+        *value = table[i].value;
+        if (table[i].power >= power)
+            return true;
+    }
+    return false;
+}
+
 void RadioWrapper_setTxPower(int8_t power)
 {
-    RF_TxPowerTable_Value value = txPowerTable[TX_POWER_TABLE_SIZE - 1].value;
-    int i;
-
-    for (i = 0; i < TX_POWER_TABLE_SIZE; i++)
-    {
-        if (txPowerTable[i].power >= power)
-        {
-            value = txPowerTable[i].value;
-            break;
-        }
-    }
+    RF_TxPowerTable_Value value = txPowerTable[0].value;
+    findTxPower(txPowerTable, TX_POWER_TABLE_SIZE, power, &value);
 
     RF_setTxPower(bleRfHandle, value);
 }
