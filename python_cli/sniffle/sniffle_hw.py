@@ -310,7 +310,10 @@ class SniffleHW:
         self._send_cmd([0x26, 1 if validate else 0])
 
     def cmd_tx_power(self, power=5):
-        if power < -20 or power > 5:
+        # +5 dBm is the max of the default PA; P-2 (2.4 GHz high-PA) builds
+        # such as the Sonoff ZBDongle-P one go to +20 dBm. The firmware picks
+        # the first table entry >= power, else its highest entry.
+        if power < -20 or power > 20:
             raise ValueError("TX power out of bounds")
         self._send_cmd([0x27, power & 0xFF])
 
