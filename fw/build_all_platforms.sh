@@ -20,6 +20,11 @@ make clean
 make -j3 PLATFORM=CC1352P1F3
 cp sniffle.hex builds/sniffle_cc1352p1_cc2652p1.hex
 
+# Sonoff CC2652P dongle with its +20 dBm PA enabled on the 2.4 GHz path
+make clean
+make -j3 PLATFORM=CC2652P2F
+cp sniffle.hex builds/sniffle_cc1352p2_cc2652p2.hex
+
 make clean
 make -j3 PLATFORM=CC2652R74
 cp sniffle.hex builds/sniffle_cc2652r7.hex
@@ -44,6 +49,10 @@ cp sniffle.hex builds/sniffle_cc2652rb_1M.hex
 make clean
 make -j3 PLATFORM=CC2652P1F_1M
 cp sniffle.hex builds/sniffle_cc1352p1_cc2652p1_1M.hex
+
+make clean
+make -j3 PLATFORM=CC2652P2F_1M
+cp sniffle.hex builds/sniffle_cc1352p2_cc2652p2_1M.hex
 
 # Build for CatSniffer v3.x
 make clean
