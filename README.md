@@ -186,11 +186,24 @@ a slower baud rate of 921600. This special slower baud rate build is named
 need to invoke Sniffle utilities with the option `-b 921600` to override the
 default baud rate of 2000000.
 
+The `sniffle_cc1352p1_cc2652p1.hex` build uses the CC1352P-1 LaunchPad RF
+design, whose +20 dBm high-power PA is on the Sub-1 GHz path, so on 2.4 GHz it
+is limited to the default PA (+5 dBm maximum). The Sonoff dongle routes the
+high-power PA to 2.4 GHz like the CC1352P-2 LaunchPad, which is also the layout
+its Z-Stack firmware targets. If you want transmit power above +5 dBm (up to
++20 dBm), flash `sniffle_cc1352p2_cc2652p2.hex` (`CC2652P2F` build variant) or
+`sniffle_cc1352p2_cc2652p2_1M.hex` (`CC2652P2F_1M`) instead. These builds still
+start at +5 dBm; request more with `cmd_tx_power()` (for example
+`hw.cmd_tx_power(20)`). Make sure the power you use is permitted where you
+operate.
+
 **WARNING:** Do not flash the wrong build variant using the bootloader, or you
 risk bricking the device and locking yourself out of the bootloader. For Sonoff
 CC2652P devices, use the `sniffle_cc1352p1_cc2652p1.hex` file (`CC2652P1F` build
 variant) or the sniffle_cc1352p1_cc2652p1_1M.hex` file (`CC2652P1F_1M` build
-variant) for a 921600 baud rate. If you flash the wrong variant and lock yourself
+variant) for a 921600 baud rate, or their high-power PA counterparts
+`sniffle_cc1352p2_cc2652p2.hex` (`CC2652P2F`) and `sniffle_cc1352p2_cc2652p2_1M.hex`
+(`CC2652P2F_1M`). If you flash the wrong variant and lock yourself
 out of the bootloader, it may be possible to recover the device using JTAG/SWD.
 
 ## Firmware Installation (Catsniffer V3)

@@ -71,6 +71,12 @@ int RadioWrapper_init()
             return -ENODEV;
         }
 
+#ifdef SNIFFLE_HIGH_PA_24G
+        // The high-PA radio setup defaults to the +20 dBm PA; keep the
+        // +5 dBm default that the other builds have until the host asks.
+        RadioWrapper_setTxPower(5);
+#endif
+
         if( RFQueue_defineQueue(&dataQueue,
                                 rxDataEntryBuffer,
                                 sizeof(rxDataEntryBuffer),
@@ -1002,19 +1008,37 @@ int RadioWrapper_advertiseExt3(RadioWrapper_Callback callback, const uint16_t *a
     return adv2.status == BLE_DONE_CONNECT ? 0 : -1;
 }
 
+// Pick the first entry at or above the requested power, else the highest
+// real entry. Tables end with a termination entry (power 127, value
+// RF_TxPowerTable_INVALID_VALUE); passing that value to RF_setTxPower
+// wedged TX power at its previous level until the next reset.
+static bool findTxPower(const RF_TxPowerTable_Entry *table, int size,
+        int8_t power, RF_TxPowerTable_Value *value)
+{
+    int i;
+    for (i = 0; i < size; i++)
+    {
+        if (table[i].power == RF_TxPowerTable_INVALID_DBM)
+            break;
+        *value = table[i].value;
+        if (table[i].power >= power)
+            return true;
+    }
+    return false;
+}
+
 void RadioWrapper_setTxPower(int8_t power)
 {
-    RF_TxPowerTable_Value value = txPowerTable[TX_POWER_TABLE_SIZE - 1].value;
-    int i;
-
-    for (i = 0; i < TX_POWER_TABLE_SIZE; i++)
-    {
-        if (txPowerTable[i].power >= power)
-        {
-            value = txPowerTable[i].value;
-            break;
-        }
-    }
+#ifdef SNIFFLE_HIGH_PA_24G
+    // High-PA build (2.4 GHz +20 dBm PA): the default PA covers -20..+5 dBm,
+    // the high PA +14..+20 dBm.
+    RF_TxPowerTable_Value value = txPowerTable_2400_pa5[0].value;
+    if (!findTxPower(txPowerTable_2400_pa5, TXPOWERTABLE_2400_PA5_SIZE, power, &value))
+        findTxPower(txPowerTable_2400_pa20, TXPOWERTABLE_2400_PA20_SIZE, power, &value);
+#else
+    RF_TxPowerTable_Value value = txPowerTable[0].value;
+    findTxPower(txPowerTable, TX_POWER_TABLE_SIZE, power, &value);
+#endif
 
     RF_setTxPower(bleRfHandle, value);
 }

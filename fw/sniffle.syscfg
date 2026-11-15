@@ -80,6 +80,13 @@ if (system.deviceData.deviceId[6] == "P") {
         "cmdFs"];
 }
 
+/* CC1352P-2 layout (e.g. Sonoff ZBDongle-P): the +20 dBm PA is on the 2.4 GHz
+ * path. Enable it so the high-PA overrides and power table are generated. */
+if (system.deviceData.board && system.deviceData.board.name == "CC1352P_2_LAUNCHXL") {
+    ble5.radioConfigbt5le1m.highPA = true;
+    ble5.radioConfigbt5le1m.txPowerHi = "20";
+}
+
 /* ======== RF Design ======== */
 var rfDesign = scripting.addModule("ti/devices/radioconfig/rfdesign");
 const rfDesignSettings = system.getScript("/ti/common/lprf_rf_design_settings.js").rfDesignSettings;
